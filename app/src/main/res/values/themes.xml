@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.Cuttinx" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/cx_black</item>
+        <item name="android:statusBarColor">@color/cx_black</item>
+        <item name="android:navigationBarColor">@color/cx_black</item>
+        <item name="android:colorAccent">@color/cx_yellow</item>
+    </style>
+</resources>

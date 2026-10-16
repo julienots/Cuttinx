@@ -46,9 +46,14 @@ object ExportPlanner {
             codec = VideoCodec.H264
             cap = caps.firstOrNull { it.codec == VideoCodec.H264 }
         }
-        var container = s.container
-        if (container == Container.WEBM && codec !in setOf(VideoCodec.VP9, VideoCodec.AV1)) { warnings += "WebM nécessite VP9 ou AV1 : conteneur MP4 utilisé."; container = Container.MP4 }
-        val audio = if (container == Container.WEBM) AudioCodec.OPUS else s.audioCodec
+        if (codec == VideoCodec.VP9) {
+            warnings += "VP9 ne peut pas être écrit dans un MP4 : H.264 utilisé."
+            codec = VideoCodec.H264; cap = caps.firstOrNull { it.codec == VideoCodec.H264 }
+        }
+        // The Android muxer used by CUTTINX writes MP4 only; never pretend otherwise.
+        val container = Container.MP4
+        if (s.container != Container.MP4) warnings += "${s.container.label} n'est pas pris en charge par le moteur d'export : MP4 utilisé."
+        val audio = AudioCodec.AAC
         var (w, h) = outputSize(format, s.resolutionShortSide)
         if (maxSourceShortSide != null && s.resolutionShortSide > maxSourceShortSide * 1.05)
             warnings += "Vos médias sont en ${maxSourceShortSide}p : l'export en ${s.resolutionShortSide}p sera agrandi (pas de détail supplémentaire)."

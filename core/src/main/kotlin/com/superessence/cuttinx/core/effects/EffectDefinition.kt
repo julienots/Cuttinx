@@ -62,7 +62,11 @@ void main() {
 """
 
     const val HEADER = """
+#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
+#else
+precision mediump float;
+#endif
 uniform sampler2D uTexSampler;
 uniform vec2 uResolution;
 uniform float uTime;

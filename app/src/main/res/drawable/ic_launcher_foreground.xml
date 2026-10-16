@@ -1,0 +1,15 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- white blade -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M33,30 L45,30 L75,78 L63,78 Z" />
+    <!-- yellow blade, split in two around the cut -->
+    <path android:fillColor="#FFFFCC1F"
+        android:pathData="M63,30 L75,30 L58.5,56.4 L52.5,46.8 Z" />
+    <path android:fillColor="#FFFFCC1F"
+        android:pathData="M49.5,61.2 L45,78 L33,78 L46.5,56.4 Z" />
+    <!-- cut dot -->
+    <path android:fillColor="#FFFFCC1F"
+        android:pathData="M78,74 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+</vector>
