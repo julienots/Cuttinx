@@ -14,9 +14,12 @@ import kotlin.math.max
 /** Renders CUTTINX text clips to bitmaps with the full typographic style. */
 object TextRenderer {
     private val typefaceCache = HashMap<String, Typeface>()
+    /** Set once by the Application so bundled fonts resolve everywhere. */
+    @Volatile var assets: android.content.res.AssetManager? = null
 
     /** Resolves a font: a family name, a bundled asset font ("asset:fonts/x.ttf") or a file path. */
-    fun typeface(style: TextStyle, fontFile: (String) -> File? = { null }, assets: android.content.res.AssetManager? = null): Typeface {
+    fun typeface(style: TextStyle, fontFile: (String) -> File? = defaultFontFile, assetsOverride: android.content.res.AssetManager? = null): Typeface {
+        val assets = assetsOverride ?: this.assets
         val key = "${style.fontFamily}|${style.fontAssetId}|${style.bold}|${style.italic}|${style.weight}"
         typefaceCache[key]?.let { return it }
         val base: Typeface = run {
@@ -29,6 +32,8 @@ object TextRenderer {
         typefaceCache[key] = tf
         return tf
     }
+
+    @Volatile var defaultFontFile: (String) -> File? = { null }
 
     /** Text size in pixels for a canvas whose short side is [shortSide] px. */
     fun pixelSize(style: TextStyle, shortSide: Int) = (style.sizeSp * shortSide / 1080.0 * 1.6).toFloat()
