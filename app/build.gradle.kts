@@ -51,8 +51,17 @@ android {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/*.kotlin_module")
         jniLibs.useLegacyPackaging = false
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.all {
+            it.systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2")
+        }
+    }
     lint {
-        abortOnError = false
+        // Media3 CompositionPlayer / Transformer composition APIs are marked @UnstableApi /
+        // @ExperimentalApi: CUTTINX uses them deliberately (pinned Media3 version).
+        disable += "UnsafeOptInUsageError"
+        abortOnError = true
         checkReleaseBuilds = false
     }
 }
@@ -84,4 +93,6 @@ dependencies {
     implementation(libs.vosk.android) { exclude(group = "net.java.dev.jna") }
     implementation("net.java.dev.jna:jna:5.18.1@aar")
     testImplementation(libs.junit)
+    testImplementation("org.robolectric:robolectric:4.17")
+    testImplementation("androidx.test:core:1.6.1")
 }

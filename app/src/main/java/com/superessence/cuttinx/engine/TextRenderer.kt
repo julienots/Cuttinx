@@ -28,7 +28,7 @@ object TextRenderer {
             Typeface.create(style.fontFamily, Typeface.NORMAL)
         }
         val tf = if (android.os.Build.VERSION.SDK_INT >= 28) Typeface.create(base, if (style.bold) max(style.weight, 600) else style.weight.coerceAtMost(500), style.italic)
-        else Typeface.create(base, (if (style.bold) Typeface.BOLD else 0) or (if (style.italic) Typeface.ITALIC else 0))
+        else Typeface.create(base, when { style.bold && style.italic -> Typeface.BOLD_ITALIC; style.bold -> Typeface.BOLD; style.italic -> Typeface.ITALIC; else -> Typeface.NORMAL })
         typefaceCache[key] = tf
         return tf
     }

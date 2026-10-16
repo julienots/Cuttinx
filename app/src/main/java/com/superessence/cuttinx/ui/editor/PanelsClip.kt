@@ -335,7 +335,8 @@ fun KeyframesPanel(vm: EditorViewModel, c: Clip) {
             }
         }
     }
-    if (vm.selection.value.size > 1) TextButton({ vm.copyKeyframesToSelection() }) { Text("Copier ces animations vers les autres éléments sélectionnés") }
+    val selCount = vm.selection.collectAsStateWithLifecycle().value.size
+    if (selCount > 1) TextButton({ vm.copyKeyframesToSelection() }) { Text("Copier ces animations vers les autres éléments sélectionnés") }
 }
 
 @Composable
