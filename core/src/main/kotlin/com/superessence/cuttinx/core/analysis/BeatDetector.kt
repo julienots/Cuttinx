@@ -20,20 +20,30 @@ object BeatDetector {
         val re = DoubleArray(N); val im = DoubleArray(N)
         var prev = DoubleArray(N / 2 + 1)
         val frames = max(0, (mono.size - N) / HOP + 1)
-        val env = DoubleArray(frames)
+        // three bands, each normalised separately so that dense hi-hats can't mask the kick/snare
+        val edges = intArrayOf(0, (250.0 * N / sampleRate).toInt().coerceAtLeast(2), (3000.0 * N / sampleRate).toInt(), N / 2 + 1)
+        val weights = doubleArrayOf(0.5, 0.32, 0.18)
+        val bands = Array(3) { DoubleArray(frames) }
         for (f in 0 until frames) {
             val off = f * HOP
             for (k in 0 until N) { re[k] = mono[off + k] * win[k]; im[k] = 0.0 }
             fft.transform(re, im)
             val mag = DoubleArray(N / 2 + 1) { ln(1 + 100 * hypot(re[it], im[it])) }
-            var flux = 0.0
-            for (k in mag.indices) flux += max(0.0, mag[k] - prev[k])
-            env[f] = flux
+            for (bi in 0 until 3) {
+                var flux = 0.0
+                for (k in edges[bi] until edges[bi + 1]) flux += max(0.0, mag[k] - prev[k])
+                bands[bi][f] = flux
+            }
             prev = mag
         }
-        // high-pass the envelope (remove slow trends) and normalise
-        val smoothed = movingAverage(env, 16)
-        for (i in env.indices) env[i] = max(0.0, env[i] - smoothed[i])
+        val env = DoubleArray(frames)
+        for (bi in 0 until 3) {
+            val band = bands[bi]
+            val sm = movingAverage(band, 16)
+            for (i in band.indices) band[i] = max(0.0, band[i] - sm[i])
+            val mx = band.maxOrNull() ?: 0.0
+            if (mx > 0) for (i in band.indices) env[i] += weights[bi] * band[i] / mx
+        }
         val mx = env.maxOrNull() ?: 0.0
         if (mx > 0) for (i in env.indices) env[i] /= mx
         return env to (sampleRate.toDouble() / HOP)
@@ -62,13 +72,23 @@ object BeatDetector {
         val maxLag = (60.0 / minBpm * fps).toInt().coerceAtMost(env.size - 1)
         var bestLag = minLag; var bestScore = -1.0
         val scores = DoubleArray(maxLag + 1)
-        for (lag in minLag..maxLag) {
+        val maxAcf = min(env.size - 1, maxLag * 4)
+        val acf = DoubleArray(maxAcf + 1)
+        for (lag in 1..maxAcf) {
             var acc = 0.0
             for (i in lag until env.size) acc += env[i] * env[i - lag]
-            acc /= (env.size - lag)
+            acf[lag] = acc / (env.size - lag)
+        }
+        for (lag in minLag..maxLag) {
+            // comb over metrical multiples (beat, 2 beats, bar): a true beat period repeats there,
+            // syncopated sub-patterns (e.g. dotted eighths) do not.
+            fun near(x: Int) = if (x + 2 > maxAcf) 0.0 else max(acf[x], max(acf[x - 1], acf[x + 1])).let { m -> max(m, max(acf[x - 2], acf[x + 2])) }
+            var comb = acf[lag]
+            if (2 * lag + 2 <= maxAcf) comb += 0.5 * near(2 * lag)
+            if (4 * lag + 2 <= maxAcf) comb += 0.33 * near(4 * lag)
             val bpm = 60 * fps / lag
             val prior = exp(-0.5 * (log2(bpm / 120.0) / 0.9).pow(2))
-            scores[lag] = acc * prior
+            scores[lag] = comb * prior
             if (scores[lag] > bestScore) { bestScore = scores[lag]; bestLag = lag }
         }
         // parabolic refinement

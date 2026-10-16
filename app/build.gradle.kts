@@ -16,6 +16,7 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         vectorDrawables.useSupportLibrary = true
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
     signingConfigs {
@@ -79,6 +80,8 @@ dependencies {
     implementation(libs.media3.effect)
     implementation(libs.media3.common)
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.vosk.android)
+    // Vosk + JNA (AAR with Android natives, as recommended by the Vosk project)
+    implementation(libs.vosk.android) { exclude(group = "net.java.dev.jna") }
+    implementation("net.java.dev.jna:jna:5.18.1@aar")
     testImplementation(libs.junit)
 }
