@@ -115,7 +115,18 @@ object AutoEditPlanner {
                 if (style == AutoStyle.DYNAMIC || style == AutoStyle.SPORT) { if (i % 3 != 2) return@forEachIndexed }
                 val tr = style.transitions[i % style.transitions.size]
                 val d = if (style == AutoStyle.CINEMATIC || style == AutoStyle.CALM) 700_000L else 300_000L
-                p = runCatching { TimelineEditor.setTransition(p, id, TransitionInstance(tr, d)) }.getOrDefault(p)
+                // extend the outgoing clip by d first so the incoming clip keeps its (beat aligned) start
+                val prevId = clipIds[i]
+                val before = p
+                runCatching {
+                    val prev = p.findClip(prevId)!!.second
+                    val limit = p.asset(prev.assetId)?.durationUs ?: 0
+                    if (prev.sourceOutUs + d > limit) error("no handle")
+                    var np = TimelineEditor.trimEnd(p, prevId, prev.endUs + d)
+                    np = TimelineEditor.setTransition(np, id, TransitionInstance(tr, d))
+                    if (np.findClip(id)!!.second.transitionIn?.durationUs != d) error("clamped")
+                    p = np
+                }.onFailure { p = before }
             }
         }
         // look

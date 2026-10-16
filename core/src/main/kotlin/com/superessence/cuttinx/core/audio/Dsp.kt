@@ -57,6 +57,9 @@ class Biquad(var type: Type, var freq: Double, var q: Double = 0.707, var gainDb
         b0 = nb0 / na0; b1 = nb1 / na0; b2 = nb2 / na0; a1 = na1 / na0; a2 = na2 / na0
     }
 
+    /** Sets raw normalised coefficients (a0 = 1). */
+    fun setCoefficients(nb0: Double, nb1: Double, nb2: Double, na1: Double, na2: Double) { b0 = nb0; b1 = nb1; b2 = nb2; a1 = na1; a2 = na2 }
+
     fun processSample(x: Double, c: Int): Double {
         // transposed direct form II
         val y = b0 * x + z1[c]

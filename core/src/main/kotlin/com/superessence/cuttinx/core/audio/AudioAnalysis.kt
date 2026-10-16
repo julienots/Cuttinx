@@ -61,8 +61,7 @@ object AudioAnalysis {
     fun loudnessBlocks(samples: FloatArray, sampleRate: Int, channels: Int, blockMs: Int = 400, overlap: Double = 0.75): List<Double> {
         val frames = samples.size / max(channels, 1)
         // K-weighting: stage 1 high shelf, stage 2 high pass (RLB)
-        val shelf = Biquad(Biquad.Type.HIGHSHELF, 1681.97, 0.7071, 3.99984).also { it.configure(sampleRate, channels) }
-        val hp = Biquad(Biquad.Type.HIGHPASS, 38.13, 0.5003).also { it.configure(sampleRate, channels) }
+        val (shelf, hp) = kWeighting(sampleRate, channels)
         val sq = DoubleArray(frames)
         var i = 0
         for (f in 0 until frames) {
@@ -88,6 +87,24 @@ object AudioAnalysis {
         }
         if (out.isEmpty() && frames > 0) out += -0.691 + 10 * log10(pre[frames] / frames + 1e-12)
         return out
+    }
+
+    /** BS.1770 K-weighting filters, coefficients derived for any sample rate (bilinear transform of the reference design). */
+    fun kWeighting(sampleRate: Int, channels: Int): Pair<Biquad, Biquad> {
+        val shelf = Biquad(Biquad.Type.HIGHSHELF, 1000.0).also { it.configure(sampleRate, channels) }
+        run {
+            val f0 = 1681.974450955533; val g = 3.999843853973347; val q = 0.7071752369554196
+            val k = tan(PI * f0 / sampleRate); val vh = 10.0.pow(g / 20); val vb = vh.pow(0.4996667741545416)
+            val a0 = 1 + k / q + k * k
+            shelf.setCoefficients((vh + vb * k / q + k * k) / a0, 2 * (k * k - vh) / a0, (vh - vb * k / q + k * k) / a0, 2 * (k * k - 1) / a0, (1 - k / q + k * k) / a0)
+        }
+        val hp = Biquad(Biquad.Type.HIGHPASS, 1000.0).also { it.configure(sampleRate, channels) }
+        run {
+            val f0 = 38.13547087602444; val q = 0.5003270373238773
+            val k = tan(PI * f0 / sampleRate); val a0 = 1 + k / q + k * k
+            hp.setCoefficients(1.0, -2.0, 1.0, 2 * (k * k - 1) / a0, (1 - k / q + k * k) / a0)
+        }
+        return shelf to hp
     }
 
     /** Gain (dB) to reach [targetLufs] without letting the true peak exceed [ceilingDb]. */

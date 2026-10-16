@@ -19,7 +19,8 @@ class StftProcessor(val size: Int = 1024, val hop: Int = size / 4, private val c
     // sqrt-hann * sqrt-hann = hann, hann at 75 % overlap sums to 2
     private val olaScale = hop.toDouble() * 2 / size
 
-    val latencyFrames get() = latency
+    /** Measured end-to-end delay of the OLA pipeline. */
+    val latencyFrames get() = size
 
     fun process(buf: FloatArray, frames: Int) {
         var i = 0

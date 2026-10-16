@@ -177,7 +177,7 @@ object TimelineEditor {
             }
             // a transition into the next clip loses its "from" clip
             clips = clips.map { if (it.transitionIn != null && previousClip(clips, it) == null) it.copy(transitionIn = null) else it }
-            np = np.copy(tracks = np.tracks.map { if (it.id == t.id) normalize(t.copy(clips = clips)) else it })
+            np = setTrackClips(np, t.copy(clips = clips), anchorId = null)
         }
         return np
     }

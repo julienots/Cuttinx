@@ -147,8 +147,8 @@ object EffectRegistry {
             float t = floor(uTime * uP[2] * 4.0);
             float row = floor(uv.y * uP[1]);
             float r = hash(vec2(row, t));
-            float active = step(1.0 - uP[0] * 0.6, r);
-            float shift = (hash(vec2(t, row * 3.1)) - 0.5) * 0.25 * uP[0] * active;
+            float act = step(1.0 - uP[0] * 0.6, r);
+            float shift = (hash(vec2(t, row * 3.1)) - 0.5) * 0.25 * uP[0] * act;
             vec2 u2 = vec2(fract(uv.x + shift), uv.y);
             float split = 0.02 * uP[0] * (hash(vec2(t, 7.0)) - 0.5);
             vec4 c = tex(u2);
