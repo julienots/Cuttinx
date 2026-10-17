@@ -222,7 +222,7 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
 
         fun friendly(e: PlaybackException): String = when (e.errorCode) {
             PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED, PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSOR_INIT_FAILED ->
-                "Le rendu GPU de l'aperçu a échoué" + (rootCause(e)?.let { " ($it)" } ?: "") + ". Touchez Réessayer ; baissez la qualité d'aperçu si cela persiste.
+                "Le rendu GPU de l'aperçu a échoué" + (rootCause(e)?.let { " ($it)" } ?: "") + ". Touchez Réessayer ; baissez la qualité d'aperçu si cela persiste."
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED, PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED -> "Le décodeur de l'appareil ne peut pas lire un des médias (codec non pris en charge ou trop de vidéos simultanées). Essayez une qualité d'aperçu plus basse."
             PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED, PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES -> "Format vidéo non pris en charge par cet appareil."
             PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND, PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "Un média est introuvable ou l'accès a été retiré. Remplacez-le depuis la bibliothèque."
