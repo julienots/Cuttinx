@@ -10,6 +10,8 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - uses: android-actions/setup-android@v3
+        # the legacy "tools" package (default) no longer exists in the SDK repository
+        with: { packages: 'platform-tools' }
       - name: Shader validator
         run: sudo apt-get update && sudo apt-get install -y glslang-tools
       - name: Unit tests (core + engine)
