@@ -22,7 +22,8 @@ class Thumbnails(private val context: Context) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
     private val dir = File(context.cacheDir, "thumbs").also { it.mkdirs() }
-    private val gate = Semaphore(3)
+    // one decode at a time: each video frame extraction holds a hardware decoder that the preview also needs
+    private val gate = Semaphore(1)
 
     fun cached(key: String): Bitmap? = mem.get(key)
 

@@ -49,6 +49,7 @@ import com.superessence.cuttinx.ui.components.*
 import com.superessence.cuttinx.ui.theme.Cx
 import com.superessence.cuttinx.ui.theme.LocalCx
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @UnstableApi
@@ -97,7 +98,12 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
             } else {
                 val key = "${a.id}_${(t / 250_000) * 250_000}"
                 if (key in thumbs || !pending.add(key)) return@collect
-                launch { vm.c.thumbnails.frame(a, t, 96)?.let { thumbs[key] = it.asImageBitmap() } }
+                launch {
+                    // video thumbnails need a hardware decoder too: let the preview finish loading first
+                    // (4K/60 i/s sources can exhaust the decoders and leave the player loading forever)
+                    if (a.type == MediaType.VIDEO) kotlinx.coroutines.withTimeoutOrNull(5_000) { vm.previewState.first { !it.buffering } }
+                    vm.c.thumbnails.frame(a, t, 96)?.let { thumbs[key] = it.asImageBitmap() }
+                }
             }
         }
     }

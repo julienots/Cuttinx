@@ -57,37 +57,103 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
     /** Automatic recoveries attempted for the current structure (avoids rebuild loops). */
     private var recoveries = 0
 
+    /** Target of the seek waiting for the current one to finish (seeks are coalesced). */
+    private var pendingSeekMs: Long? = null
+    private var seeking = false
+    /** Uptime when the player entered STATE_BUFFERING (0 = not buffering). */
+    private var bufferingSinceMs = 0L
+    /** Stalls detected for the current structure; the second one lowers the preview quality. */
+    private var stalls = 0
+    private var tickerRunning = false
+
     private val ticker = object : Runnable {
         override fun run() {
-            val p = player ?: return
-            val pos = p.currentPosition * 1000
-            loopRange?.let { r -> if (p.isPlaying && pos >= r.last) p.seekTo(r.first / 1000) }
-            _state.value = _state.value.copy(positionUs = pos, playing = p.isPlaying)
+            val p = player
+            if (p == null) { tickerRunning = false; return }
+            val pos = (pendingSeekMs ?: p.currentPosition) * 1000
+            loopRange?.let { r -> if (p.isPlaying && pos >= r.last) seekTo(r.first) }
+            _state.value = _state.value.copy(positionUs = if (seeking || pendingSeekMs != null) _state.value.positionUs else pos, playing = p.isPlaying)
+            watchdog(p)
             main.postDelayed(this, 33)
         }
     }
 
-    private fun ensurePlayer(): CompositionPlayer {
-        player?.let { return it }
+    /**
+     * Some devices never leave STATE_BUFFERING after a seek or a composition change with heavy
+     * sources (4K / 60 i/s, HEVC): decoders are not handed back. When buffering lasts too long the
+     * player is recreated at the same position; on a second stall the preview quality is lowered.
+     */
+    private fun watchdog(p: CompositionPlayer) {
+        if (bufferingSinceMs == 0L || p.playbackState != Player.STATE_BUFFERING) return
+        val limit = if (stalls == 0) STALL_MS else STALL_MS * 2
+        if (android.os.SystemClock.uptimeMillis() - bufferingSinceMs < limit) return
+        bufferingSinceMs = 0
+        stalls++
+        Log.w(TAG, "Aperçu bloqué en chargement : reconstruction du lecteur (blocage n°$stalls)")
+        if (stalls >= 2 && quality != PreviewQuality.LOW) {
+            val lower = PreviewQuality.entries[quality.ordinal + 1]
+            _state.value = _state.value.copy(notice = "Aperçu allégé (${lower.label}) : la vidéo est très lourde pour ce téléphone. L'export reste en pleine qualité.")
+            quality = lower // rebuilds
+            return
+        }
+        val resume = p.playWhenReady
+        structure = ""
+        val (w, h) = previewSize(live.project)
+        rebuild(StructureKey.of(live.project, w, h, live.project.format.frameRate), resume)
+    }
+
+    private fun newPlayer(): CompositionPlayer {
         val p = CompositionPlayer.Builder(context)
             .setVideoGraphFactory(MultipleInputVideoGraph.Factory())
             .build()
         p.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
+                if (player !== p) return
                 Log.e(TAG, "Erreur de lecture", error)
+                seeking = false; pendingSeekMs = null; bufferingSinceMs = 0
                 if (recover(error)) return
-                _state.value = _state.value.copy(error = friendly(error), playing = false)
+                _state.value = _state.value.copy(error = friendly(error), playing = false, buffering = false)
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
-                _state.value = _state.value.copy(buffering = playbackState == Player.STATE_BUFFERING)
+                if (player !== p) return
+                val buffering = playbackState == Player.STATE_BUFFERING
+                bufferingSinceMs = if (buffering) (if (bufferingSinceMs == 0L) android.os.SystemClock.uptimeMillis() else bufferingSinceMs) else 0L
+                _state.value = _state.value.copy(buffering = buffering)
+                if (playbackState == Player.STATE_READY) stalls = 0
+                if (playbackState != Player.STATE_BUFFERING) onSeekSettled(p)
                 if (playbackState == Player.STATE_ENDED) _state.value = _state.value.copy(playing = false)
             }
-            override fun onIsPlayingChanged(isPlaying: Boolean) { _state.value = _state.value.copy(playing = isPlaying) }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { if (player === p) _state.value = _state.value.copy(playing = isPlaying) }
         })
         surface?.let { p.setVideoSurfaceView(it) }
-        player = p
-        main.post(ticker)
         return p
+    }
+
+    private fun ensurePlayer(): CompositionPlayer {
+        player?.let { return it }
+        val p = newPlayer()
+        player = p
+        if (!tickerRunning) { tickerRunning = true; main.post(ticker) }
+        return p
+    }
+
+    /** Releases the current player (freeing its hardware decoders) and creates a fresh one. */
+    private fun recreatePlayer(): CompositionPlayer {
+        player?.let { old ->
+            surface?.let { old.clearVideoSurfaceView(it) }
+            runCatching { old.release() }
+        }
+        player = null
+        seeking = false; pendingSeekMs = null; bufferingSinceMs = 0
+        return ensurePlayer()
+    }
+
+    /** A seek finished: apply the most recent target requested meanwhile. */
+    private fun onSeekSettled(p: CompositionPlayer) {
+        seeking = false
+        val next = pendingSeekMs ?: return
+        pendingSeekMs = null
+        if (next != p.currentPosition) { seeking = true; p.seekTo(next) }
     }
 
     fun attach(view: SurfaceView) {
@@ -115,7 +181,7 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
         if (key == structure && player != null) {
             // live edit: refresh the displayed frame when paused
             val pl = player!!
-            if (!pl.isPlaying) pl.seekTo(pl.currentPosition)
+            if (!pl.isPlaying) seekTo((pendingSeekMs ?: pl.currentPosition) * 1000)
             return
         }
         if (structure.isNotEmpty()) recoveries = 0 // a new structure gets its own automatic retry
@@ -157,19 +223,26 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
     private fun rebuild(key: String, resume: Boolean? = null) {
         pending = null
         val p = live.project
-        val pl = ensurePlayer()
+        val old = player
+        // position/state of the outgoing player (a pending seek wins: it is what the user asked for)
+        val oldPosMs = pendingSeekMs ?: old?.currentPosition ?: 0L
+        val oldPlaying = old?.let { it.isPlaying || (it.playWhenReady && it.playbackState == Player.STATE_BUFFERING) } ?: false
         if (p.durationUs <= 0) {
+            val pl = ensurePlayer()
             structure = key
             pl.stop()
             _state.value = _state.value.copy(durationUs = 0, positionUs = 0, playing = false)
             return
         }
-        val wasPlaying = resume ?: pl.isPlaying
-        val pos = (pl.currentPosition * 1000).coerceIn(0, max(0, p.durationUs - 1000))
+        val wasPlaying = resume ?: oldPlaying
+        val pos = (oldPosMs * 1000).coerceIn(0, max(0, p.durationUs - 1000))
         val (w, h) = previewSize(p)
         try {
             val built = factory.build(live, w, h, p.format.frameRate, preview = true, gpuEffects = !safeMode)
             structure = key
+            // A fresh player per structure: reusing one across setComposition() calls could stay
+            // stuck in buffering with heavy sources (decoders not released in time).
+            val pl = recreatePlayer()
             pl.setComposition(built.composition, pos / 1000)
             pl.prepare()
             pl.playWhenReady = wasPlaying
@@ -195,23 +268,37 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
     }
     fun pause() { player?.pause() }
     fun toggle() { if (player?.isPlaying == true) pause() else play() }
+    /**
+     * Seeks are coalesced: while one is being decoded, only the latest requested position is
+     * kept. Scrubbing the timeline therefore never queues dozens of 4K decodes.
+     */
     fun seekTo(us: Long) {
         val p = player ?: return
-        p.seekTo((us / 1000).coerceAtLeast(0))
+        val ms = (us / 1000).coerceAtLeast(0)
         _state.value = _state.value.copy(positionUs = us)
+        if (seeking && p.playbackState == Player.STATE_BUFFERING) { pendingSeekMs = ms; return }
+        pendingSeekMs = null
+        seeking = true
+        p.seekTo(ms)
+        // seeking to the current position may not change the state: never wait on it forever
+        main.postDelayed({ if (player === p && seeking && p.playbackState != Player.STATE_BUFFERING) onSeekSettled(p) }, 150)
     }
     fun setLoop(range: LongRange?) { loopRange = range }
     fun clearError() { _state.value = _state.value.copy(error = null) }
 
     fun release() {
         main.removeCallbacksAndMessages(null)
+        tickerRunning = false
         player?.release()
         player = null
+        seeking = false; pendingSeekMs = null
         structure = ""
     }
 
     companion object {
         private const val TAG = "CuttinxPreview"
+        /** Buffering longer than this is considered a stall (heavy 4K sources need a few seconds). */
+        private const val STALL_MS = 7_000L
 
         /** Deepest useful message of the cause chain (shown to help diagnose device-specific failures). */
         private fun rootCause(e: Throwable): String? {
