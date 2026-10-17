@@ -36,6 +36,7 @@ import com.superessence.cuttinx.core.model.*
 import com.superessence.cuttinx.core.render.FrameEvaluator
 import com.superessence.cuttinx.core.render.Lane
 import com.superessence.cuttinx.core.render.LanePlanner
+import com.superessence.cuttinx.core.render.OverlayAnchors
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.max
@@ -75,7 +76,12 @@ data class BuiltComposition(val composition: Composition, val width: Int, val he
 @UnstableApi
 class CompositionFactory(private val context: Context, private val resolver: MediaResolver, private val fonts: (String) -> File? = { null }) {
 
-    fun build(live: LiveProject, outW: Int, outH: Int, fps: Int, preview: Boolean): BuiltComposition {
+    /**
+     * @param gpuEffects false builds a "safe" composition without CUTTINX shaders (effects,
+     *   transitions shaders, masks, chroma key): used by the preview to recover on devices whose
+     *   GPU driver rejects one of them.
+     */
+    fun build(live: LiveProject, outW: Int, outH: Int, fps: Int, preview: Boolean, gpuEffects: Boolean = true): BuiltComposition {
         val p = live.project
         val plan = LanePlanner.plan(p)
         val total = max(plan.durationUs, 100_000L)
@@ -88,7 +94,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
         laneOrder += null
         // 1. video lanes
         for (lane in videoLanes) {
-            sequences += videoSequence(live, lane, total, outW, outH, fps, skipped)
+            sequences += videoSequence(live, lane, total, outW, outH, fps, skipped, gpuEffects)
             laneOrder += lane
         }
         // 2. background
@@ -105,7 +111,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
             audioSequence(live, lane, total, skipped)?.let { sequences += it }
         }
         val compositor = Compositor(live, laneOrder, outW, outH)
-        val compEffects = adjustmentEffects(live, plan.adjustmentClips)
+        val compEffects = if (gpuEffects) adjustmentEffects(live, plan.adjustmentClips) else ImmutableList.of()
         val composition = Composition.Builder(sequences)
             .setVideoCompositorSettings(compositor)
             .setEffects(Effects(ImmutableList.of(), compEffects))
@@ -137,37 +143,51 @@ class CompositionFactory(private val context: Context, private val resolver: Med
 
         private fun hidden(): OverlaySettings = StaticOverlaySettings.Builder().setAlphaScale(0f).build()
 
-        override fun getBitmap(presentationTimeUs: Long): Bitmap {
+        override fun getBitmap(presentationTimeUs: Long): Bitmap =
+            try { bitmapAt(presentationTimeUs) } catch (t: Throwable) { empty }
+
+        private fun bitmapAt(presentationTimeUs: Long): Bitmap {
             if (!clip.contains(presentationTimeUs)) return empty
             val rel = presentationTimeUs - clip.startUs
             val reveal = FrameEvaluator.textAnimation(clip, rel).reveal
             val key = if (reveal >= 1.0) -1 else (reveal * 1000).toInt() / 20
             cache[key]?.let { return it }
             val bmp = TextRenderer.render(clip.text!!, outW, outH, reveal, tf)
-            if (cache.size > 12) cache.remove(cache.keys.first())?.takeIf { it != bmp }?.recycle()
+            // Evicted bitmaps are left to the GC: Media3 may still hold the last one for upload.
+            if (cache.size > 12) cache.remove(cache.keys.first())
             cache[key] = bmp
             return bmp
         }
 
-        override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings {
+        // Never let a bad value escape to the GL thread: one exception stops the whole preview/export.
+        override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings =
+            try { settings(presentationTimeUs) } catch (t: Throwable) { hidden() }
+
+        private fun settings(presentationTimeUs: Long): OverlaySettings {
             if (!clip.contains(presentationTimeUs)) return hidden().also { lastSettings = it }
             val rel = presentationTimeUs - clip.startUs
             val t = FrameEvaluator.transform(clip, rel)
             val a = FrameEvaluator.textAnimation(clip, rel)
-            val x = (t.posX + a.dx) * 2 - 1
-            val y = 1 - (t.posY + a.dy) * 2
+            val sx = t.scaleX * a.scale * (if (clip.transform.flipH) -1 else 1)
+            val sy = t.scaleY * a.scale * (if (clip.transform.flipV) -1 else 1)
+            val bmp = getBitmap(presentationTimeUs)
+            val anchors = OverlayAnchors.solve(
+                (t.posX + a.dx) * 2 - 1, 1 - (t.posY + a.dy) * 2, 0.0, 0.0,
+                bmp.width.toDouble() / outW * sx, bmp.height.toDouble() / outH * sy, t.rotation + a.rotation,
+            ) ?: return hidden().also { lastSettings = it }
             return StaticOverlaySettings.Builder()
-                .setBackgroundFrameAnchor(x.toFloat().coerceIn(-3f, 3f), y.toFloat().coerceIn(-3f, 3f))
-                .setScale((t.scaleX * a.scale).toFloat().let { if (clip.transform.flipH) -it else it }, (t.scaleY * a.scale).toFloat().let { if (clip.transform.flipV) -it else it })
+                .setBackgroundFrameAnchor(anchors.bgX, anchors.bgY)
+                .setOverlayFrameAnchor(anchors.ovX, anchors.ovY)
+                .setScale(sx.toFloat(), sy.toFloat())
                 .setRotationDegrees((-(t.rotation + a.rotation)).toFloat())
-                .setAlphaScale((t.opacity * a.alpha).toFloat().coerceIn(0f, 1f))
+                .setAlphaScale(safeAlpha(t.opacity * a.alpha))
                 .build().also { lastSettings = it }
         }
     }
 
     // ------------------------------------------------------------------ video
 
-    private fun videoSequence(live: LiveProject, lane: Lane, total: Long, outW: Int, outH: Int, fps: Int, skipped: MutableList<String>): EditedMediaItemSequence {
+    private fun videoSequence(live: LiveProject, lane: Lane, total: Long, outW: Int, outH: Int, fps: Int, skipped: MutableList<String>, gpuEffects: Boolean): EditedMediaItemSequence {
         val p = live.project
         val wantsAudio = !lane.trackMuted && lane.clips.any { c -> c.kind == ClipKind.MEDIA && p.asset(c.assetId)?.hasAudio == true && !c.audio.muted }
         val types = if (wantsAudio) setOf(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_AUDIO) else setOf(C.TRACK_TYPE_VIDEO)
@@ -176,7 +196,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
         val laneOf = LanePlanner.partition(trackClips).flatMapIndexed { li, l -> l.map { it.id to li } }.toMap()
         for ((start, dur, clip) in LanePlanner.withGaps(lane, total)) {
             if (clip == null) { b.addGap(dur); continue }
-            val item = clipItem(live, clip, trackClips, laneOf, outW, outH, fps, wantsAudio, lane.trackId)
+            val item = clipItem(live, clip, trackClips, laneOf, outW, outH, fps, wantsAudio, lane.trackId, gpuEffects)
             if (item == null) { skipped += clip.assetId ?: clip.id; b.addGap(dur) } else b.addItem(item)
         }
         return b.build()
@@ -185,7 +205,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
     /** Size of the frames that a clip delivers to the compositor (deterministic). */
     fun itemSize(p: Project, c: Clip, outW: Int, outH: Int): Pair<Int, Int> = itemSizeStatic(p, c, outW, outH)
 
-    private fun clipItem(live: LiveProject, c: Clip, trackClips: List<Clip>, laneOf: Map<String, Int>, outW: Int, outH: Int, fps: Int, laneHasAudio: Boolean, trackId: String): EditedMediaItem? {
+    private fun clipItem(live: LiveProject, c: Clip, trackClips: List<Clip>, laneOf: Map<String, Int>, outW: Int, outH: Int, fps: Int, laneHasAudio: Boolean, trackId: String, gpuEffects: Boolean): EditedMediaItem? {
         val p = live.project
         fun lc(): Clip = live.clip(c.id) ?: c
         fun trackVolume() = live.project.track(trackId)?.volume ?: 1.0
@@ -204,7 +224,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
         val (iw, ih) = itemSize(p, c, outW, outH)
         effects += Presentation.createForWidthAndHeight(iw, ih, Presentation.LAYOUT_STRETCH_TO_FIT)
         // chroma key
-        if (c.chromaKey.enabled) {
+        if (gpuEffects && c.chromaKey.enabled) {
             effects += ShaderEffect("chroma", EffectRegistry["_chroma_key"]!!.glsl) {
                 val ck = lc().chromaKey
                 if (!ck.enabled) null else FrameUniforms(FloatArray(16).also {
@@ -215,7 +235,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
         }
         // user effects
         for (fx in c.effects) {
-            if (!fx.enabled) continue
+            if (!gpuEffects || !fx.enabled) continue
             val def = EffectRegistry[fx.effectId] ?: continue
             if (def.kind != com.superessence.cuttinx.core.effects.EffectKind.VIDEO) continue
             effects += ShaderEffect(def.id, def.glsl) { pts ->
@@ -227,7 +247,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
         }
         // transition layer shaders
         val idx = trackClips.indexOfFirst { it.id == c.id }
-        if (idx >= 0) {
+        if (gpuEffects && idx >= 0) {
             val shaderIds = setOfNotNull(c.transitionIn?.transitionId, trackClips.getOrNull(idx + 1)?.transitionIn?.transitionId)
                 .flatMap { tid -> listOf(0.0, 0.5, 1.0).flatMap { pr -> com.superessence.cuttinx.core.effects.TransitionRegistry.evaluate(tid, pr, true).toList() + com.superessence.cuttinx.core.effects.TransitionRegistry.evaluate(tid, pr, false).toList() }.mapNotNull { it.shaderId } }.toSet()
             for (sid in shaderIds) {
@@ -240,7 +260,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
             }
         }
         // mask
-        if (c.mask.shape != MaskShape.NONE) {
+        if (gpuEffects && c.mask.shape != MaskShape.NONE) {
             effects += ShaderEffect("mask", EffectRegistry["_mask"]!!.glsl) { pts ->
                 val c = lc()
                 val m = c.mask
@@ -350,7 +370,10 @@ class CompositionFactory(private val context: Context, private val resolver: Med
 
         override fun getOutputSize(inputSizes: MutableList<Size>): Size = Size(outW, outH)
 
-        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
+        override fun getOverlaySettings(inputId: Int, presentationTimeUs: Long): OverlaySettings =
+            try { settings(inputId, presentationTimeUs) } catch (t: Throwable) { hidden }
+
+        private fun settings(inputId: Int, presentationTimeUs: Long): OverlaySettings {
             if (inputId !in lanes.indices) return full
             val lane = lanes[inputId] ?: return full
             val base = lane.clips.firstOrNull { it.contains(presentationTimeUs) } ?: return hidden
@@ -362,11 +385,18 @@ class CompositionFactory(private val context: Context, private val resolver: Med
             val mod = if (idx >= 0) FrameEvaluator.transitionMod(clips, idx, presentationTimeUs) { laneMaps[lane.trackId]?.get(it.id) ?: 0 } else null
             val (iw, ih) = sizeCache.getOrPut(clip.id) { itemSizeStatic(p, clip, outW, outH) }
             val pl = FrameEvaluator.placement(iw, ih, outW, outH, clip.transform, lt, mod)
-            val alpha = (lt.opacity * (mod?.alpha ?: 1.0)).toFloat().coerceIn(0f, 1f)
+            val alpha = safeAlpha(lt.opacity * (mod?.alpha ?: 1.0))
             if (alpha <= 0.001f) return hidden
+            // Media3 rejects anchors outside [-1, 1]: layers sliding out of the frame are re-expressed
+            // with in-range anchors (or hidden when entirely off-screen).
+            val anchors = OverlayAnchors.solve(
+                pl.centerX / outW * 2 - 1, 1 - pl.centerY / outH * 2,
+                clip.transform.anchorX * 2 - 1, 1 - clip.transform.anchorY * 2,
+                iw.toDouble() / outW * pl.scaleX, ih.toDouble() / outH * pl.scaleY, pl.rotation,
+            ) ?: return hidden
             return StaticOverlaySettings.Builder()
-                .setBackgroundFrameAnchor((pl.centerX / outW * 2 - 1).toFloat(), (1 - pl.centerY / outH * 2).toFloat())
-                .setOverlayFrameAnchor((clip.transform.anchorX * 2 - 1).toFloat(), (1 - clip.transform.anchorY * 2).toFloat())
+                .setBackgroundFrameAnchor(anchors.bgX, anchors.bgY)
+                .setOverlayFrameAnchor(anchors.ovX, anchors.ovY)
                 .setScale(pl.scaleX.toFloat(), pl.scaleY.toFloat())
                 .setRotationDegrees((-pl.rotation).toFloat())
                 .setAlphaScale(alpha)
@@ -400,6 +430,9 @@ class CompositionFactory(private val context: Context, private val resolver: Med
     }
 
     companion object {
+        /** Opacity accepted by Media3 (NaN or negative values throw in StaticOverlaySettings). */
+        fun safeAlpha(v: Double): Float = if (v.isNaN()) 0f else v.toFloat().coerceIn(0f, 1f)
+
         /** Same as [itemSize] without an instance (used by the compositor). */
         fun itemSizeStatic(p: Project, c: Clip, outW: Int, outH: Int): Pair<Int, Int> {
             val (nw, nh) = when (c.kind) {

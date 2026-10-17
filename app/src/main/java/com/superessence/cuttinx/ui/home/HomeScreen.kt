@@ -84,7 +84,7 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { CuttinxMark(30.dp); Spacer(Modifier.width(8.dp)); CuttinxWordmark(24.sp) } },
+            TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { CuttinxMark(30.dp); Spacer(Modifier.width(8.dp)); CuttinxWordmark(24.sp); Spacer(Modifier.width(6.dp)); ProBadge() } },
                 actions = {
                     IconButton(openResources) { Icon(Icons.Outlined.LibraryMusic, "Ressources gratuites") }
                     IconButton(openHelp) { Icon(Icons.AutoMirrored.Outlined.HelpOutline, "Aide") }
@@ -98,8 +98,15 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
                     // hero
                     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFF1B1B1F), Color(0xFF3A2E00)))).clickable { showNew = true }.padding(20.dp)) {
                         Column {
+                            Text("STUDIO DE MONTAGE PRO", color = Cx.Yellow, fontSize = 11.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Black)
                             Text("Nouveau projet", style = MaterialTheme.typography.headlineMedium, color = Color.White)
-                            Text("Montage multipiste, effets, IA locale, export sans filigrane.", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodyMedium)
+                            Text("Pour créateurs et influenceurs : animations d'entrée/sortie/boucle, effets GPU, transitions dynamiques, IA locale, export 4K sans filigrane.", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.height(10.dp))
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf("60+ animations", "55+ effets GPU", "27 transitions", "Outils créateur", "4K • 60 i/s").forEach {
+                                    Text(it, color = Color.White, fontSize = 11.sp, modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp))
+                                }
+                            }
                             Spacer(Modifier.height(14.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 AccentButton("Créer", { showNew = true }, icon = Icons.Default.Add)
@@ -227,4 +234,11 @@ fun NewProjectDialog(defaultAspect: AspectPreset, defaultFps: Int, onDismiss: ()
             Text("${f.width} × ${f.height} px", color = LocalCx.current.dim, modifier = Modifier.padding(top = 8.dp))
         }
     }, confirmButton = { TextButton({ onCreate(name, ProjectFormat.forAspect(aspect, res, fps, cw, ch)) }) { Text("Créer") } }, dismissButton = { TextButton(onDismiss) { Text("Annuler") } })
+}
+
+/** "PRO" edition badge shown next to the wordmark. */
+@Composable
+private fun ProBadge() {
+    Text("PRO", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp,
+        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Brush.linearGradient(listOf(Cx.Yellow, Color(0xFFFF8A00)))).padding(horizontal = 6.dp, vertical = 2.dp))
 }

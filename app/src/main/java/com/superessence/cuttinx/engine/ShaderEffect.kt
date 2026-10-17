@@ -2,6 +2,7 @@ package com.superessence.cuttinx.engine
 
 import android.content.Context
 import android.opengl.GLES20
+import android.util.Log
 import androidx.media3.common.VideoFrameProcessingException
 import androidx.media3.common.util.GlUtil
 import androidx.media3.common.util.Size
@@ -37,17 +38,19 @@ class ShaderEffect(
         private val provider: (Long) -> FrameUniforms?,
         useHdr: Boolean,
     ) : BaseGlShaderProgram(useHdr, 1) {
-        private val effect: Int
-        private val copy: Int
+        /** Effect program, or null when the driver refuses the shader (the frame is then copied unchanged). */
+        private val effect: Locations?
+        private val copy: Locations
         private val quad: FloatBuffer
         private var width = 1
         private var height = 1
+        private var reported = false
 
         init {
-            try {
-                effect = link(ShaderLibrary.VERTEX, fragment)
-                copy = link(ShaderLibrary.VERTEX, COPY_FRAGMENT)
-            } catch (e: GlUtil.GlException) {
+            effect = try { Locations(link(ShaderLibrary.VERTEX, fragment)) } catch (e: GlUtil.GlException) {
+                Log.e(TAG, "Shader '$name' désactivé : ${e.message}"); null
+            }
+            copy = try { Locations(link(ShaderLibrary.VERTEX, COPY_FRAGMENT)) } catch (e: GlUtil.GlException) {
                 throw VideoFrameProcessingException("Shader '$name' : ${e.message}", e)
             }
             val v = floatArrayOf(-1f, -1f, 0f, 1f, 1f, -1f, 0f, 1f, -1f, 1f, 0f, 1f, 1f, 1f, 0f, 1f)
@@ -60,33 +63,75 @@ class ShaderEffect(
         }
 
         override fun drawFrame(inputTexId: Int, presentationTimeUs: Long) {
-            val u = try { provider(presentationTimeUs) } catch (t: Throwable) { null }
-            val prog = if (u == null) copy else effect
-            GLES20.glUseProgram(prog)
+            val u = if (effect == null) null else try { provider(presentationTimeUs) } catch (t: Throwable) { null }
+            // Drop errors left by earlier GL calls so that they are not blamed on this effect.
+            drainGlErrors()
+            if (!draw(if (u != null) effect!! else copy, inputTexId, u) && u != null) {
+                // The effect failed on this driver: fall back to a plain copy rather than stopping playback.
+                if (!reported) { reported = true; Log.e(TAG, "Effet '$name' ignoré (erreur GL)") }
+                drainGlErrors()
+                if (!draw(copy, inputTexId, null)) throw VideoFrameProcessingException("Effet '$name' : erreur OpenGL")
+            }
+        }
+
+        /** Bounded: a lost context may keep reporting errors. */
+        private fun drainGlErrors() { repeat(16) { if (GLES20.glGetError() == GLES20.GL_NO_ERROR) return } }
+
+        /** Draws a full-frame quad; returns false when OpenGL reported an error. */
+        private fun draw(l: Locations, inputTexId: Int, u: FrameUniforms?): Boolean {
+            GLES20.glUseProgram(l.program)
             GLES20.glDisable(GLES20.GL_BLEND)
+            GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, inputTexId)
-            GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uTexSampler"), 0)
+            if (l.sampler >= 0) GLES20.glUniform1i(l.sampler, 0)
             if (u != null) {
-                GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uResolution"), width.toFloat(), height.toFloat())
-                GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uTime"), u.timeSec)
-                GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uProgress"), u.progress)
-                val loc = GLES20.glGetUniformLocation(prog, "uP")
-                if (loc >= 0) GLES20.glUniform1fv(loc, ShaderLibrary.MAX_PARAMS, u.params, 0)
+                if (l.resolution >= 0) GLES20.glUniform2f(l.resolution, width.toFloat(), height.toFloat())
+                if (l.time >= 0) GLES20.glUniform1f(l.time, u.timeSec)
+                if (l.progress >= 0) GLES20.glUniform1f(l.progress, u.progress)
+                if (l.params >= 0 && l.paramCount > 0) GLES20.glUniform1fv(l.params, minOf(l.paramCount, u.params.size), u.params, 0)
             }
-            val pos = GLES20.glGetAttribLocation(prog, "aFramePosition")
-            GLES20.glEnableVertexAttribArray(pos)
+            if (l.position < 0) return false
+            GLES20.glEnableVertexAttribArray(l.position)
             quad.position(0)
-            GLES20.glVertexAttribPointer(pos, 4, GLES20.GL_FLOAT, false, 0, quad)
+            GLES20.glVertexAttribPointer(l.position, 4, GLES20.GL_FLOAT, false, 0, quad)
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-            GLES20.glDisableVertexAttribArray(pos)
-            try { GlUtil.checkGlError() } catch (e: GlUtil.GlException) { throw VideoFrameProcessingException(e) }
+            GLES20.glDisableVertexAttribArray(l.position)
+            return GLES20.glGetError() == GLES20.GL_NO_ERROR
         }
 
         override fun release() {
             super.release()
-            GLES20.glDeleteProgram(effect)
-            GLES20.glDeleteProgram(copy)
+            effect?.let { GLES20.glDeleteProgram(it.program) }
+            GLES20.glDeleteProgram(copy.program)
+        }
+
+        /** Locations resolved once (the driver may optimise unused uniforms away: they are then -1). */
+        private class Locations(val program: Int) {
+            val sampler = GLES20.glGetUniformLocation(program, "uTexSampler")
+            val resolution = GLES20.glGetUniformLocation(program, "uResolution")
+            val time = GLES20.glGetUniformLocation(program, "uTime")
+            val progress = GLES20.glGetUniformLocation(program, "uProgress")
+            val params: Int
+            /** Active size of the uP array (drivers shrink it to the highest index used). */
+            val paramCount: Int
+            val position = GLES20.glGetAttribLocation(program, "aFramePosition")
+            init {
+                var loc = GLES20.glGetUniformLocation(program, "uP")
+                if (loc < 0) loc = GLES20.glGetUniformLocation(program, "uP[0]")
+                params = loc
+                paramCount = if (loc < 0) 0 else activeArraySize(program, "uP")
+            }
+            private fun activeArraySize(program: Int, base: String): Int {
+                val count = IntArray(1)
+                GLES20.glGetProgramiv(program, GLES20.GL_ACTIVE_UNIFORMS, count, 0)
+                val size = IntArray(1); val type = IntArray(1)
+                for (i in 0 until count[0]) {
+                    val n = GLES20.glGetActiveUniform(program, i, size, 0, type, 0)
+                    if (n == base || n == "$base[0]") return size[0].coerceIn(1, ShaderLibrary.MAX_PARAMS)
+                }
+                return ShaderLibrary.MAX_PARAMS
+            }
         }
 
         private fun compile(type: Int, src: String): Int {
@@ -112,12 +157,17 @@ class ShaderEffect(
             val ok = IntArray(1)
             GLES20.glGetProgramiv(p, GLES20.GL_LINK_STATUS, ok, 0)
             GLES20.glDeleteShader(v); GLES20.glDeleteShader(f)
-            if (ok[0] != GLES20.GL_TRUE) throw GlUtil.GlException("édition de liens : " + GLES20.glGetProgramInfoLog(p))
+            if (ok[0] != GLES20.GL_TRUE) {
+                val log = GLES20.glGetProgramInfoLog(p)
+                GLES20.glDeleteProgram(p)
+                throw GlUtil.GlException("édition de liens : $log")
+            }
             return p
         }
     }
 
     companion object {
+        private const val TAG = "CuttinxShader"
         const val COPY_FRAGMENT = """
 precision mediump float;
 uniform sampler2D uTexSampler;

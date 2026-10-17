@@ -107,7 +107,7 @@ class RenderTest {
 
     /** Compiles every effect shader with the Khronos reference compiler (GLSL ES 1.00). */
     @Test fun allShadersCompile() {
-        val validator = listOf("/usr/bin/glslangValidator", "/usr/local/bin/glslangValidator").map(::File).firstOrNull { it.canExecute() }
+        val validator = listOfNotNull(System.getenv("GLSLANG_VALIDATOR"), "/usr/bin/glslangValidator", "/usr/local/bin/glslangValidator").map(::File).firstOrNull { it.canExecute() }
         Assume.assumeTrue("glslangValidator not installed", validator != null)
         val dir = kotlin.io.path.createTempDirectory("shaders").toFile()
         val vert = File(dir, "v.vert").apply { writeText("#version 100\n" + ShaderLibrary.VERTEX) }

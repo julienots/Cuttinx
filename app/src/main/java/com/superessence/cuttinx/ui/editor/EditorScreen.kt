@@ -118,7 +118,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
                 AccentButton("Exporter", { vm.panel.value = Panel.EXPORT }, Modifier.padding(end = 6.dp))
             }
             // ---------------- preview
-            PreviewPane(vm, project, ps.positionUs, selected, ps.buffering, ps.error, Modifier.fillMaxWidth().weight(1f))
+            PreviewPane(vm, project, ps.positionUs, selected, ps.buffering, ps.error, Modifier.fillMaxWidth().weight(1f), notice = ps.notice)
             // ---------------- transport
             Transport(vm, ps.positionUs, maxOf(project.durationUs, ps.durationUs), ps.playing, selected)
             // ---------------- workspaces
@@ -160,11 +160,11 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
     vm.loadError.collectAsStateWithLifecycle().value?.let { e -> AlertDialog({}, title = { Text("Projet illisible") }, text = { Text(e) }, confirmButton = { TextButton({ vm.close(); onBack() }) { Text("Retour") } }) }
 }
 
-fun isClipPanel(p: Panel) = p in setOf(Panel.TEXT, Panel.TEXT_STYLE, Panel.TEXT_ANIM, Panel.AUDIO, Panel.SPEED, Panel.TRANSFORM, Panel.CROP, Panel.KEYFRAMES, Panel.MASK, Panel.CHROMA, Panel.BLEND, Panel.TRANSITION)
+fun isClipPanel(p: Panel) = p in setOf(Panel.TEXT, Panel.TEXT_STYLE, Panel.TEXT_ANIM, Panel.AUDIO, Panel.SPEED, Panel.TRANSFORM, Panel.CROP, Panel.KEYFRAMES, Panel.MASK, Panel.CHROMA, Panel.BLEND, Panel.TRANSITION, Panel.MOTION)
 
 fun workspacePanel(w: Workspace): Panel? = when (w) {
     Workspace.AUDIO -> Panel.MIXER; Workspace.COLOR -> Panel.FILTERS; Workspace.SUBTITLES -> Panel.SUBTITLES; Workspace.AI -> Panel.AI
-    Workspace.COMPOSITING -> Panel.TRACKS; Workspace.EXPORT -> Panel.EXPORT; else -> null
+    Workspace.COMPOSITING -> Panel.TRACKS; Workspace.EXPORT -> Panel.EXPORT; Workspace.STUDIO -> Panel.PRO_TOOLS; else -> null
 }
 
 @UnstableApi
@@ -202,6 +202,7 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         add(T(Icons.Default.Subtitles, "Sous-titres") { vm.panel.value = Panel.SUBTITLES })
         add(T(Icons.Default.Mic, "Voix off") { if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) vm.panel.value = Panel.VOICE else micPerm.launch(Manifest.permission.RECORD_AUDIO) })
         add(T(Icons.Default.AutoAwesome, "AI Lab") { vm.panel.value = Panel.AI })
+        add(T(Icons.Default.Stars, "Outils pro") { vm.panel.value = Panel.PRO_TOOLS })
         if (!beginner || ws != Workspace.QUICK) {
             add(T(Icons.Default.Layers, "Incrustation") { pickOverlay.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) })
             add(T(Icons.Default.EmojiEmotions, "Autocollants") { vm.panel.value = Panel.STICKERS })
@@ -222,7 +223,8 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         val hasAudio = asset?.hasAudio == true || track?.kind == TrackKind.AUDIO
         add(T(Icons.Default.ContentCut, "Diviser") { vm.split() })
         add(T(Icons.Default.Delete, "Supprimer") { vm.deleteSelected() })
-        if (isText) { add(T(Icons.Default.Edit, "Modifier") { vm.panel.value = Panel.TEXT }); add(T(Icons.Default.FormatPaint, "Style") { vm.panel.value = Panel.TEXT_STYLE }); add(T(Icons.Default.Animation, "Animation") { vm.panel.value = Panel.TEXT_ANIM }) }
+        if (visual) add(T(Icons.Default.Animation, "Animations") { vm.panel.value = Panel.MOTION })
+        if (isText) { add(T(Icons.Default.Edit, "Modifier") { vm.panel.value = Panel.TEXT }); add(T(Icons.Default.FormatPaint, "Style") { vm.panel.value = Panel.TEXT_STYLE }); add(T(Icons.Default.TextRotationNone, "Anim. texte") { vm.panel.value = Panel.TEXT_ANIM }) }
         if (sel.kind == ClipKind.MEDIA && asset?.type != MediaType.IMAGE) add(T(Icons.Default.Speed, "Vitesse") { vm.panel.value = Panel.SPEED })
         if (hasAudio) add(T(Icons.AutoMirrored.Filled.VolumeUp, "Audio") { vm.panel.value = Panel.AUDIO })
         if (visual) {
@@ -242,6 +244,7 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         if (sel.kind == ClipKind.MEDIA && asset?.isVisual == true) add(T(Icons.Default.FindReplace, "Remplacer") { pickReplace.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) })
         if (asset?.type == MediaType.VIDEO && asset.hasAudio && track?.kind == TrackKind.VIDEO) add(T(Icons.AutoMirrored.Filled.CallSplit, "Extraire l'audio") { vm.extractAudio() })
         add(T(Icons.Default.AutoAwesome, "AI Lab") { vm.panel.value = Panel.AI })
+        add(T(Icons.Default.Stars, "Outils pro") { vm.panel.value = Panel.PRO_TOOLS })
         add(T(Icons.Default.Checklist, "Multi", active = multi) { vm.multiSelect.value = !multi })
         if (vm.selection.value.size > 1) { add(T(Icons.Default.Link, "Grouper") { vm.groupSelected() }); add(T(Icons.Default.MergeType, "Fusionner") { vm.mergeSelected() }) }
         if (sel.groupId != null) add(T(Icons.Default.LinkOff, "Dissocier") { vm.ungroupSelected() })

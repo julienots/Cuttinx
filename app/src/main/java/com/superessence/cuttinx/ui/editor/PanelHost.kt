@@ -68,6 +68,8 @@ fun PanelHost(vm: EditorViewModel, panel: Panel, p: Project, sel: Clip?, track: 
                 Panel.AI -> AiPanel(vm, p, sel, openProject)
                 Panel.EXPORT -> ExportPanel(vm, p)
                 Panel.PRESETS -> FiltersPanel(vm, sel)
+                Panel.MOTION -> MotionPanel(vm, sel!!)
+                Panel.PRO_TOOLS -> ProToolsPanel(vm, p, sel)
             }
         }
     }

@@ -41,8 +41,10 @@ fun SplashScreen(onDone: () -> Unit) {
             Spacer(Modifier.height(18.dp))
             CuttinxWordmark(44.sp, Modifier.alpha(word.value).scale(0.92f + 0.08f * word.value))
             Spacer(Modifier.height(10.dp))
+            Text("ÉDITION PROFESSIONNELLE", color = Cx.Yellow.copy(alpha = sign.value), fontSize = 13.sp, letterSpacing = 6.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(6.dp))
             Text("SUPERESSENCE CREATIVE STUDIO", color = Color.White.copy(alpha = 0.75f * sign.value), fontSize = 11.sp, letterSpacing = 4.sp, fontWeight = FontWeight.SemiBold)
         }
-        Text("Gratuit • Sans filigrane • Sans abonnement", color = Cx.Yellow.copy(alpha = 0.8f * sign.value), fontSize = 11.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp))
+        Text("Le studio des créateurs • Sans filigrane • Sans abonnement", color = Cx.Yellow.copy(alpha = 0.8f * sign.value), fontSize = 11.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp))
     }
 }

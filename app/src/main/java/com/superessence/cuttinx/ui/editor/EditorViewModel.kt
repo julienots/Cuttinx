@@ -55,6 +55,8 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
     private var recordStartUs = 0L
     /** Beats found by the AI (shown on the timeline, used for snapping). */
     val beats = MutableStateFlow<List<Long>>(emptyList())
+    /** Framing guides drawn over the preview only (never rendered in the export). */
+    val guides = MutableStateFlow(PreviewGuides.NONE)
     val loadError = MutableStateFlow<String?>(null)
 
     init {
@@ -483,7 +485,7 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
 
     fun snapCandidates(exclude: Set<String>) = if (c.settings.value.snapping) Snapping.candidates(current, exclude, position, beats.value) else emptyList()
 
-    fun evaluatedTransform(clip: Clip) = FrameEvaluator.transform(clip, (position - clip.startUs).coerceIn(0, clip.durationUs))
+    fun evaluatedTransform(clip: Clip) = FrameEvaluator.transform(clip, (position - clip.startUs).coerceIn(0, clip.durationUs), withMotion = false)
 
     class Factory(private val app: Application, private val id: String) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

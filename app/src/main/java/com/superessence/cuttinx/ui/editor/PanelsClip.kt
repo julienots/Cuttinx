@@ -137,13 +137,17 @@ fun TextStylePanel(vm: EditorViewModel, c: Clip) {
 fun TextAnimPanel(vm: EditorViewModel, c: Clip) {
     val tc = c.text ?: return
     val names = mapOf(TextAnimation.NONE to "Aucune", TextAnimation.FADE to "Fondu", TextAnimation.POP to "Pop", TextAnimation.SLIDE_UP to "Monte", TextAnimation.SLIDE_DOWN to "Descend",
-        TextAnimation.SLIDE_LEFT to "Gauche", TextAnimation.SLIDE_RIGHT to "Droite", TextAnimation.TYPEWRITER to "Machine à écrire", TextAnimation.ZOOM to "Zoom", TextAnimation.BOUNCE to "Rebond", TextAnimation.BLUR_IN to "Douceur", TextAnimation.WAVE to "Vague")
+        TextAnimation.SLIDE_LEFT to "Gauche", TextAnimation.SLIDE_RIGHT to "Droite", TextAnimation.TYPEWRITER to "Machine à écrire", TextAnimation.ZOOM to "Zoom", TextAnimation.BOUNCE to "Rebond", TextAnimation.BLUR_IN to "Douceur", TextAnimation.WAVE to "Vague",
+        TextAnimation.ELASTIC to "Élastique", TextAnimation.DROP to "Chute", TextAnimation.SPIN to "Rotation", TextAnimation.FLICKER to "Néon", TextAnimation.GLITCH to "Glitch",
+        TextAnimation.STRETCH to "Étirement", TextAnimation.ROLL to "Roulade", TextAnimation.RISE to "Envol", TextAnimation.SWING to "Balancier", TextAnimation.SHAKE to "Secousse",
+        TextAnimation.ZOOM_OUT to "Zoom arrière", TextAnimation.KARAOKE to "Karaoké")
     SectionTitle("Apparition")
-    ChoiceChips(TextAnimation.entries.toList(), tc.animIn, { names[it]!! }, { a -> vm.updateClip("Animation d'entrée") { it.copy(text = it.text!!.copy(animIn = a)) } })
+    ChoiceChips(TextAnimation.entries.toList(), tc.animIn, { names[it] ?: it.name }, { a -> vm.updateClip("Animation d'entrée") { it.copy(text = it.text!!.copy(animIn = a)) } })
     ValueSlider("Durée d'apparition", tc.animInUs / 1e6f, 0.05f..3f, { v -> vm.updateClip("Animation", "ain_${c.id}") { it.copy(text = it.text!!.copy(animInUs = (v * 1e6).toLong())) } }, unit = " s", decimals = 2, step = 0.05f)
     SectionTitle("Disparition")
-    ChoiceChips(TextAnimation.entries.toList(), tc.animOut, { names[it]!! }, { a -> vm.updateClip("Animation de sortie") { it.copy(text = it.text!!.copy(animOut = a)) } })
+    ChoiceChips(TextAnimation.entries.toList(), tc.animOut, { names[it] ?: it.name }, { a -> vm.updateClip("Animation de sortie") { it.copy(text = it.text!!.copy(animOut = a)) } })
     ValueSlider("Durée de disparition", tc.animOutUs / 1e6f, 0.05f..3f, { v -> vm.updateClip("Animation", "aout_${c.id}") { it.copy(text = it.text!!.copy(animOutUs = (v * 1e6).toLong())) } }, unit = " s", decimals = 2, step = 0.05f)
+    TextButton({ vm.panel.value = Panel.MOTION }) { Text("Animations en boucle et combos →") }
     InfoCard("Pour un déplacement libre, utilisez les images clés (losange) sur la position, l'échelle ou la rotation.")
 }
 

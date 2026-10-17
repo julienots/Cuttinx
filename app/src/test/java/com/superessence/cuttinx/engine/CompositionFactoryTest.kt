@@ -89,6 +89,28 @@ class CompositionFactoryTest {
         assertEquals(1f, a2 + b2, 1e-6f)
     }
 
+    /** Regression: a slide transition pushed anchors outside [-1, 1] and Media3 stopped with VIDEO_FRAME_PROCESSING_FAILED. */
+    @Test fun slidingLayersKeepValidAnchors() {
+        var p = project()
+        val m = p.tracks[0].sortedClips()
+        p = TimelineEditor.setTransition(p, m[1].id, TransitionInstance("slide", 1_000_000, easing = Easing.Linear))
+        p = TimelineEditor.updateClip(p, m[0].id) { it.copy(motion = ClipMotion(MotionPreset.SLIDE_LEFT, 800_000, MotionPreset.ROLL, 800_000, LoopMotion.SHAKE)) }
+        val built = factory.build(LiveProject(p), 540, 960, 30, preview = true)
+        val cs = built.composition.videoCompositorSettings
+        var t = 0L
+        while (t < p.durationUs) {
+            for (i in 0 until built.composition.sequences.size) {
+                val s = cs.getOverlaySettings(i, t) as StaticOverlaySettings
+                assertTrue("t=$t input=$i", s.backgroundFrameAnchor.first in -1f..1f && s.backgroundFrameAnchor.second in -1f..1f)
+                assertTrue("t=$t input=$i", s.overlayFrameAnchor.first in -1f..1f && s.overlayFrameAnchor.second in -1f..1f)
+            }
+            t += 33_333
+        }
+        // the safe composition drops every CUTTINX shader
+        val safe = factory.build(LiveProject(p), 540, 960, 30, preview = true, gpuEffects = false)
+        assertTrue(safe.composition.sequences.flatMap { it.editedMediaItems }.none { item -> item.effects.videoEffects.any { it is ShaderEffect } })
+    }
+
     @Test fun liveEditsDoNotRebuild() {
         val p = project()
         val live = LiveProject(p)

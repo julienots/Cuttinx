@@ -44,6 +44,8 @@ data class Clip(
     val enabled: Boolean = true,
     /** Requested stabilisation strength (0 = off). Applied by the engine when supported. */
     val stabilization: Double = 0.0,
+    /** Entry / exit / loop animations (applied on top of keyframes). */
+    val motion: ClipMotion = ClipMotion(),
 ) {
     val sourceDurationUs: Long get() = (sourceOutUs - sourceInUs).coerceAtLeast(0)
 

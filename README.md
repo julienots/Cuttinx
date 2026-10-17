@@ -1,4 +1,6 @@
-# CUTTINX — SUPERESSENCE CREATIVE STUDIO
+# CUTTINX PRO — SUPERESSENCE CREATIVE STUDIO
+
+> **Édition professionnelle** pour créateurs de contenu et influenceurs.
 
 Éditeur vidéo multipiste **gratuit, sans abonnement, sans filigrane, sans crédits** pour Android
 (Kotlin, Jetpack Compose, AndroidX Media3). Toutes les fonctions, IA comprise, tournent sur le
@@ -30,6 +32,21 @@ fois, sur demande.
   points de coupe, rythme/BPM et synchronisation des coupes, réduction de bruit, séparation
   voix/musique (spectrale), qualité audio, recadrage automatique, suivi de sujet, détourage d'image,
   titres, résumé, suggestions de montage, organisation des médias, montage automatique modifiable.
+- **Animations (nouveau)** : 25 animations d'entrée/sortie pour tout élément (vidéo, image, autocollant,
+  texte : zoom, tourbillon, pop, rebond, élastique, chute, glissements, fouet, roulade, retournements 3D,
+  étirements, secousse, glitch, néon…), 15 animations en boucle (pulsation, battement de cœur, zoom choc
+  calé sur le tempo, Ken Burns, flottement, orbite, gelée, tremblement caméra…), 8 combos prêts
+  (Hook TikTok, Cinématique, Énergie…) et 24 animations de texte (dont karaoké, glitch, néon, élastique).
+- **Outils pro (nouveau)** : accroche d'ouverture, barre de progression, filigrane @compte, sous-titres
+  style créateur, zoom sur les temps de la musique, animation automatique du montage, transitions
+  dynamiques automatiques, Ken Burns sur les photos, guides de cadrage (tiers, zones TikTok/Reels/Shorts,
+  titre sûr). 10 nouvelles transitions (tourbillon zoom, zoom flou, rebond, chute, swipe, poussée zoom,
+  glissement glitch, flash zoom, pivot, secousse) et 13 nouveaux effets GPU (couleur isolée, tilt-shift,
+  contours néon, secousse RVB, flash rythmé, lignes de balayage, dessin animé, brume de chaleur, écran
+  triple, prisme, look film, rembobinage VHS, projecteur).
+- **Lecteur fiable** : les calques qui sortent du cadre (glissements, transitions, animations) ne bloquent
+  plus la lecture ; en cas d'échec GPU propre à un téléphone, l'aperçu se reconstruit automatiquement
+  (mode simplifié) et un bouton « Réessayer » relance la lecture.
 - **Export** : MP4 H.264 / HEVC / AV1 (selon les encodeurs réels du téléphone), 480p → 4K,
   24–60 i/s, débit et qualité réglables, progression, annulation, mesure réelle du fichier produit.
 - **Projets** : autosave, 5 versions de secours, récupération après crash, duplication, archivage,

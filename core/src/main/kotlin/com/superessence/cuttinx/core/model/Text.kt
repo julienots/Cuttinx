@@ -6,7 +6,10 @@ import kotlinx.serialization.Serializable
 enum class TextAlign { LEFT, CENTER, RIGHT }
 
 @Serializable
-enum class TextAnimation { NONE, FADE, POP, SLIDE_UP, SLIDE_DOWN, SLIDE_LEFT, SLIDE_RIGHT, TYPEWRITER, ZOOM, BOUNCE, BLUR_IN, WAVE }
+enum class TextAnimation {
+    NONE, FADE, POP, SLIDE_UP, SLIDE_DOWN, SLIDE_LEFT, SLIDE_RIGHT, TYPEWRITER, ZOOM, BOUNCE, BLUR_IN, WAVE,
+    ELASTIC, DROP, SPIN, FLICKER, GLITCH, STRETCH, ROLL, RISE, SWING, SHAKE, ZOOM_OUT, KARAOKE,
+}
 
 @Serializable
 data class TextStyle(

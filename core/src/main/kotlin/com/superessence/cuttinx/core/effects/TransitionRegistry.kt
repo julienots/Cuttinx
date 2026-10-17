@@ -54,6 +54,17 @@ object TransitionRegistry {
         register(TransitionDefinition("distort", "Distorsion", listOf(ParamDef("amount", "Intensité", 0.1, 1.0, 1.0))))
         register(TransitionDefinition("light", "Lumière", listOf(ParamDef("hue", "Teinte", 0.0, 360.0, 35.0, ParamType.HUE))))
         register(TransitionDefinition("whip", "Panoramique filé", listOf(dirChoice), defaultDurationUs = 350_000))
+        // ---- creator pack (dynamic transitions popular on short-form platforms)
+        register(TransitionDefinition("spin_zoom", "Tourbillon zoom", listOf(ParamDef("turns", "Tours", 0.25, 3.0, 0.5)), defaultDurationUs = 450_000))
+        register(TransitionDefinition("zoom_blur", "Zoom flou", listOf(ParamDef("radius", "Flou", 5.0, 60.0, 35.0)), defaultDurationUs = 400_000))
+        register(TransitionDefinition("bounce", "Rebond", listOf(dirChoice), defaultDurationUs = 600_000))
+        register(TransitionDefinition("drop", "Chute", defaultDurationUs = 600_000))
+        register(TransitionDefinition("swipe_up", "Swipe vertical", defaultDurationUs = 350_000))
+        register(TransitionDefinition("push_zoom", "Poussée zoom", listOf(dirChoice), defaultDurationUs = 450_000))
+        register(TransitionDefinition("glitch_slide", "Glissement glitch", listOf(dirChoice), defaultDurationUs = 400_000))
+        register(TransitionDefinition("flash_zoom", "Flash zoom", defaultDurationUs = 350_000))
+        register(TransitionDefinition("rotate_slide", "Pivot", listOf(dirChoice), defaultDurationUs = 500_000))
+        register(TransitionDefinition("shake", "Secousse", listOf(ParamDef("amount", "Intensité", 0.1, 1.0, 0.6)), defaultDurationUs = 400_000))
     }
 
     private fun dirVec(d: Double): Pair<Double, Double> = when (d.toInt()) {
@@ -128,7 +139,70 @@ object TransitionRegistry {
                 val blurB = LayerMod(dx = -x * (1 - q), dy = -y * (1 - q), shaderId = "_tr_blur", shaderProgress = q, shaderParams = mapOf("radius" to 40.0))
                 blurA to blurB
             }
+            "spin_zoom" -> {
+                val turns = prm("turns", 0.5) * 360.0
+                cross(
+                    LayerMod(rotation = turns * q, scale = 1 + q * 1.5, shaderId = "_tr_blur", shaderProgress = 1 - q, shaderParams = mapOf("radius" to 25.0)),
+                    LayerMod(rotation = -turns * (1 - q), scale = 0.4 + 0.6 * q, shaderId = "_tr_blur", shaderProgress = q, shaderParams = mapOf("radius" to 25.0)),
+                )
+            }
+            "zoom_blur" -> {
+                val r = mapOf("radius" to prm("radius", 35.0))
+                cross(LayerMod(scale = 1 + q * 0.8, shaderId = "_tr_blur", shaderProgress = 1 - q, shaderParams = r), LayerMod(scale = 1.5 - 0.5 * q, shaderId = "_tr_blur", shaderProgress = q, shaderParams = r))
+            }
+            "bounce" -> {
+                val (x, y) = dirVec(prm("direction", 0.0))
+                val k = 1 - bounceOut(q)
+                // when A is composited above B it must fade away to reveal the incoming clip
+                LayerMod(dx = x * q * 0.25, dy = y * q * 0.25, scale = 1 - 0.1 * q, alpha = if (incomingOnTop) 1.0 else 1 - q) to LayerMod(dx = -x * k, dy = -y * k)
+            }
+            "drop" -> {
+                val k = 1 - bounceOut(q)
+                LayerMod(scale = 1 - 0.15 * q, alpha = if (incomingOnTop) 1 - 0.4 * q else 1 - q) to LayerMod(dy = -k)
+            }
+            "swipe_up" -> {
+                val k = 1 - (1 - q).let { it * it * it }
+                LayerMod(dy = -k) to LayerMod(dy = 1 - k)
+            }
+            "push_zoom" -> {
+                val (x, y) = dirVec(prm("direction", 0.0))
+                LayerMod(dx = x * q, dy = y * q, scale = 1 - 0.3 * q) to LayerMod(dx = -x * (1 - q), dy = -y * (1 - q), scale = 1.3 - 0.3 * q)
+            }
+            "glitch_slide" -> {
+                val (x, y) = dirVec(prm("direction", 0.0))
+                val i = mapOf("intensity" to 1.0)
+                LayerMod(dx = x * q, dy = y * q, shaderId = "_tr_glitch", shaderProgress = 1 - q, shaderParams = i) to
+                    LayerMod(dx = -x * (1 - q), dy = -y * (1 - q), shaderId = "_tr_glitch", shaderProgress = q, shaderParams = i)
+            }
+            "flash_zoom" -> {
+                val a = LayerMod(alpha = if (q < 0.5) 1.0 else 0.0, scale = 1 + q * 0.5, shaderId = "_tr_flash", shaderProgress = 1 - (q * 2).coerceIn(0.0, 1.0))
+                val b = LayerMod(alpha = if (q >= 0.5) 1.0 else 0.0, scale = 1.25 - 0.25 * q, shaderId = "_tr_flash", shaderProgress = (q * 2 - 1).coerceIn(0.0, 1.0))
+                a to b
+            }
+            "rotate_slide" -> {
+                val (x, y) = dirVec(prm("direction", 0.0))
+                LayerMod(dx = x * q, dy = y * q, rotation = 25 * q * (if (x + y >= 0) 1 else -1)) to
+                    LayerMod(dx = -x * (1 - q), dy = -y * (1 - q), rotation = -25 * (1 - q) * (if (x + y >= 0) 1 else -1))
+            }
+            "shake" -> {
+                val amt = prm("amount", 0.6) * 0.06 * sin(q * kotlin.math.PI)
+                val jx = sin(q * 61.0) * amt; val jy = sin(q * 47.0 + 1.3) * amt
+                cross(LayerMod(dx = jx, dy = jy, scale = 1 + amt), LayerMod(dx = -jy, dy = jx, scale = 1 + amt))
+            }
             else -> cross()
+        }
+    }
+
+    private fun sin(v: Double) = kotlin.math.sin(v)
+
+    private fun bounceOut(p0: Double): Double {
+        val n = 7.5625; val d = 2.75
+        var p = p0.coerceIn(0.0, 1.0)
+        return when {
+            p < 1 / d -> n * p * p
+            p < 2 / d -> { p -= 1.5 / d; n * p * p + 0.75 }
+            p < 2.5 / d -> { p -= 2.25 / d; n * p * p + 0.9375 }
+            else -> { p -= 2.625 / d; n * p * p + 0.984375 }
         }
     }
 }
