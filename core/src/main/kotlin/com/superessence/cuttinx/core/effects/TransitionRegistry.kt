@@ -65,6 +65,17 @@ object TransitionRegistry {
         register(TransitionDefinition("flash_zoom", "Flash zoom", defaultDurationUs = 350_000))
         register(TransitionDefinition("rotate_slide", "Pivot", listOf(dirChoice), defaultDurationUs = 500_000))
         register(TransitionDefinition("shake", "Secousse", listOf(ParamDef("amount", "Intensité", 0.1, 1.0, 0.6)), defaultDurationUs = 400_000))
+        // ---- shapes & classics
+        register(TransitionDefinition("heart_wipe", "Cœur", listOf(ParamDef("softness", "Douceur", 0.0, 0.3, 0.03)), defaultDurationUs = 700_000))
+        register(TransitionDefinition("star_wipe", "Étoile", listOf(ParamDef("softness", "Douceur", 0.0, 0.3, 0.02)), defaultDurationUs = 700_000))
+        register(TransitionDefinition("clock_wipe", "Horloge", defaultDurationUs = 700_000))
+        register(TransitionDefinition("diamond_wipe", "Losange", defaultDurationUs = 600_000))
+        register(TransitionDefinition("blinds", "Stores", listOf(ParamDef("count", "Lames", 3.0, 30.0, 10.0)), defaultDurationUs = 600_000))
+        register(TransitionDefinition("doors", "Portes", defaultDurationUs = 600_000))
+        register(TransitionDefinition("checker", "Damier", listOf(ParamDef("count", "Cases", 4.0, 24.0, 10.0)), defaultDurationUs = 700_000))
+        register(TransitionDefinition("wheel", "Roue", listOf(ParamDef("count", "Rayons", 2.0, 16.0, 6.0)), defaultDurationUs = 700_000))
+        register(TransitionDefinition("pixelate", "Pixelisation", listOf(ParamDef("size", "Taille", 8.0, 120.0, 60.0)), defaultDurationUs = 600_000))
+        register(TransitionDefinition("ripple", "Ondulation", listOf(ParamDef("amount", "Force", 0.0, 0.1, 0.04)), defaultDurationUs = 800_000))
     }
 
     private fun dirVec(d: Double): Pair<Double, Double> = when (d.toInt()) {
@@ -188,6 +199,24 @@ object TransitionRegistry {
                 val amt = prm("amount", 0.6) * 0.06 * sin(q * kotlin.math.PI)
                 val jx = sin(q * 61.0) * amt; val jy = sin(q * 47.0 + 1.3) * amt
                 cross(LayerMod(dx = jx, dy = jy, scale = 1 + amt), LayerMod(dx = -jy, dy = jx, scale = 1 + amt))
+            }
+            "heart_wipe" -> reveal("_tr_heart", mapOf("softness" to prm("softness", 0.03)))
+            "star_wipe" -> reveal("_tr_star", mapOf("softness" to prm("softness", 0.02)))
+            "clock_wipe" -> reveal("_tr_clock", mapOf("softness" to 0.01))
+            "diamond_wipe" -> reveal("_tr_diamond", mapOf("softness" to 0.03))
+            "blinds" -> reveal("_tr_blinds", mapOf("count" to prm("count", 10.0)))
+            "doors" -> reveal("_tr_doors", mapOf("softness" to 0.01))
+            "checker" -> reveal("_tr_checker", mapOf("count" to prm("count", 10.0)))
+            "wheel" -> reveal("_tr_wheel", mapOf("count" to prm("count", 6.0)))
+            "pixelate" -> {
+                val i = mapOf("size" to prm("size", 60.0))
+                // both clips pixelate, the switch happens at the coarsest point
+                LayerMod(alpha = if (q < 0.5) 1.0 else 0.0, shaderId = "_tr_pixel", shaderProgress = 1 - (q * 2).coerceIn(0.0, 1.0), shaderParams = i) to
+                    LayerMod(alpha = if (q >= 0.5) 1.0 else 0.0, shaderId = "_tr_pixel", shaderProgress = (q * 2 - 1).coerceIn(0.0, 1.0), shaderParams = i)
+            }
+            "ripple" -> {
+                val i = mapOf("amount" to prm("amount", 0.04))
+                cross(LayerMod(shaderId = "_tr_ripple", shaderProgress = 1 - q, shaderParams = i), LayerMod(shaderId = "_tr_ripple", shaderProgress = q, shaderParams = i))
             }
             else -> cross()
         }

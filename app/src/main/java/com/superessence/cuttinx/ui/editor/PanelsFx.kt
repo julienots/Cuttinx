@@ -220,6 +220,14 @@ fun AudioPanel(vm: EditorViewModel, p: Project, c: Clip) {
         }
         3 -> {
             Text("Effets vocaux appliqués en temps réel (aperçu et export).", style = MaterialTheme.typography.bodySmall, color = LocalCx.current.dim)
+            fun chain(label: String, vararg ids: Pair<String, Map<String, Double>>) = vm.updateClip(label) { cl ->
+                cl.copy(audio = cl.audio.copy(effects = cl.audio.effects + ids.map { (id, params) -> EffectInstance(Ids.new("fx"), id, (EffectRegistry[id]?.defaults() ?: emptyMap()) + params) }))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // one tap presets: background noise reduction and "studio" voice, both live and non destructive
+                OutlinedButton({ chain("Réducteur de bruit de fond", "a_highpass" to mapOf("freq" to 80.0), "a_denoise" to mapOf("amount" to 0.75), "a_gate" to mapOf("threshold" to -50.0)) }) { Text("Réduire le bruit de fond") }
+                OutlinedButton({ chain("Voix studio", "a_highpass" to mapOf("freq" to 90.0), "a_deesser" to emptyMap(), "a_compressor" to mapOf("threshold" to -20.0, "ratio" to 3.0), "a_limiter" to emptyMap()) }) { Text("Voix studio") }
+            }
             ChoiceChips(EffectRegistry.audio().filter { it.category == EffectCategory.VOICE }, null, { it.name }, { d -> vm.updateClip("Voix ${d.name}") { it.copy(audio = it.audio.copy(effects = it.audio.effects + EffectInstance(Ids.new("fx"), d.id, d.defaults()))) } })
             AppliedEffects(vm, c, audio = true)
         }

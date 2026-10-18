@@ -185,6 +185,8 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
             Column { Text("Crée une archive .cuttinx que vous pourrez réimporter sur un autre appareil."); LabeledSwitch("Inclure les médias", exportWithMedia, { exportWithMedia = it }, description = "Archive plus lourde mais autonome") }
         }, confirmButton = { TextButton({ exportDoc.launch(p.name + ".cuttinx") }) { Text("Choisir l'emplacement") } }, dismissButton = { TextButton({ exportFor = null }) { Text("Annuler") } })
     }
+    // step-by-step tutorial on first launch (can be replayed from the guide)
+    if (!settings.tutorialDone) com.superessence.cuttinx.ui.help.TutorialOverlay { vm.c.settings.update { it.copy(tutorialDone = true) } }
 }
 
 @Composable

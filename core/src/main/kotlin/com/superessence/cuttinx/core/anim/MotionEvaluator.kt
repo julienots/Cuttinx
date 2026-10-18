@@ -61,6 +61,7 @@ object MotionEvaluator {
             else -> { p -= 2.625 / dd; n * p * p + 0.984375 }
         }
     }
+    private fun smooth(p: Double): Double { val x = p.coerceIn(0.0, 1.0); return x * x * (3 - 2 * x) }
     private fun hash(x: Double): Double { val v = sin(x * 127.1 + 311.7) * 43758.5453; return v - floor(v) }
     private fun lerp(a: Double, b: Double, t: Double) = a + (b - a) * t
 
@@ -126,6 +127,14 @@ object MotionEvaluator {
             }
             LoopMotion.ZOOM_PUNCH -> { val f = t - floor(t); val k = 1 + 0.12 * a * exp(-f * 7); MotionState(scaleX = k, scaleY = k) }
             LoopMotion.KEN_BURNS -> { val pr = progress.coerceIn(0.0, 1.0); val k = 1 + 0.18 * a * pr; MotionState(scaleX = k, scaleY = k, dx = 0.04 * a * (pr - 0.5), dy = -0.02 * a * (pr - 0.5)) }
+            // slow, smooth moves across the whole clip (YouTube "slow zoom" look); intensity 1 = 15 %
+            LoopMotion.SLOW_ZOOM_IN -> { val k = 1 + 0.15 * a * smooth(progress); MotionState(scaleX = k, scaleY = k) }
+            LoopMotion.SLOW_ZOOM_OUT -> { val k = 1 + 0.15 * a * (1 - smooth(progress)); MotionState(scaleX = k, scaleY = k) }
+            LoopMotion.PAN_LEFT, LoopMotion.PAN_RIGHT -> {
+                // zoomed in a little so that the pan never reveals the edges
+                val k = 1 + 0.12 * a; val dir = if (type == LoopMotion.PAN_LEFT) -1 else 1
+                MotionState(scaleX = k, scaleY = k, dx = dir * 0.05 * a * (smooth(progress) - 0.5))
+            }
             LoopMotion.FLOAT -> MotionState(dy = 0.018 * a * sin(tau * t * 0.6), rotation = 1.5 * a * sin(tau * t * 0.4))
             LoopMotion.BOUNCE -> MotionState(dy = -0.045 * a * abs(sin(PI * t * 1.6)))
             LoopMotion.ORBIT -> MotionState(dx = 0.02 * a * cos(tau * t * 0.5), dy = 0.02 * a * sin(tau * t * 0.5))

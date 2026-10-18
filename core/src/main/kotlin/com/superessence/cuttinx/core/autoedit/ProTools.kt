@@ -38,6 +38,16 @@ object ProTools {
         return np
     }
 
+    /** Slow zoom (alternately in and out) on every clip of [trackId]: the classic YouTube "slow zoom" edit. */
+    fun slowZoomAll(p: Project, trackId: String, amount: Double = 1.0): Project {
+        val ids = p.track(trackId)?.sortedClips()?.filter { it.kind != ClipKind.ADJUSTMENT }?.map { it.id } ?: return p
+        var np = p
+        ids.forEachIndexed { i, id ->
+            np = TimelineEditor.updateClip(np, id) { it.copy(motion = it.motion.copy(loop = if (i % 2 == 0) LoopMotion.SLOW_ZOOM_IN else LoopMotion.SLOW_ZOOM_OUT, loopAmount = amount)) }
+        }
+        return np
+    }
+
     /** Applies a slow Ken Burns move to every still image of the project. */
     fun kenBurnsImages(p: Project): Project = TimelineEditor.mapClips(p) { c ->
         val a = p.asset(c.assetId)

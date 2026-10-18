@@ -67,6 +67,9 @@ fun ProToolsPanel(vm: EditorViewModel, p: Project, sel: Clip?) {
     Tool("Transitions dynamiques", "Fouet, zoom, glitch, tourbillon, flash… en alternance sur chaque coupe", main != null && main.clips.size > 1) {
         vm.edit("Transitions dynamiques") { ProTools.autoTransitions(it, main!!.id) }
     }
+    Tool("Zoom lent sur tout le montage", "Zoom avant / arrière très doux, en alternance, sur chaque plan (style YouTube)", main != null) {
+        vm.edit("Zoom lent") { ProTools.slowZoomAll(it, main!!.id) }
+    }
     Tool("Ken Burns sur les photos", "Zoom et panoramique lents sur toutes les images fixes") {
         vm.edit("Ken Burns") { ProTools.kenBurnsImages(it) }
     }

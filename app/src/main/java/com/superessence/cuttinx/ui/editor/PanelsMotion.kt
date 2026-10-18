@@ -23,6 +23,7 @@ private data class MotionCombo(val name: String, val description: String, val mo
 
 private val combos = listOf(
     MotionCombo("Hook TikTok", "Pop d'entrée + zoom choc en rythme", ClipMotion(MotionPreset.POP, 350_000, MotionPreset.NONE, 400_000, LoopMotion.ZOOM_PUNCH, 2.0, 1.0)),
+    MotionCombo("Zoom lent", "Zoom avant très doux sur tout le plan (style YouTube)", ClipMotion(loop = LoopMotion.SLOW_ZOOM_IN, loopAmount = 1.0)),
     MotionCombo("Cinématique", "Fondu, Ken Burns lent, fondu", ClipMotion(MotionPreset.FADE, 800_000, MotionPreset.FADE, 800_000, LoopMotion.KEN_BURNS, 1.0, 1.0)),
     MotionCombo("Énergie", "Fouet, tremblement caméra, fouet", ClipMotion(MotionPreset.WHIP, 300_000, MotionPreset.WHIP, 300_000, LoopMotion.SHAKE, 1.0, 0.8)),
     MotionCombo("Douceur", "Envol, flottement, fondu", ClipMotion(MotionPreset.RISE, 600_000, MotionPreset.FADE, 500_000, LoopMotion.FLOAT, 1.0, 1.0)),

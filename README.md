@@ -44,6 +44,14 @@ fois, sur demande.
   glissement glitch, flash zoom, pivot, secousse) et 13 nouveaux effets GPU (couleur isolée, tilt-shift,
   contours néon, secousse RVB, flash rythmé, lignes de balayage, dessin animé, brume de chaleur, écran
   triple, prisme, look film, rembobinage VHS, projecteur).
+- **Pack créateur (nouveau)** : 29 effets GPU supplémentaires (pluie, flammes, bokeh, cœurs
+  flottants, reflet d'objectif, datamosh, écran fissuré, onde de choc, tunnel, peinture à l'huile,
+  aquarelle, mosaïque hexagonale, écran x4, caméra de surveillance, chaud vintage, froid cinéma…),
+  37 transitions (dont cœur, étoile, horloge, losange, stores, portes, damier, roue, pixelisation,
+  ondulation), zoom lent avant / arrière et panoramiques, 47 bruitages et jingles originaux (cymbale
+  inversée, bass drop, explosion, ba dum tss, disque rayé, sons 8-bit, jingles d'intro / fin…),
+  20 effets de voix (hélium, monstre, alien, fantôme, sous l'eau, talkie-walkie…), réducteur de bruit
+  de fond et « voix studio » en un geste, tutoriel pas à pas et guide intégré avec recherche.
 - **Lecteur fiable** : les calques qui sortent du cadre (glissements, transitions, animations) ne bloquent
   plus la lecture ; en cas d'échec GPU propre à un téléphone, l'aperçu se reconstruit automatiquement
   (mode simplifié) et un bouton « Réessayer » relance la lecture.
@@ -51,6 +59,24 @@ fois, sur demande.
   24–60 i/s, débit et qualité réglables, progression, annulation, mesure réelle du fichier produit.
 - **Projets** : autosave, 5 versions de secours, récupération après crash, duplication, archivage,
   export/import `.cuttinx` (avec ou sans médias), détection et remplacement des médias manquants.
+
+## Version PC (Windows) — Twitch Studio + Identité & DA
+
+Le module `desktop` (Compose Multiplatform, même cœur Kotlin que l'appli Android) fournit :
+
+- **Twitch Studio** : 31 thèmes originaux (armure high-tech, comics, justicier nocturne, arcade 8-bit,
+  synthwave, cyber, anime shōnen, manga, Japon traditionnel, Tokyo, mignon rose, pastel, aesthetic,
+  vaporwave, cozy, esport, minimal, fantasy, galaxie, océan, forêt, printemps, été, automne, hiver,
+  Halloween, Noël, Saint-Valentin, Nouvel An…) ; scènes animées (le live va commencer avec compte à
+  rebours, je reviens, pause, fin), cadres jeu / discussion / écran / caméra / chat, alerte de follow,
+  12 transitions stinger (toile d'araignée, tempête de sakura, explosion BD, hexagones, portail…).
+  Export d'un **pack OBS** prêt à l'emploi (HTML + PNG animés transparents, guide d'installation).
+- **Identité & DA** : génère l'univers d'un créateur (archétype, palette, polices, slogans, bios
+  TikTok / Instagram / YouTube / Twitch, piliers de contenu, hashtags, ton, moodboard, logo), exporte
+  une planche PNG et un guide, et applique la palette aux overlays.
+
+Installateurs `.exe` / `.msi` produits par la CI (artefact `cuttinx-pro-windows`) ;
+en local : `./gradlew :desktop:run` ou `./gradlew :desktop:packageExe`.
 
 Documentation : [docs/BUILD.md](docs/BUILD.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 [docs/TESTS.md](docs/TESTS.md) · [docs/LIMITATIONS.md](docs/LIMITATIONS.md) · [docs/LICENSES.md](docs/LICENSES.md) · [docs/PLAN.md](docs/PLAN.md)
