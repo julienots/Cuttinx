@@ -80,7 +80,7 @@ class AppState {
             e.key == Key.Delete || e.key == Key.Backspace -> m.deleteSelection(ripple = e.isShiftPressed)
             e.key == Key.DirectionLeft -> m.player.seek(m.playhead - (if (e.isShiftPressed) 1_000_000L else 1_000_000L / fps))
             e.key == Key.DirectionRight -> m.player.seek(m.playhead + (if (e.isShiftPressed) 1_000_000L else 1_000_000L / fps))
-            e.key == Key.Home -> m.player.seek(0)
+            e.key == Key.MoveHome -> m.player.seek(0)
             e.key == Key.MoveEnd -> m.player.seek(m.current?.durationUs ?: 0)
             e.key == Key.M && !ctrl -> m.addMarker()
             e.key == Key.Escape -> m.select(null)
