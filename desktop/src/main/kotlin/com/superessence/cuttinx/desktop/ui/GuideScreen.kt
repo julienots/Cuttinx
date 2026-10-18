@@ -18,8 +18,26 @@ import com.superessence.cuttinx.desktop.Cx
 private class Chapter(val title: String, val steps: List<String>)
 
 private val chapters = listOf(
-    Chapter("Démarrer en 3 minutes", listOf(
-        "Ouvre « Twitch Studio » et choisis un thème dans la colonne de gauche (filtre par catégorie : super-héros, geek, anime, mignon, saisons…).",
+    Chapter("Éditeur vidéo : premier montage", listOf(
+        "Onglet « Éditeur » en haut : choisis le format (9:16 TikTok / Reels / Shorts, 16:9 YouTube…) et clique « Créer le projet ».",
+        "« Importer » à gauche (ou glisse-dépose tes fichiers sur la fenêtre) : les vidéos et photos se placent à la suite, les sons à la tête de lecture.",
+        "Espace = lecture / pause. Clique sur la règle pour te déplacer, ← → pour avancer image par image (Maj = 1 seconde).",
+        "S coupe à la tête de lecture, Suppr supprime, Maj+Suppr supprime en resserrant, Ctrl+D duplique, Ctrl+Z / Ctrl+Y annule / rétablit.",
+        "Glisse un clip pour le déplacer (il s'aimante à la tête de lecture et aux autres clips), tire ses bords pour le rogner, glisse-le vers le haut / bas pour changer de piste.",
+        "Le panneau de droite règle le clip sélectionné : position, taille, rotation, opacité, vitesse, volume, fondus, effets, animations, fond vert, masque. Glisse aussi directement sur l'aperçu pour le déplacer.",
+        "« Exporter la vidéo » en haut à droite : 720p à 4K, 24 à 60 i/s, MP4 (H.264 + AAC) prêt pour TikTok, YouTube et Instagram.",
+    )),
+    Chapter("Éditeur vidéo : effets, sons et montage pro", listOf(
+        "✨ Effets : clique un effet avec un clip sélectionné ; sans sélection il devient un calque d'effets sur tout ce qui est dessous. Réglages en direct à droite.",
+        "⇄ Transitions : sélectionne le clip qui arrive puis choisis la transition, ou « Partout » pour toutes les coupes (cœur, étoile, whip, glitch, zoom…).",
+        "🎬 Animations : entrée, sortie et boucle (zoom lent avant / arrière, panoramique, pulsation…) pour chaque clip.",
+        "🎵 Musique et 💥 Bruitages : sons originaux libres de droits (whoosh, bass drop, ba dum tss, jingles…). ▶ pour écouter avant d'ajouter.",
+        "🎙 Voix : réduire le bruit de fond, voix studio, et 18 effets de voix (hélium, monstre, robot, radio, fantôme…).",
+        "⚡ Outils pro : zoom lent sur tout le montage, transitions et animations automatiques, barre de progression, titre d'accroche, pseudo en filigrane.",
+        "Projet commencé sur le téléphone ? Sur Android : menu du projet > « Exporter le projet (.cuttinx) » avec les médias, puis ici « Importer un projet » (ou glisse le fichier sur la fenêtre) : tu continues le montage sur PC.",
+    )),
+    Chapter("Twitch Editor : démarrer en 3 minutes", listOf(
+        "Ouvre « Twitch Editor » et choisis un thème dans la colonne de gauche (filtre par catégorie : super-héros, geek, anime, mignon, saisons…).",
         "À droite, écris le nom de ta chaîne, ta phrase d'accroche, tes réseaux et ton planning : ils apparaissent sur toutes les scènes.",
         "Clique sur les scènes sous l'aperçu pour les voir : « Le live va commencer », « Je reviens », « Pause », « Fin du live », les cadres de jeu, de discussion, de caméra et de chat, l'alerte de follow.",
         "Clique sur « Exporter le pack OBS complet », choisis un dossier : tout est prêt en quelques secondes.",
@@ -32,7 +50,7 @@ private val chapters = listOf(
         "Alerte : utilise nouveau-follow.png comme image d'alerte dans Streamlabs / StreamElements.",
     )),
     Chapter("Créer ton identité (DA)", listOf(
-        "Ouvre « Identité & DA », écris ton nom de créateur, ta niche, coche 2 ou 3 traits de personnalité et ton public.",
+        "Ouvre « ID Influenceur », écris ton nom de créateur, ta niche, coche 2 ou 3 traits de personnalité et ton public.",
         "Clique « Créer mon identité » : palette, polices, slogans, bios, piliers de contenu, hashtags, ton et idée de logo.",
         "Pas convaincu ? « Autre proposition » génère une variante. Tu peux imposer ta couleur préférée.",
         "« Utiliser pour mes overlays Twitch » applique tes couleurs et ton nom à tous les overlays.",
@@ -43,7 +61,7 @@ private val chapters = listOf(
         "Garde ta caméra du même côté sur toutes les scènes (option « Caméra à droite »).",
         "Le chat doit rester lisible : place la source du chat dans le cadre « Chat », police 18–22 px, fond semi-transparent déjà fourni.",
         "Change de thème selon la saison ou les événements (Halloween, Noël, Saint-Valentin, Nouvel An…) pour créer des rendez-vous.",
-        "Pour le montage de tes clips (TikTok, Shorts, Reels), utilise l'appli Android CUTTINX PRO : mêmes couleurs, mêmes polices.",
+        "Monte tes clips (TikTok, Shorts, Reels) dans l'onglet « Éditeur » ici ou sur l'appli Android : mêmes effets, mêmes polices, mêmes projets.",
     )),
 )
 
@@ -52,7 +70,7 @@ fun GuideScreen() {
     var open by remember { mutableStateOf(0) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 900.dp)) {
         Text("Guide d'utilisation", fontSize = 26.sp, fontWeight = FontWeight.Black)
-        Hint("Tout ce qu'il faut savoir pour créer et installer tes overlays, et construire ton image de créateur.")
+        Hint("Tout pour monter tes vidéos, créer et installer tes overlays Twitch et construire ton image de créateur.")
         Spacer(Modifier.height(12.dp))
         chapters.forEachIndexed { i, ch ->
             Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(Cx.Panel).clickable { open = if (open == i) -1 else i }.padding(16.dp)) {

@@ -53,7 +53,7 @@ fun TwitchStudio(state: AppState) {
         ThemeGallery(state, Modifier.width(330.dp).fillMaxHeight())
         Column(Modifier.weight(1f).fillMaxHeight().padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Twitch Studio", fontSize = 26.sp, fontWeight = FontWeight.Black)
+                Text("Twitch Editor", fontSize = 26.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(12.dp))
                 Text(state.theme.name, color = Color(0xFF3D8BFF), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))

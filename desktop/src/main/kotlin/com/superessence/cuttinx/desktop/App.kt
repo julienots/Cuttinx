@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +47,47 @@ class AppState {
     val raster = SkiaRaster()
     val fonts get() = raster.fonts
     val theme get() = OverlayThemes[config.themeId]
+    /** The PC video editor (created on first use: it starts the preview threads). */
+    private val editorLazy = lazy { com.superessence.cuttinx.desktop.engine.EditorModel() }
+    val editor by editorLazy
+
+    /** Files dropped on the window: media go to the open project, .cuttinx archives are opened. */
+    fun onFilesDropped(files: List<java.io.File>): Boolean {
+        val archive = files.firstOrNull { it.extension.lowercase() == "cuttinx" }
+        if (archive != null) { section = Section.EDITOR; editor.importArchive(archive); return true }
+        if (editor.current == null) { editor.message.value = "Ouvre ou crée un projet avant d'importer des médias"; section = Section.EDITOR; return false }
+        section = Section.EDITOR
+        editor.importFiles(files)
+        return true
+    }
+
+    fun shutdown() { if (editorLazy.isInitialized()) runCatching { editor.saveNow(); editor.player.close() } }
+
+    /** Keyboard shortcuts of the editor (only when no text field is using the key). */
+    fun onKey(e: androidx.compose.ui.input.key.KeyEvent): Boolean {
+        if (section != Section.EDITOR || e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return false
+        val m = editor
+        if (m.current == null) return false
+        val ctrl = e.isCtrlPressed || e.isMetaPressed
+        val fps = m.current?.format?.frameRate ?: 30
+        when {
+            e.key == Key.Spacebar -> m.player.toggle()
+            ctrl && e.key == Key.Z && e.isShiftPressed -> m.redo()
+            ctrl && e.key == Key.Z -> m.undo()
+            ctrl && e.key == Key.Y -> m.redo()
+            ctrl && e.key == Key.D -> m.duplicateSelection()
+            e.key == Key.S && !ctrl -> m.splitAtPlayhead()
+            e.key == Key.Delete || e.key == Key.Backspace -> m.deleteSelection(ripple = e.isShiftPressed)
+            e.key == Key.DirectionLeft -> m.player.seek(m.playhead - (if (e.isShiftPressed) 1_000_000L else 1_000_000L / fps))
+            e.key == Key.DirectionRight -> m.player.seek(m.playhead + (if (e.isShiftPressed) 1_000_000L else 1_000_000L / fps))
+            e.key == Key.Home -> m.player.seek(0)
+            e.key == Key.MoveEnd -> m.player.seek(m.current?.durationUs ?: 0)
+            e.key == Key.M && !ctrl -> m.addMarker()
+            e.key == Key.Escape -> m.select(null)
+            else -> return false
+        }
+        return true
+    }
 
     /** Applies a generated identity to the overlays: palette, theme and channel name. */
     fun useBrand(kit: BrandKit) {
@@ -60,8 +102,7 @@ private val scheme = darkColorScheme(
 )
 
 @Composable
-fun App() {
-    val state = remember { AppState() }
+fun App(state: AppState = remember { AppState() }) {
     MaterialTheme(colorScheme = scheme) {
         Column(Modifier.fillMaxSize().background(Cx.Bg)) {
             // top: logo + the three spaces facing the user + guide

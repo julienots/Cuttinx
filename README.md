@@ -60,18 +60,28 @@ fois, sur demande.
 - **Projets** : autosave, 5 versions de secours, récupération après crash, duplication, archivage,
   export/import `.cuttinx` (avec ou sans médias), détection et remplacement des médias manquants.
 
-## Version PC (Windows) — Twitch Studio + Identité & DA
+## Version PC (Windows) — la même appli que sur Android
 
-Le module `desktop` (Compose Multiplatform, même cœur Kotlin que l'appli Android) fournit :
+Le module `desktop` (Compose Multiplatform, même cœur Kotlin que l'appli Android) reprend les trois
+espaces de l'accueil Android, en onglets en haut de la fenêtre : **Éditeur** · **Twitch Editor** (bleu) ·
+**ID Influenceur** (rose).
 
-- **Twitch Studio** : 31 thèmes originaux (armure high-tech, comics, justicier nocturne, arcade 8-bit,
+- **Éditeur vidéo** : projets enregistrés automatiquement, import (bouton ou glisser-déposer) de vidéos,
+  photos et sons, timeline multipiste (déplacer avec aimantation, rogner, couper, dupliquer, changer de
+  piste, verrouiller / masquer / couper le son), annuler / rétablir, raccourcis clavier ; tous les effets
+  et transitions de l'appli Android (shaders traduits en SkSL), animations d'entrée / sortie / boucle
+  (zoom lent…), textes animés, fond vert, masques, modes de fusion, vitesse, volume / fondus, réducteur de
+  bruit, voix studio et effets de voix, musiques et bruitages intégrés, outils pro en un clic ; aperçu en
+  temps réel synchronisé sur le son ; export MP4 H.264 + AAC (ou WebM) de 720p à 4K via FFmpeg.
+  Les projets `.cuttinx` du téléphone s'ouvrent sur PC.
+- **Twitch Editor** : 31 thèmes originaux (armure high-tech, comics, justicier nocturne, arcade 8-bit,
   synthwave, cyber, anime shōnen, manga, Japon traditionnel, Tokyo, mignon rose, pastel, aesthetic,
   vaporwave, cozy, esport, minimal, fantasy, galaxie, océan, forêt, printemps, été, automne, hiver,
   Halloween, Noël, Saint-Valentin, Nouvel An…) ; scènes animées (le live va commencer avec compte à
   rebours, je reviens, pause, fin), cadres jeu / discussion / écran / caméra / chat, alerte de follow,
   12 transitions stinger (toile d'araignée, tempête de sakura, explosion BD, hexagones, portail…).
   Export d'un **pack OBS** prêt à l'emploi (HTML + PNG animés transparents, guide d'installation).
-- **Identité & DA** : génère l'univers d'un créateur (archétype, palette, polices, slogans, bios
+- **ID Influenceur** : génère l'univers d'un créateur (archétype, palette, polices, slogans, bios
   TikTok / Instagram / YouTube / Twitch, piliers de contenu, hashtags, ton, moodboard, logo), exporte
   une planche PNG et un guide, et applique la palette aux overlays.
 

@@ -43,7 +43,7 @@ fun BrandStudio(state: AppState) {
 
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.width(380.dp).fillMaxHeight().background(Cx.Panel).verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("Identité & DA", fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("ID Influenceur", fontSize = 24.sp, fontWeight = FontWeight.Black)
             Hint("Réponds à quelques questions : CUTTINX crée ta direction artistique (couleurs, polices, ton, bios, idées de contenus) pour avoir une image cohérente sur tous tes réseaux.")
             Title("1. TON NOM DE CRÉATEUR")
             OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("ex. Luna Gaming") })
