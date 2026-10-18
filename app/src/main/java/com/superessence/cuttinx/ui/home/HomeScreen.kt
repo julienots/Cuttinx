@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,6 +64,9 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
     var deleteFor by remember { mutableStateOf<ProjectSummary?>(null) }
     var exportFor by remember { mutableStateOf<ProjectSummary?>(null) }
     var exportWithMedia by remember { mutableStateOf(true) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableStateOf(StudioTab.EDITOR) }
+    val studio: com.superessence.cuttinx.ui.twitch.StudioViewModel = viewModel()
     var quickFormat by remember { mutableStateOf(ProjectFormat.forAspect(settings.defaultAspect, fps = settings.defaultFps)) }
 
     LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it); vm.message.value = null } }
@@ -86,28 +90,34 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
         topBar = {
             TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { CuttinxMark(30.dp); Spacer(Modifier.width(8.dp)); CuttinxWordmark(24.sp); Spacer(Modifier.width(6.dp)); ProBadge() } },
                 actions = {
-                    IconButton(openResources) { Icon(Icons.Outlined.LibraryMusic, "Ressources gratuites") }
-                    IconButton(openHelp) { Icon(Icons.AutoMirrored.Outlined.HelpOutline, "Aide") }
-                    IconButton(openSettings) { Icon(Icons.Outlined.Settings, "Paramètres") }
+                    // one menu instead of a row of icons
+                    Box {
+                        IconButton({ menuOpen = true }) { Icon(Icons.Default.MoreVert, "Menu") }
+                        DropdownMenu(menuOpen, { menuOpen = false }) {
+                            DropdownMenuItem({ Text("Aide & tutoriel") }, { menuOpen = false; openHelp() }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) })
+                            DropdownMenuItem({ Text("Paramètres") }, { menuOpen = false; openSettings() }, leadingIcon = { Icon(Icons.Outlined.Settings, null) })
+                            DropdownMenuItem({ Text("Importer un projet") }, { menuOpen = false; importDoc.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }, leadingIcon = { Icon(Icons.Default.FileOpen, null) })
+                            DropdownMenuItem({ Text("Ressources & licences") }, { menuOpen = false; openResources() }, leadingIcon = { Icon(Icons.Outlined.LibraryMusic, null) })
+                        }
+                    }
                 }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
         }) { pad ->
+        Column(Modifier.padding(pad).fillMaxSize()) {
+        StudioTabs(tab, { tab = it })
+        when (tab) {
+        StudioTab.TWITCH -> com.superessence.cuttinx.ui.twitch.TwitchScreen(studio)
+        StudioTab.ID -> com.superessence.cuttinx.ui.brand.BrandScreen(studio) { tab = StudioTab.TWITCH }
+        StudioTab.EDITOR -> {
         val visible = projects.filter { it.archived == showArchived && (query.isBlank() || it.name.contains(query, true)) }
-        LazyVerticalGrid(GridCells.Adaptive(160.dp), Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyVerticalGrid(GridCells.Adaptive(160.dp), Modifier.fillMaxSize(), contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column {
                     // hero
                     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFF1B1B1F), Color(0xFF3A2E00)))).clickable { showNew = true }.padding(20.dp)) {
                         Column {
-                            Text("STUDIO DE MONTAGE PRO", color = Cx.Yellow, fontSize = 11.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Black)
-                            Text("Nouveau projet", style = MaterialTheme.typography.headlineMedium, color = Color.White)
-                            Text("Pour créateurs et influenceurs : animations d'entrée/sortie/boucle, effets GPU, transitions dynamiques, IA locale, export 4K sans filigrane.", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.height(10.dp))
-                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf("60+ animations", "55+ effets GPU", "27 transitions", "Outils créateur", "4K • 60 i/s").forEach {
-                                    Text(it, color = Color.White, fontSize = 11.sp, modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp))
-                                }
-                            }
-                            Spacer(Modifier.height(14.dp))
+                            Text("Nouveau montage", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Animations, effets, transitions, sons, IA — export 4K sans filigrane.", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
+                            Spacer(Modifier.height(12.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 AccentButton("Créer", { showNew = true }, icon = Icons.Default.Add)
                                 OutlinedButton({ quickPick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, shape = RoundedCornerShape(14.dp)) {
@@ -116,8 +126,6 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
                             }
                         }
                     }
-                    Spacer(Modifier.height(10.dp))
-                    ChoiceChips(listOf(AspectPreset.PORTRAIT_9_16, AspectPreset.LANDSCAPE_16_9, AspectPreset.SQUARE_1_1, AspectPreset.PORTRAIT_4_5), quickFormat.aspect, { "Format ${it.label}" }, { quickFormat = ProjectFormat.forAspect(it, fps = settings.defaultFps) })
                     busy?.let { Spacer(Modifier.height(10.dp)); ProgressCard(it, null) }
                     if (recoveries.isNotEmpty()) {
                         Spacer(Modifier.height(10.dp))
@@ -142,7 +150,6 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         SectionTitle(if (showArchived) "Projets archivés" else "Mes projets (${projects.count { !it.archived }})", Modifier.weight(1f))
-                        TextButton({ importDoc.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }) { Icon(Icons.Default.FileOpen, null, Modifier.size(16.dp)); Text(" Importer") }
                         TextButton({ showArchived = !showArchived }) { Text(if (showArchived) "Actifs" else "Archives") }
                     }
                     if (projects.size > 4) OutlinedTextField(query, { query = it }, placeholder = { Text("Rechercher un projet") }, singleLine = true, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth())
@@ -152,6 +159,9 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
             items(visible, key = { it.id }) { p ->
                 ProjectCard(p, vm.thumbnailFile(p.id), onClick = { openProject(p.id) }, onMenu = { menuFor = p })
             }
+        }
+        }
+        }
         }
     }
 
@@ -243,4 +253,26 @@ fun NewProjectDialog(defaultAspect: AspectPreset, defaultFps: Int, onDismiss: ()
 private fun ProBadge() {
     Text("PRO", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp,
         modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Brush.linearGradient(listOf(Cx.Yellow, Color(0xFFFF8A00)))).padding(horizontal = 6.dp, vertical = 2.dp))
+}
+
+/** The three spaces of CUTTINX PRO, chosen at the top of the home screen. */
+enum class StudioTab(val label: String, val emoji: String, val color: Color) {
+    EDITOR("Éditeur", "🎬", Cx.Yellow),
+    TWITCH("Twitch Editor", "📺", Color(0xFF3D8BFF)),
+    ID("ID Influenceur", "✨", Color(0xFFFF4FA3)),
+}
+
+@Composable
+private fun StudioTabs(selected: StudioTab, onSelect: (StudioTab) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        StudioTab.entries.forEach { t ->
+            val sel = t == selected
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
+                .background(if (sel) Brush.verticalGradient(listOf(t.color, t.color.copy(alpha = 0.75f))) else Brush.verticalGradient(listOf(LocalCx.current.panel2, LocalCx.current.panel2)))
+                .clickable { onSelect(t) }.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(t.emoji, fontSize = 22.sp)
+                Text(t.label, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, color = if (sel) Color.Black else MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
 }

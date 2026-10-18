@@ -22,9 +22,8 @@ import com.superessence.cuttinx.core.brand.*
 import com.superessence.cuttinx.core.overlay.OverlayThemes
 import com.superessence.cuttinx.desktop.AppState
 import com.superessence.cuttinx.desktop.Cx
-import com.superessence.cuttinx.desktop.render.BrandBoard
-import org.jetbrains.skia.EncodedImageFormat
-import org.jetbrains.skia.Surface
+import com.superessence.cuttinx.core.overlay.render.BrandBoard
+import com.superessence.cuttinx.desktop.render.SkiaGfx
 
 /** "Identité & DA": helps creators define a consistent image on social networks. */
 @Composable
@@ -37,7 +36,7 @@ fun BrandStudio(state: AppState) {
     var hue by remember { mutableStateOf(280f) }
     var keywords by remember { mutableStateOf("") }
     var seed by remember { mutableStateOf(0) }
-    val board = remember { BrandBoard(state.renderer.fonts) }
+    val board = remember { BrandBoard() }
     fun generate() {
         state.brandKit = BrandGenerator.generate(BrandBrief(name.ifBlank { "MaChaîne" }, niche, traits, audience, if (useHue) hue.toInt() else -1, keywords), seed)
     }
@@ -74,7 +73,7 @@ fun BrandStudio(state: AppState) {
                 return@Column
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Canvas(Modifier.size(110.dp)) { drawIntoCanvas { board.drawMonogram(it.nativeCanvas, kit, size.width / 2, size.height / 2, size.minDimension) } }
+                Canvas(Modifier.size(110.dp)) { drawIntoCanvas { board.drawMonogram(SkiaGfx(it.nativeCanvas, state.fonts), kit, size.width / 2, size.height / 2, size.minDimension) } }
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text(kit.brief.name, fontSize = 30.sp, fontWeight = FontWeight.Black)
@@ -85,8 +84,8 @@ fun BrandStudio(state: AppState) {
                 Button({ state.useBrand(kit) }) { Text("Utiliser pour mes overlays Twitch (${OverlayThemes[kit.overlayThemeId].name})") }
                 OutlinedButton({
                     val f = chooseFile("Enregistrer la planche d'identité", "identite-${kit.brief.name.lowercase().replace(' ', '-')}.png") ?: return@OutlinedButton
-                    val s = Surface.makeRasterN32Premul(1600, 1000); board.draw(s.canvas, kit)
-                    s.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)?.let { f.writeBytes(it.bytes) }
+                    val fr = state.raster.frame(1600, 1000); board.draw(fr.gfx, kit)
+                    f.writeBytes(fr.png())
                 }) { Text("Planche PNG") }
                 OutlinedButton({
                     val f = chooseFile("Enregistrer le guide d'identité", "identite-${kit.brief.name.lowercase().replace(' ', '-')}.md") ?: return@OutlinedButton
@@ -112,7 +111,7 @@ fun BrandStudio(state: AppState) {
             Title("BIOS PRÊTES À COLLER")
             kit.bios.forEach { (platform, bio) ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(10.dp)).background(Cx.Panel2).clickable { copyToClipboard(bio) }.padding(10.dp)) {
-                    Text(platform, color = Cx.Yellow, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    Text(platform, color = Color(0xFFFF4FA3), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     Text(bio, fontSize = 13.sp)
                 }
             }
@@ -142,7 +141,7 @@ fun BrandStudio(state: AppState) {
 private fun CopyLine(display: String, value: String) {
     Row(Modifier.fillMaxWidth().clickable { copyToClipboard(value) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(display, Modifier.weight(1f), fontSize = 14.sp)
-        Text("Copier", color = Cx.Yellow, fontSize = 11.sp)
+        Text("Copier", color = Color(0xFFFF4FA3), fontSize = 11.sp)
     }
 }
 

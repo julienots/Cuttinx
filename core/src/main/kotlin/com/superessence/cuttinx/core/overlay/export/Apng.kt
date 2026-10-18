@@ -1,4 +1,4 @@
-package com.superessence.cuttinx.desktop.export
+package com.superessence.cuttinx.core.overlay.export
 
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream

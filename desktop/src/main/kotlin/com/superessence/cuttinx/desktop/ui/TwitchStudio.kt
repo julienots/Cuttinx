@@ -29,9 +29,10 @@ import androidx.compose.ui.unit.sp
 import com.superessence.cuttinx.core.overlay.*
 import com.superessence.cuttinx.desktop.AppState
 import com.superessence.cuttinx.desktop.Cx
-import com.superessence.cuttinx.desktop.export.ObsExporter
-import com.superessence.cuttinx.desktop.export.PackOptions
-import com.superessence.cuttinx.desktop.render.OverlayRenderer
+import com.superessence.cuttinx.core.overlay.export.ObsExporter
+import com.superessence.cuttinx.core.overlay.export.PackOptions
+import com.superessence.cuttinx.core.overlay.render.OverlayRenderer
+import com.superessence.cuttinx.desktop.render.SkiaGfx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,7 +55,7 @@ fun TwitchStudio(state: AppState) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Twitch Studio", fontSize = 26.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(12.dp))
-                Text(state.theme.name, color = Cx.Yellow, fontWeight = FontWeight.Bold)
+                Text(state.theme.name, color = Color(0xFF3D8BFF), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
                 Hint("${state.config.width}×${state.config.height} · fond transparent pour OBS")
             }
@@ -82,7 +83,7 @@ private fun ThemeGallery(state: AppState, modifier: Modifier) {
             val cfg = OverlayConfig(channel = "MaChaîne", width = 480, height = 270, particles = true)
             for (t in OverlayThemes.all) {
                 val s = Surface.makeRasterN32Premul(480, 270)
-                state.renderer.drawScene(s.canvas, t, cfg.copy(themeId = t.id), SceneKind.STARTING, 1.0)
+                state.renderer.drawScene(SkiaGfx(s.canvas, state.fonts), t, cfg.copy(themeId = t.id), SceneKind.STARTING, 1.0)
                 thumbs[t.id] = s.makeImageSnapshot().toComposeImageBitmap()
             }
         }
@@ -97,7 +98,7 @@ private fun ThemeGallery(state: AppState, modifier: Modifier) {
             items(OverlayThemes.all.filter { category == null || it.category == category }, key = { it.id }) { t ->
                 val sel = t.id == state.config.themeId
                 Column(Modifier.clip(RoundedCornerShape(12.dp)).background(Cx.Panel2)
-                    .border(2.dp, if (sel) Cx.Yellow else Color.Transparent, RoundedCornerShape(12.dp))
+                    .border(2.dp, if (sel) Color(0xFF3D8BFF) else Color.Transparent, RoundedCornerShape(12.dp))
                     .clickable { state.config = state.config.copy(themeId = t.id, palette = null) }) {
                     val img = thumbs[t.id]
                     if (img != null) Image(img, t.name, Modifier.fillMaxWidth().aspectRatio(16f / 9f), contentScale = ContentScale.Crop)
@@ -126,17 +127,18 @@ private fun Preview(state: AppState, target: Target, minutes: Int, modifier: Mod
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.aspectRatio(cfg.width / cfg.height.toFloat()).fillMaxSize().clip(RoundedCornerShape(10.dp))) {
             drawIntoCanvas { canvas ->
-                val c = canvas.nativeCanvas
+                val nc = canvas.nativeCanvas
+                val c = SkiaGfx(nc, state.fonts)
                 c.save()
                 c.scale(size.width / cfg.width, size.height / cfg.height)
                 // checkerboard = transparent areas (where OBS shows your game / camera)
                 val transparent = when (target) { is Target.Stinger -> true; is Target.Scene -> !target.kind.fullBackground }
                 if (transparent) {
                     val sq = 40f
-                    val a = org.jetbrains.skia.Paint().apply { color = 0xFF2A2C33.toInt() }
-                    val b = org.jetbrains.skia.Paint().apply { color = 0xFF33363E.toInt() }
+                    val a = com.superessence.cuttinx.core.gfx.fill(0xFF2A2C33.toInt())
+                    val b = com.superessence.cuttinx.core.gfx.fill(0xFF33363E.toInt())
                     var y = 0f; var row = 0
-                    while (y < cfg.height) { var x = 0f; var col = 0; while (x < cfg.width) { c.drawRect(org.jetbrains.skia.Rect.makeXYWH(x, y, sq, sq), if ((row + col) % 2 == 0) a else b); x += sq; col++ }; y += sq; row++ }
+                    while (y < cfg.height) { var x = 0f; var col = 0; while (x < cfg.width) { c.rect(x, y, sq, sq, if ((row + col) % 2 == 0) a else b); x += sq; col++ }; y += sq; row++ }
                 }
                 when (target) {
                     is Target.Scene -> {
@@ -212,21 +214,21 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
             scope.launch(Dispatchers.Default) {
                 runCatching {
                     val c = if (hd) state.config.copy(width = 1920, height = 1080) else state.config.copy(width = 1280, height = 720)
-                    ObsExporter(state.renderer).exportPack(state.theme, c, dir, PackOptions(stingers = stingers, fps = fps, countdownMinutes = minutes)) { p, l -> progress = p; progressLabel = l }
+                    ObsExporter(state.raster, state.renderer).exportPack(state.theme, c, dir, PackOptions(stingers = stingers, fps = fps, countdownMinutes = minutes)) { p, l -> progress = p; progressLabel = l }
                 }.onSuccess { lastExport = it; progress = null }.onFailure { error = "Export impossible : ${it.message}"; progress = null }
             }
         }, Modifier.fillMaxWidth(), enabled = progress == null) { Text("Exporter le pack OBS complet") }
         OutlinedButton({
             val s = (target as? Target.Scene)?.kind ?: SceneKind.GAMEPLAY
-            val file = chooseFile("Enregistrer l'image", "${ObsExporter().slug(s.label)}.png") ?: return@OutlinedButton
+            val file = chooseFile("Enregistrer l'image", "${ObsExporter(state.raster).slug(s.label)}.png") ?: return@OutlinedButton
             scope.launch(Dispatchers.Default) {
-                runCatching { file.writeBytes(ObsExporter(state.renderer).renderPng(state.config) { c -> state.renderer.drawScene(c, state.theme, state.config, s, 0.0) }) }
+                runCatching { file.writeBytes(ObsExporter(state.raster, state.renderer).renderPng(state.config) { c -> state.renderer.drawScene(c, state.theme, state.config, s, 0.0) }) }
                     .onSuccess { lastExport = file.parentFile }.onFailure { error = it.message }
             }
         }, Modifier.fillMaxWidth()) { Text("Exporter cette scène en PNG") }
         progress?.let {
             Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = Cx.Yellow)
+            LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = Color(0xFF3D8BFF))
             Hint(progressLabel)
         }
         error?.let { Text(it, color = Color(0xFFFF6B6B), fontSize = 12.sp) }

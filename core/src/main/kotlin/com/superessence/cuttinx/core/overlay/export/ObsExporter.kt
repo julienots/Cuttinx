@@ -1,9 +1,10 @@
-package com.superessence.cuttinx.desktop.export
+package com.superessence.cuttinx.core.overlay.export
 
 import com.superessence.cuttinx.core.overlay.*
-import com.superessence.cuttinx.desktop.render.OverlayRenderer
-import org.jetbrains.skia.EncodedImageFormat
-import org.jetbrains.skia.Surface
+import com.superessence.cuttinx.core.gfx.FontId
+import com.superessence.cuttinx.core.gfx.Gfx
+import com.superessence.cuttinx.core.gfx.Raster
+import com.superessence.cuttinx.core.overlay.render.OverlayRenderer
 import java.io.File
 
 /** What to include in an OBS pack. */
@@ -24,27 +25,26 @@ data class PackOptions(
  *  - the follow alert and stinger transitions as transparent animated PNG,
  *  - a French step-by-step guide (LISEZ-MOI.txt).
  */
-class ObsExporter(private val renderer: OverlayRenderer = OverlayRenderer()) {
+class ObsExporter(private val raster: Raster, private val renderer: OverlayRenderer = OverlayRenderer()) {
 
-    fun renderPng(cfg: OverlayConfig, draw: (org.jetbrains.skia.Canvas) -> Unit): ByteArray {
-        val s = Surface.makeRasterN32Premul(cfg.width, cfg.height)
-        s.canvas.clear(0)
-        draw(s.canvas)
-        val data = s.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG) ?: error("Encodage PNG impossible")
-        return data.bytes
+    fun renderPng(cfg: OverlayConfig, draw: (Gfx) -> Unit): ByteArray {
+        val f = raster.frame(cfg.width, cfg.height)
+        f.gfx.clear(0)
+        draw(f.gfx)
+        return f.png()
     }
 
     /** Renders [seconds] of animation into an APNG file. */
-    fun renderApng(cfg: OverlayConfig, file: File, seconds: Double, fps: Int, onFrame: (Int, Int) -> Unit = { _, _ -> }, draw: (org.jetbrains.skia.Canvas, Double) -> Unit) {
+    fun renderApng(cfg: OverlayConfig, file: File, seconds: Double, fps: Int, onFrame: (Int, Int) -> Unit = { _, _ -> }, draw: (Gfx, Double) -> Unit) {
         val n = OverlayAnim.frameCount(seconds, fps)
-        val s = Surface.makeRasterN32Premul(cfg.width, cfg.height)
+        val f = raster.frame(cfg.width, cfg.height)
         file.parentFile?.mkdirs()
         file.outputStream().buffered().use { out ->
             val w = ApngWriter(out, n, fps)
             for (i in 0 until n) {
-                s.canvas.clear(0)
-                draw(s.canvas, i.toDouble() / fps)
-                w.addFrame(s.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)!!.bytes)
+                f.gfx.clear(0)
+                draw(f.gfx, i.toDouble() / fps)
+                w.addFrame(f.png())
                 onFrame(i + 1, n)
             }
             w.finish()
@@ -65,8 +65,9 @@ class ObsExporter(private val renderer: OverlayRenderer = OverlayRenderer()) {
 
         // fonts used by the HTML pages
         val fontDir = File(dir, "polices").also { it.mkdirs() }
-        val fontFile = titleFontFile(theme.font)
-        javaClass.getResourceAsStream("/fonts/$fontFile")?.use { input -> File(fontDir, fontFile).outputStream().use { input.copyTo(it) } }
+        val fontId = FontId.of(theme.font)
+        val fontFile = fontId.file
+        raster.fontBytes(fontId)?.let { File(fontDir, fontFile).writeBytes(it) }
 
         // ------------------------------------------------ layouts
         for ((i, s) in layouts.withIndex()) {
@@ -106,13 +107,6 @@ class ObsExporter(private val renderer: OverlayRenderer = OverlayRenderer()) {
         File(dir, "LISEZ-MOI.txt").writeText(readme(theme, cfg, animated, layouts, stingers))
         progress(1f, "Terminé")
         return dir
-    }
-
-    fun titleFontFile(f: TitleFont) = when (f) {
-        TitleFont.TECH, TitleFont.JAPANESE -> "Righteous_400Regular.ttf"; TitleFont.COMIC -> "Bangers_400Regular.ttf"
-        TitleFont.PIXEL -> "PressStart2P_400Regular.ttf"; TitleFont.IMPACT -> "Anton_400Regular.ttf"; TitleFont.ROUNDED -> "Fredoka_600SemiBold.ttf"
-        TitleFont.ELEGANT -> "PlayfairDisplay_700Bold_Italic.ttf"; TitleFont.SCRIPT -> "Pacifico_400Regular.ttf"
-        TitleFont.BRUSH -> "PermanentMarker_400Regular.ttf"; TitleFont.CONDENSED -> "BebasNeue_400Regular.ttf"
     }
 
     private fun hex(argb: Long) = "#%06X".format(argb and 0xFFFFFF)

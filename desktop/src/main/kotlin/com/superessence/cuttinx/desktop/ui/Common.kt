@@ -21,9 +21,12 @@ import java.awt.datatransfer.StringSelection
 import java.io.File
 import javax.swing.JFileChooser
 
+/** Accent of the current space (yellow editor, blue Twitch, pink identity). */
+val LocalAccent = androidx.compose.runtime.compositionLocalOf { Cx.Yellow }
+
 @Composable
 fun Title(text: String, modifier: Modifier = Modifier) =
-    Text(text, modifier.padding(top = 14.dp, bottom = 6.dp), color = Cx.Yellow, fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp)
+    Text(text, modifier.padding(top = 14.dp, bottom = 6.dp), color = LocalAccent.current, fontWeight = FontWeight.Bold, fontSize = 13.sp, letterSpacing = 1.sp)
 
 @Composable
 fun Hint(text: String) = Text(text, color = Cx.Dim, fontSize = 12.sp, lineHeight = 16.sp)
@@ -38,7 +41,7 @@ fun <T> Chips(options: List<T>, selected: T?, label: (T) -> String, onSelect: (T
 
 @Composable
 fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Text(label, Modifier.clip(RoundedCornerShape(50)).background(if (selected) Cx.Yellow else Cx.Panel2).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp),
+    Text(label, Modifier.clip(RoundedCornerShape(50)).background(if (selected) LocalAccent.current else Cx.Panel2).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp),
         color = if (selected) Color.Black else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
 }
 

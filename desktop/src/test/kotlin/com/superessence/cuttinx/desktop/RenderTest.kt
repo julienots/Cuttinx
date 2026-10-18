@@ -2,11 +2,11 @@ package com.superessence.cuttinx.desktop
 
 import com.superessence.cuttinx.core.brand.*
 import com.superessence.cuttinx.core.overlay.*
-import com.superessence.cuttinx.desktop.export.ObsExporter
-import com.superessence.cuttinx.desktop.export.PackOptions
-import com.superessence.cuttinx.desktop.render.BrandBoard
-import com.superessence.cuttinx.desktop.render.OverlayRenderer
-import org.jetbrains.skia.Surface
+import com.superessence.cuttinx.core.overlay.export.ObsExporter
+import com.superessence.cuttinx.core.overlay.export.PackOptions
+import com.superessence.cuttinx.core.overlay.render.BrandBoard
+import com.superessence.cuttinx.core.overlay.render.OverlayRenderer
+import com.superessence.cuttinx.desktop.render.SkiaRaster
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
@@ -14,15 +14,16 @@ import java.nio.ByteBuffer
 
 class RenderTest {
     private val r = OverlayRenderer()
-    private val ex = ObsExporter(r)
+    private val raster = SkiaRaster()
+    private val ex = ObsExporter(raster, r)
     private val small = OverlayConfig(channel = "Testeur 配信 ♡", width = 480, height = 270)
 
     @Test fun everyThemeSceneAndStingerRenders() {
-        val s = Surface.makeRasterN32Premul(small.width, small.height)
+        val s = raster.frame(small.width, small.height).gfx
         for (t in OverlayThemes.all) {
             val cfg = small.copy(themeId = t.id)
-            for (sc in SceneKind.entries) for (time in listOf(0.0, 1.7)) for (layer in OverlayRenderer.Layer.entries) { s.canvas.clear(0); r.drawScene(s.canvas, t, cfg, sc, time, layer) }
-            for (st in StingerStyle.entries) for (time in listOf(0.2, OverlayAnim.STINGER_COVER_SEC + 0.02, 1.0)) { s.canvas.clear(0); r.drawStinger(s.canvas, t, cfg, st, time) }
+            for (sc in SceneKind.entries) for (time in listOf(0.0, 1.7)) for (layer in OverlayRenderer.Layer.entries) { s.clear(0); r.drawScene(s, t, cfg, sc, time, layer) }
+            for (st in StingerStyle.entries) for (time in listOf(0.2, OverlayAnim.STINGER_COVER_SEC + 0.02, 1.0)) { s.clear(0); r.drawStinger(s, t, cfg, st, time) }
         }
     }
 
@@ -78,8 +79,7 @@ class RenderTest {
 
     @Test fun brandBoardRenders() {
         val kit = BrandGenerator.generate(BrandBrief("Sakura Chan", Niche.ANIME, setOf(Trait.SOFT, Trait.FUN)))
-        val s = Surface.makeRasterN32Premul(1600, 1000)
-        BrandBoard(r.fonts).draw(s.canvas, kit)
+        BrandBoard().draw(raster.frame(1600, 1000).gfx, kit)
         assertEquals("japan", kit.overlayThemeId)
     }
 }
