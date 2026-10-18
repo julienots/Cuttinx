@@ -111,6 +111,31 @@ class CompositionFactoryTest {
         assertTrue(safe.composition.sequences.flatMap { it.editedMediaItems }.none { item -> item.effects.videoEffects.any { it is ShaderEffect } })
     }
 
+    /** Regression: the preview froze after a seek/split because every composition had 2+ video sequences. */
+    @Test fun previewUsesASingleVideoSequence() {
+        var p = project()
+        assertTrue("still overlays and texts fit in one sequence", factory.canUseSingleSequence(p))
+        val main = p.tracks[0].sortedClips()
+        p = TimelineEditor.split(p, main[0].id, 2_000_000).first
+        val built = factory.buildSingle(LiveProject(p), 540, 960, 30)
+        assertFalse(built.multiInput)
+        val video = built.composition.sequences.filter { it.trackTypes.contains(C.TRACK_TYPE_VIDEO) }
+        assertEquals(1, video.size)
+        assertEquals(p.durationUs.toDouble(), seqDuration(video[0].editedMediaItems).toDouble(), 2000.0)
+        assertTrue("split point is a boundary", built.boundariesUs.any { kotlin.math.abs(it - 2_000_000) < 1000 })
+        // the first clip (1920x1080 on a 540x960 canvas, contained) fills the width, centred
+        val first = video[0].editedMediaItems.first()
+        val placement = first.effects.videoEffects.filterIsInstance<androidx.media3.effect.GlMatrixTransformation>().last() // after Presentation
+        assertEquals(androidx.media3.common.util.Size(540, 960), placement.configure(864, 486))
+        val m = placement.getGlMatrixArray(1_000_000)
+        assertEquals(1f, m[0], 1e-3f); assertEquals(0f, m[12], 1e-3f); assertEquals(0f, m[13], 1e-3f)
+        assertEquals(486f * 0.625f / 960f, m[5], 1e-3f)
+        // a video overlay still needs the multi-input path
+        val (p2, ov) = TimelineEditor.addTrack(p, TrackKind.VIDEO)
+        val withPip = TimelineEditor.insertClip(p2, ov.id, TimelineEditor.clipFromAsset(video("c", 2.0), 0))
+        assertFalse(factory.canUseSingleSequence(TimelineEditor.addMedia(withPip, video("c", 2.0))))
+    }
+
     @Test fun liveEditsDoNotRebuild() {
         val p = project()
         val live = LiveProject(p)

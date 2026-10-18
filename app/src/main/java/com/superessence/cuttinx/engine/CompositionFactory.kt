@@ -60,7 +60,13 @@ class LiveProject(initial: Project) {
 /** Resolves project assets to playable URIs. */
 fun interface MediaResolver { fun uri(asset: MediaAsset): Uri? }
 
-data class BuiltComposition(val composition: Composition, val width: Int, val height: Int, val durationUs: Long, val skippedAssets: List<String>)
+/**
+ * @param multiInput true when the composition has several video sequences (needs a multi-input
+ *   video graph); false for the single-sequence preview.
+ * @param boundariesUs item boundaries of the primary video sequence (used to avoid starting playback
+ *   on the very last frame of an item, which freezes Media3 1.11 — androidx/media#3452).
+ */
+data class BuiltComposition(val composition: Composition, val width: Int, val height: Int, val durationUs: Long, val skippedAssets: List<String>, val multiInput: Boolean = true, val boundariesUs: List<Long> = emptyList())
 
 /**
  * Converts a CUTTINX [Project] into a Media3 [Composition].
@@ -118,6 +124,210 @@ class CompositionFactory(private val context: Context, private val resolver: Med
             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
             .build()
         return BuiltComposition(composition, outW, outH, total, skipped.distinct())
+    }
+
+    // ------------------------------------------------------------------ single-sequence preview
+
+    /**
+     * Media3 1.11 cannot seek reliably when a composition has several *video* sequences
+     * (androidx/media#2439, #3058): the preview froze in "loading" after a seek or a split. When the
+     * project allows it, the preview therefore uses ONE video sequence — the main track — and draws
+     * everything else on top of it as GL overlays (texts, subtitles, still images, stickers, colour
+     * clips). Clip placement (position, scale, rotation, opacity, transitions) is applied with a
+     * matrix transformation instead of the compositor. Projects with video overlays (picture in
+     * picture...) keep the multi-sequence path.
+     */
+    fun canUseSingleSequence(p: Project): Boolean {
+        val videoTracks = p.tracks.filter { it.kind == TrackKind.VIDEO }
+        if (videoTracks.isEmpty()) return true
+        return videoTracks.drop(1).filter { !it.hidden }.all { t ->
+            t.clips.filter { it.enabled }.all { c ->
+                val a = p.asset(c.assetId)
+                val still = c.kind == ClipKind.COLOR || a?.type == MediaType.IMAGE || a?.type == MediaType.STICKER
+                still && c.transitionIn == null && c.mask.shape == MaskShape.NONE && !c.chromaKey.enabled && c.transform.crop.isIdentity &&
+                    c.effects.none { fx -> fx.enabled && EffectRegistry[fx.effectId]?.kind == com.superessence.cuttinx.core.effects.EffectKind.VIDEO }
+            }
+        }
+    }
+
+    fun buildSingle(live: LiveProject, outW: Int, outH: Int, fps: Int, gpuEffects: Boolean = true): BuiltComposition {
+        val p = live.project
+        val plan = LanePlanner.plan(p)
+        val total = max(plan.durationUs, 100_000L)
+        val skipped = ArrayList<String>()
+        val main = p.tracks.firstOrNull { it.kind == TrackKind.VIDEO }
+        val mainClips = if (main == null || main.hidden) emptyList() else main.sortedClips().filter { it.enabled }
+        val laneOf = LanePlanner.partition(mainClips).flatMapIndexed { li, l -> l.map { it.id to li } }.toMap()
+        // overlays drawn above the main track: still images of the upper video tracks (bottom first), then texts
+        val images = ImageCache()
+        fun overlays(): List<TextureOverlay> = buildList {
+            for (t in p.tracks.filter { it.kind == TrackKind.VIDEO }.drop(1)) if (!t.hidden) for (c in t.sortedClips().filter { it.enabled }) add(StillClipOverlay(live, c, outW, outH, images))
+            for ((_, clip) in plan.textClips) add(TextClipOverlay(live, clip, outW, outH, typefaceFor(clip)))
+        }
+        val bg = p.format.backgroundColor
+        val wantsAudio = main != null && !main.muted && mainClips.any { c -> c.kind == ClipKind.MEDIA && p.asset(c.assetId)?.hasAudio == true && !c.audio.muted }
+        val types = if (wantsAudio) setOf(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_AUDIO) else setOf(C.TRACK_TYPE_VIDEO)
+        val b = EditedMediaItemSequence.Builder(types)
+        val boundaries = ArrayList<Long>()
+        // empty canvas (gaps, missing media): background colour + overlays
+        fun canvas(dur: Long) {
+            if (dur <= 0) return
+            val fx = ArrayList<Effect>()
+            fx += Presentation.createForWidthAndHeight(outW, outH, Presentation.LAYOUT_STRETCH_TO_FIT)
+            overlays().takeIf { it.isNotEmpty() }?.let { fx += OverlayEffect(ImmutableList.copyOf(it)) }
+            b.addItem(imageItem(colorImage(bg or 0xFF000000), dur, fps, fx))
+        }
+        var cursor = 0L
+        for ((i, c0) in mainClips.withIndex()) {
+            // one sequence cannot overlap: a clip ends where the next one starts (transitions then
+            // reveal the incoming clip over the background in the preview; the export is unchanged)
+            val end = min(c0.endUs, mainClips.getOrNull(i + 1)?.startUs ?: Long.MAX_VALUE)
+            val start = max(c0.startUs, cursor)
+            if (end - start < 10_000) continue
+            if (start > cursor) { boundaries += cursor; canvas(start - cursor); cursor = start }
+            val c = if (end < c0.endUs || start > c0.startUs) truncated(c0, start, end) else c0
+            val extra = ArrayList<Effect>()
+            extra += MatrixPlacement(live, c0.id, c0, mainClips, laneOf, p, outW, outH)
+            extra += canvasShader(live, c0.id, c0, mainClips, laneOf, bg)
+            overlays().takeIf { it.isNotEmpty() }?.let { extra += OverlayEffect(ImmutableList.copyOf(it)) }
+            boundaries += start
+            val item = clipItem(live, c, mainClips, laneOf, outW, outH, fps, wantsAudio, main!!.id, gpuEffects, extra)
+            if (item == null) { skipped += c.assetId ?: c.id; canvas(end - start) } else b.addItem(item)
+            cursor = end
+        }
+        if (total > cursor) { boundaries += cursor; canvas(total - cursor) }
+        val sequences = ArrayList<EditedMediaItemSequence>()
+        sequences += b.build()
+        for (lane in plan.audioLanes) {
+            if (lane.trackMuted) continue
+            audioSequence(live, lane, total, skipped)?.let { sequences += it }
+        }
+        val compEffects = if (gpuEffects) adjustmentEffects(live, plan.adjustmentClips) else ImmutableList.of()
+        val composition = Composition.Builder(sequences)
+            .setEffects(Effects(ImmutableList.of(), compEffects))
+            .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
+            .build()
+        return BuiltComposition(composition, outW, outH, total, skipped.distinct(), multiInput = false, boundariesUs = boundaries.filter { it > 0 }.distinct())
+    }
+
+    /** [c] shown only between timeline times [start, end) (source range shortened accordingly). */
+    private fun truncated(c: Clip, start: Long, end: Long): Clip {
+        if (c.kind != ClipKind.MEDIA || c.sourceDurationUs <= 0) return c.copy(startUs = start, sourceInUs = 0, sourceOutUs = end - start)
+        val srcIn = SpeedMath.timelineToSource(c, start - c.startUs)
+        val srcOut = SpeedMath.timelineToSource(c, end - c.startUs)
+        return c.copy(startUs = start, sourceInUs = srcIn, sourceOutUs = max(srcIn + 1_000, srcOut))
+    }
+
+    /** Places a main-track frame on the output canvas exactly like the multi-input compositor does. */
+    private class MatrixPlacement(
+        private val live: LiveProject, private val id: String, private val base: Clip, private val clips: List<Clip>,
+        private val laneOf: Map<String, Int>, private val p: Project, private val outW: Int, private val outH: Int,
+    ) : androidx.media3.effect.GlMatrixTransformation {
+        private val idx = clips.indexOfFirst { it.id == id }
+        private val iw: Int
+        private val ih: Int
+        private val m = FloatArray(16)
+        init { val sz = itemSizeStatic(p, base, outW, outH); iw = sz.first; ih = sz.second }
+
+        override fun configure(inputWidth: Int, inputHeight: Int): Size = Size(outW, outH)
+
+        override fun getGlMatrixArray(presentationTimeUs: Long): FloatArray {
+            try {
+                val c = live.clip(id) ?: base
+                val rel = (presentationTimeUs - c.startUs).coerceIn(0, c.durationUs)
+                val lt = FrameEvaluator.transform(c, rel)
+                val mod = if (idx >= 0) FrameEvaluator.transitionMod(clips, idx, c.startUs + rel) { laneOf[it.id] ?: 0 } else null
+                val pl = FrameEvaluator.placement(iw, ih, outW, outH, c.transform, lt, mod)
+                val th = Math.toRadians(-pl.rotation); val a = kotlin.math.cos(th); val s = kotlin.math.sin(th)
+                val sx = pl.scaleX; val sy = pl.scaleY
+                val ox = c.transform.anchorX * 2 - 1; val oy = 1 - c.transform.anchorY * 2
+                // same convention as Media3 overlays: centre = anchor point - (unrotated) overlay anchor offset
+                val tx = pl.centerX - outW / 2.0 - iw / 2.0 * sx * ox
+                val ty = outH / 2.0 - pl.centerY - ih / 2.0 * sy * oy
+                java.util.Arrays.fill(m, 0f)
+                m[0] = (a * iw * sx / outW).toFloat(); m[1] = (s * iw * sx / outH).toFloat()
+                m[4] = (-s * ih * sy / outW).toFloat(); m[5] = (a * ih * sy / outH).toFloat()
+                m[10] = 1f; m[12] = (tx * 2 / outW).toFloat(); m[13] = (ty * 2 / outH).toFloat(); m[15] = 1f
+                if (m.any { !it.isFinite() }) identityScaleZero()
+            } catch (t: Throwable) { identityScaleZero() }
+            return m
+        }
+
+        /** Degenerate matrix: nothing visible (the background shows). */
+        private fun identityScaleZero() { java.util.Arrays.fill(m, 0f); m[10] = 1f; m[15] = 1f }
+    }
+
+    /** Composites the placed frame over the project background with the clip opacity (single-sequence preview). */
+    private fun canvasShader(live: LiveProject, id: String, base: Clip, clips: List<Clip>, laneOf: Map<String, Int>, bg: Long): Effect {
+        val idx = clips.indexOfFirst { it.id == id }
+        return ShaderEffect("canvas", CANVAS_GLSL) { pts ->
+            val c = live.clip(id) ?: base
+            val rel = (pts - c.startUs).coerceIn(0, c.durationUs)
+            val lt = FrameEvaluator.transform(c, rel)
+            val mod = if (idx >= 0) FrameEvaluator.transitionMod(clips, idx, c.startUs + rel) { laneOf[it.id] ?: 0 } else null
+            FrameUniforms(FloatArray(16).also {
+                it[0] = ((bg shr 16) and 0xFF) / 255f; it[1] = ((bg shr 8) and 0xFF) / 255f; it[2] = (bg and 0xFF) / 255f
+                it[3] = safeAlpha(lt.opacity * (mod?.alpha ?: 1.0))
+            }, rel / 1e6f)
+        }
+    }
+
+    /** Decoded still images shared by the overlays of one composition. */
+    private inner class ImageCache {
+        private val map = HashMap<String, Bitmap?>()
+        /** Decoded once per clip (a failed decode is remembered too, never retried every frame). */
+        @Synchronized fun get(p: Project, c: Clip, w: Int, h: Int): Bitmap? {
+            if (map.containsKey(c.id)) return map[c.id]
+            val bmp = decode(p, c, w, h)
+            map[c.id] = bmp
+            return bmp
+        }
+        private fun decode(p: Project, c: Clip, w: Int, h: Int): Bitmap? {
+            if (c.kind == ClipKind.COLOR) return Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888).also { it.eraseColor(c.color.toInt()) }
+            val a = p.asset(c.assetId) ?: return null
+            if (a.missing) return null
+            val uri = resolver.uri(a) ?: return null
+            return runCatching { com.superessence.cuttinx.media.Thumbnails.decodeImage(context, uri, max(w, h), a.rotationDegrees) }.getOrNull()
+                ?.let { if (it.config != Bitmap.Config.ARGB_8888) it.copy(Bitmap.Config.ARGB_8888, false) else it }
+        }
+    }
+
+    /** A still image / sticker / colour clip of an upper video track, drawn as an overlay. */
+    private inner class StillClipOverlay(private val live: LiveProject, private val base: Clip, private val outW: Int, private val outH: Int, private val images: ImageCache) : BitmapOverlay() {
+        private val clip: Clip get() = live.clip(base.id) ?: base
+        private val empty = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+        private val size = itemSizeStatic(live.project, base, outW, outH)
+        private fun hidden(): OverlaySettings = StaticOverlaySettings.Builder().setAlphaScale(0f).build()
+        private fun bitmap(): Bitmap = images.get(live.project, base, size.first, size.second) ?: empty
+
+        override fun getBitmap(presentationTimeUs: Long): Bitmap = try { if (clip.contains(presentationTimeUs)) bitmap() else empty } catch (t: Throwable) { empty }
+
+        override fun getOverlaySettings(presentationTimeUs: Long): OverlaySettings = try {
+            val c = clip
+            if (!c.contains(presentationTimeUs)) hidden() else {
+                val bmp = bitmap()
+                val rel = presentationTimeUs - c.startUs
+                val lt = FrameEvaluator.transform(c, rel)
+                val (iw, ih) = size
+                val pl = FrameEvaluator.placement(iw, ih, outW, outH, c.transform, lt)
+                // the bitmap may be smaller than the item size: scale so that it covers the same area
+                val sx = pl.scaleX * iw / bmp.width; val sy = pl.scaleY * ih / bmp.height
+                val alpha = safeAlpha(lt.opacity)
+                val anchors = OverlayAnchors.solve(
+                    pl.centerX / outW * 2 - 1, 1 - pl.centerY / outH * 2,
+                    c.transform.anchorX * 2 - 1, 1 - c.transform.anchorY * 2,
+                    iw.toDouble() / outW * pl.scaleX, ih.toDouble() / outH * pl.scaleY, pl.rotation,
+                )
+                if (alpha <= 0.001f || anchors == null || bmp === empty) hidden()
+                else StaticOverlaySettings.Builder()
+                    .setBackgroundFrameAnchor(anchors.bgX, anchors.bgY)
+                    .setOverlayFrameAnchor(anchors.ovX, anchors.ovY)
+                    .setScale(sx.toFloat(), sy.toFloat())
+                    .setRotationDegrees((-pl.rotation).toFloat())
+                    .setAlphaScale(alpha)
+                    .build()
+            }
+        } catch (t: Throwable) { hidden() }
     }
 
     // ------------------------------------------------------------------ time base & texts
@@ -205,7 +415,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
     /** Size of the frames that a clip delivers to the compositor (deterministic). */
     fun itemSize(p: Project, c: Clip, outW: Int, outH: Int): Pair<Int, Int> = itemSizeStatic(p, c, outW, outH)
 
-    private fun clipItem(live: LiveProject, c: Clip, trackClips: List<Clip>, laneOf: Map<String, Int>, outW: Int, outH: Int, fps: Int, laneHasAudio: Boolean, trackId: String, gpuEffects: Boolean): EditedMediaItem? {
+    private fun clipItem(live: LiveProject, c: Clip, trackClips: List<Clip>, laneOf: Map<String, Int>, outW: Int, outH: Int, fps: Int, laneHasAudio: Boolean, trackId: String, gpuEffects: Boolean, extra: List<Effect> = emptyList()): EditedMediaItem? {
         val p = live.project
         fun lc(): Clip = live.clip(c.id) ?: c
         fun trackVolume() = live.project.track(trackId)?.volume ?: 1.0
@@ -274,6 +484,7 @@ class CompositionFactory(private val context: Context, private val resolver: Med
                 FrameUniforms(arr, rel / 1e6f)
             }
         }
+        effects += extra
         // audio
         val clipHasAudio = !isImage && asset?.hasAudio == true && !c.audio.muted
         if (clipHasAudio) {
@@ -430,6 +641,12 @@ class CompositionFactory(private val context: Context, private val resolver: Med
     }
 
     companion object {
+        /** Background mix + opacity of the single-sequence preview (uP = bg r, g, b, alpha). */
+        private const val CANVAS_GLSL = """
+            vec4 c = tex(uv);
+            return vec4(mix(vec3(uP[0], uP[1], uP[2]), c.rgb, clamp(c.a * uP[3], 0.0, 1.0)), 1.0);
+            """
+
         /** Opacity accepted by Media3 (NaN or negative values throw in StaticOverlaySettings). */
         fun safeAlpha(v: Double): Float = if (v.isNaN()) 0f else v.toFloat().coerceIn(0f, 1f)
 

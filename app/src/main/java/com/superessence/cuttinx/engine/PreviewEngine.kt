@@ -102,10 +102,19 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
         rebuild(StructureKey.of(live.project, w, h, live.project.format.frameRate), resume)
     }
 
-    private fun newPlayer(): CompositionPlayer {
-        val p = CompositionPlayer.Builder(context)
-            .setVideoGraphFactory(MultipleInputVideoGraph.Factory())
-            .build()
+    /** Item boundaries of the current primary video sequence. */
+    private var boundariesUs: List<Long> = emptyList()
+
+    /**
+     * @param multiInput only projects with video overlays need the multi-input graph (whose seeks
+     *   are not reliable in Media3 1.11); every other project gets the default single-input graph.
+     */
+    private fun newPlayer(multiInput: Boolean): CompositionPlayer {
+        val builder = CompositionPlayer.Builder(context)
+            // maintainers' recommended fix for freezes near item boundaries (androidx/media#3453)
+            .setPerStreamMediaProgressionEnabled(true)
+        if (multiInput) builder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
+        val p = builder.build()
         p.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
                 if (player !== p) return
@@ -129,23 +138,23 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
         return p
     }
 
-    private fun ensurePlayer(): CompositionPlayer {
+    private fun ensurePlayer(multiInput: Boolean = false): CompositionPlayer {
         player?.let { return it }
-        val p = newPlayer()
+        val p = newPlayer(multiInput)
         player = p
         if (!tickerRunning) { tickerRunning = true; main.post(ticker) }
         return p
     }
 
     /** Releases the current player (freeing its hardware decoders) and creates a fresh one. */
-    private fun recreatePlayer(): CompositionPlayer {
+    private fun recreatePlayer(multiInput: Boolean): CompositionPlayer {
         player?.let { old ->
             surface?.let { old.clearVideoSurfaceView(it) }
             runCatching { old.release() }
         }
         player = null
         seeking = false; pendingSeekMs = null; bufferingSinceMs = 0
-        return ensurePlayer()
+        return ensurePlayer(multiInput)
     }
 
     /** A seek finished: apply the most recent target requested meanwhile. */
@@ -238,12 +247,14 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
         val pos = (oldPosMs * 1000).coerceIn(0, max(0, p.durationUs - 1000))
         val (w, h) = previewSize(p)
         try {
-            val built = factory.build(live, w, h, p.format.frameRate, preview = true, gpuEffects = !safeMode)
+            val built = if (factory.canUseSingleSequence(p)) factory.buildSingle(live, w, h, p.format.frameRate, gpuEffects = !safeMode)
+                else factory.build(live, w, h, p.format.frameRate, preview = true, gpuEffects = !safeMode)
             structure = key
+            boundariesUs = built.boundariesUs
             // A fresh player per structure: reusing one across setComposition() calls could stay
             // stuck in buffering with heavy sources (decoders not released in time).
-            val pl = recreatePlayer()
-            pl.setComposition(built.composition, pos / 1000)
+            val pl = recreatePlayer(built.multiInput)
+            pl.setComposition(built.composition, (if (wasPlaying) safeStart(pos) else pos) / 1000)
             pl.prepare()
             pl.playWhenReady = wasPlaying
             _state.value = _state.value.copy(durationUs = built.durationUs, error = null, skippedAssets = built.skippedAssets, renderWidth = w, renderHeight = h)
@@ -264,10 +275,22 @@ class PreviewEngine(private val context: Context, private val factory: Compositi
             return
         }
         if (p.playbackState == Player.STATE_ENDED) p.seekTo(0)
+        else {
+            val pos = (pendingSeekMs ?: p.currentPosition) * 1000
+            val start = safeStart(pos)
+            if (start != pos) { pendingSeekMs = null; seeking = true; p.seekTo(start / 1000) }
+        }
         p.play()
     }
     fun pause() { player?.pause() }
     fun toggle() { if (player?.isPlaying == true) pause() else play() }
+    /**
+     * Media3 1.11 freezes for good when playback starts on the last frames of an item
+     * (androidx/media#3452) — typically right after a split, the playhead sitting on the cut.
+     * Starting exactly on the next boundary avoids it (a jump of at most a few frames).
+     */
+    private fun safeStart(posUs: Long): Long = boundariesUs.firstOrNull { it > posUs && it - posUs <= 120_000 } ?: posUs
+
     /**
      * Seeks are coalesced: while one is being decoded, only the latest requested position is
      * kept. Scrubbing the timeline therefore never queues dozens of 4K decodes.
