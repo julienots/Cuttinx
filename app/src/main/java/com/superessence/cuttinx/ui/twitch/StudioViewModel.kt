@@ -93,6 +93,22 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         }.onSuccess { message.value = "Image enregistrée ✅" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
     }
 
+    /** Saves one Twitch profile panel (640×200, i.e. 320×100 for high-density screens). */
+    fun exportPanel(target: Uri, label: String) = saveImage(target, 640, 200) { g -> g.scale(2f, 2f); renderer.drawPanel(g, theme, config.value, label) }
+
+    /** Saves the Twitch profile banner (1200×480). */
+    fun exportBanner(target: Uri) = saveImage(target, 1200, 480) { g -> renderer.drawBanner(g, theme, config.value) }
+
+    private fun saveImage(target: Uri, w: Int, h: Int, draw: (com.superessence.cuttinx.core.gfx.Gfx) -> Unit) = viewModelScope.launch(Dispatchers.Default) {
+        runCatching {
+            val fr = raster.frame(w, h); fr.gfx.clear(0); draw(fr.gfx)
+            getApplication<Application>().contentResolver.openOutputStream(target)!!.use { it.write(fr.png()) }
+        }.onSuccess { message.value = "Image enregistrée ✅" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
+    }
+
+    /** Resets the style overrides (font, frame, motifs, badge, colours) to the theme's. */
+    fun resetStyle() = update { it.copy(font = null, frame = null, motifs = null, badge = null, palette = null, textScale = 1f, cameraShape = CameraShape.THEME) }
+
     /** Saves the identity board (palette, logo, fonts, slogans) as a PNG. */
     fun exportBoard(target: Uri) = viewModelScope.launch(Dispatchers.Default) {
         val k = brandKit.value ?: return@launch

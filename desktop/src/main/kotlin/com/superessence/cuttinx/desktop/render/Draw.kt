@@ -4,6 +4,7 @@ import com.superessence.cuttinx.core.gfx.FontId
 import com.superessence.cuttinx.core.gfx.Frame
 import com.superessence.cuttinx.core.gfx.Raster
 import org.jetbrains.skia.*
+import org.jetbrains.skia.shaper.Shaper
 import com.superessence.cuttinx.core.gfx.Gfx as CxGfx
 import com.superessence.cuttinx.core.gfx.Paint as CxPaint
 import com.superessence.cuttinx.core.gfx.Path as CxPath
@@ -18,6 +19,16 @@ class Fonts {
 
     fun typeface(f: FontId): Typeface = cache.getOrPut(f) {
         bytes(f)?.let { FontMgr.default.makeFromData(Data.makeFromBytes(it)) } ?: FontMgr.default.matchFamilyStyle(null, FontStyle.BOLD) ?: Typeface.makeEmpty()
+    }
+
+    private val shaper by lazy { Shaper.makeShapeDontWrapOrReorder() }
+    private val lines = object : LinkedHashMap<Triple<String, Typeface, Float>, TextLine>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Triple<String, Typeface, Float>, TextLine>?) = size > 4000
+    }
+
+    /** Shaped line, cached: shaping (HarfBuzz) is by far the most expensive part of drawing text. */
+    @Synchronized fun line(text: String, font: Font): TextLine = lines.getOrPut(Triple(text, font.typeface!!, font.size)) {
+        shaper.shapeLine(text, font)
     }
 
     /** Typeface able to draw [cp] (system font lookup, cached). */
@@ -91,10 +102,10 @@ class SkiaGfx(var canvas: Canvas, private val fonts: Fonts) : CxGfx {
 
     override fun text(text: String, x: Float, y: Float, font: FontId, size: Float, p: CxPaint) {
         val pt = paint(p); var cx = x
-        for (r in runs(text, font, size)) { val l = TextLine.make(r.text, r.font); canvas.drawTextLine(l, cx, y, pt); cx += l.width }
+        for (r in runs(text, font, size)) { val l = fonts.line(r.text, r.font); canvas.drawTextLine(l, cx, y, pt); cx += l.width }
     }
 
-    override fun textWidth(text: String, font: FontId, size: Float): Float = runs(text, font, size).sumOf { TextLine.make(it.text, it.font).width.toDouble() }.toFloat()
+    override fun textWidth(text: String, font: FontId, size: Float): Float = runs(text, font, size).sumOf { fonts.line(it.text, it.font).width.toDouble() }.toFloat()
 
     override fun metrics(font: FontId, size: Float): Pair<Float, Float> { val m = Font(fonts.typeface(font), size).metrics; return m.ascent to m.descent }
 }

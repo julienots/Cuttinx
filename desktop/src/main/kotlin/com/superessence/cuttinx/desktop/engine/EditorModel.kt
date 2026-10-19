@@ -4,6 +4,7 @@ import com.superessence.cuttinx.core.autoedit.ProTools
 import com.superessence.cuttinx.core.effects.EffectRegistry
 import com.superessence.cuttinx.core.effects.TransitionRegistry
 import com.superessence.cuttinx.core.model.*
+import com.superessence.cuttinx.core.render.FrameEvaluator
 import com.superessence.cuttinx.core.project.ProjectArchive
 import com.superessence.cuttinx.core.project.ProjectStore
 import com.superessence.cuttinx.core.resources.Synth
@@ -154,6 +155,47 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
     fun updateClip(label: String, key: String? = null, f: (Clip) -> Clip) {
         val id = selection.value.firstOrNull() ?: return
         edit(label, key) { TimelineEditor.updateClip(it, id, f) }
+    }
+
+    // ------------------------------------------------------------------ keyframes
+
+    private val quickProps = listOf(Prop.POS_X, Prop.POS_Y, Prop.SCALE, Prop.ROTATION, Prop.OPACITY)
+
+    fun anyKeyframeAtPlayhead(): Boolean {
+        val c = selectedClip ?: return false
+        val rel = playhead - c.startUs
+        return c.keyframes.values.any { k -> k.keyframes.any { kotlin.math.abs(it.timeUs - rel) < 30_000 } }
+    }
+
+    /** ◇+ button: keyframes position, scale, rotation and opacity at the playhead, or removes them. */
+    fun toggleQuickKeyframe() {
+        val c = selectedClip ?: run { message.value = "Sélectionne d'abord un clip"; return }
+        if (playhead < c.startUs || playhead > c.endUs) { message.value = "Place la tête de lecture sur le clip sélectionné"; return }
+        val rel = (playhead - c.startUs).coerceIn(0, c.durationUs)
+        if (anyKeyframeAtPlayhead()) {
+            edit("Supprimer l'image clé") { p -> TimelineEditor.updateClip(p, c.id) { cl -> cl.copy(keyframes = cl.keyframes.mapValues { (_, k) -> KeyframeTrack(k.keyframes.filterNot { kotlin.math.abs(it.timeUs - rel) < 30_000 }) }.filterValues { it.keyframes.isNotEmpty() }) } }
+            return
+        }
+        val t = FrameEvaluator.transform(c, rel, withMotion = false)
+        val values = mapOf(Prop.POS_X to t.posX, Prop.POS_Y to t.posY, Prop.ROTATION to t.rotation, Prop.OPACITY to t.opacity,
+            Prop.SCALE to com.superessence.cuttinx.core.anim.KeyframeEvaluator.evaluate(c.keyframes[Prop.SCALE], rel, 1.0))
+        if (edit("Image clé") { p -> quickProps.fold(p) { acc, prop -> TimelineEditor.setKeyframe(acc, c.id, prop, rel, values[prop] ?: 0.0) } })
+            message.value = "Image clé ajoutée ◆ — avance la tête de lecture puis bouge / zoome le clip"
+    }
+
+    /** Sets a property: writes a keyframe at the playhead when the property is animated, otherwise the base value. */
+    fun setAnimated(prop: String, value: Double, base: (Clip, Double) -> Clip) {
+        val c = selectedClip ?: return
+        val rel = (playhead - c.startUs).coerceIn(0, c.durationUs)
+        val track = c.keyframes[prop]
+        if (track != null && track.keyframes.isNotEmpty()) edit("Image clé", "kf_${c.id}_$prop") { TimelineEditor.setKeyframe(it, c.id, prop, rel, value) }
+        else updateClip(prop, "prop_${c.id}_$prop") { base(it, value) }
+    }
+
+    /** Current (keyframed) value of a property of the selected clip at the playhead. */
+    fun valueAt(prop: String, fallback: Double): Double {
+        val c = selectedClip ?: return fallback
+        return com.superessence.cuttinx.core.anim.KeyframeEvaluator.evaluate(c.keyframes[prop], (playhead - c.startUs).coerceIn(0, c.durationUs), fallback)
     }
 
     // ------------------------------------------------------------------ timeline commands

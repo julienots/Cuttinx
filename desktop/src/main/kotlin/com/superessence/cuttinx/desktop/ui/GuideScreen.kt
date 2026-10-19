@@ -66,9 +66,16 @@ private val chapters = listOf(
 )
 
 @Composable
-fun GuideScreen() {
+fun GuideScreen(state: com.superessence.cuttinx.desktop.AppState) {
     var open by remember { mutableStateOf(0) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 900.dp)) {
+    var film by remember { mutableStateOf<com.superessence.cuttinx.core.tutorial.Film?>(null) }
+    film?.let { f -> FilmPlayer(state, f) { film = null }; return }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
+        Text("Tutos vidéo", fontSize = 26.sp, fontWeight = FontWeight.Black)
+        Hint("Des petits films qui montrent chaque outil en vrai, étape par étape (éditeur, Twitch, identité).")
+        Spacer(Modifier.height(12.dp))
+        FilmGrid(state) { film = it }
+        Spacer(Modifier.height(24.dp))
         Text("Guide d'utilisation", fontSize = 26.sp, fontWeight = FontWeight.Black)
         Hint("Tout pour monter tes vidéos, créer et installer tes overlays Twitch et construire ton image de créateur.")
         Spacer(Modifier.height(12.dp))

@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -220,6 +221,12 @@ private fun ClipBox(m: EditorModel, p: Project, t: Track, tracks: List<Track>, c
                 if (p.asset(c.assetId)?.missing == true) add("⚠ média introuvable")
             }
             if (badges.isNotEmpty()) Text(badges.joinToString(" "), color = Color.White.copy(alpha = 0.85f), fontSize = 10.sp, maxLines = 1)
+        }
+        // keyframes (diamonds), click = jump there
+        c.keyframes.filterKeys { !it.startsWith("fx:") }.values.flatMap { k -> k.keyframes.map { it.timeUs } }.distinct().forEach { kt ->
+            val kx = (kt / 1e6 * pps).toFloat() - trimL
+            Box(Modifier.align(Alignment.BottomStart).offset(x = (kx - 5f).dp, y = (-4).dp).size(10.dp).graphicsLayer { rotationZ = 45f }
+                .background(LocalAccent.current).border(1.dp, Color.Black).clickable { m.select(c.id); m.player.seek(c.startUs + kt) })
         }
         c.transitionIn?.let { tr ->
             Box(Modifier.align(Alignment.CenterStart).width((tr.durationUs / 1e6 * pps).toFloat().coerceAtLeast(6f).dp).fillMaxHeight().background(Color.White.copy(alpha = 0.22f)))

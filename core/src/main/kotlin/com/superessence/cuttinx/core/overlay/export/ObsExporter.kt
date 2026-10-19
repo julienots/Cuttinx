@@ -15,6 +15,8 @@ data class PackOptions(
     val fps: Int = 24,
     /** Countdown of the "starting" scene in minutes (HTML version). */
     val countdownMinutes: Int = 5,
+    /** Twitch profile panels and banners (profile + offline). */
+    val profile: Boolean = true,
 )
 
 /**
@@ -54,12 +56,14 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
     fun slug(s: String) = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "scene" }
 
     /** Exports the whole pack into [root]/CuttinxPRO_<chaîne>_<thème>. Returns the folder. */
-    fun exportPack(theme: OverlayTheme, cfg: OverlayConfig, root: File, opt: PackOptions = PackOptions(), progress: (Float, String) -> Unit = { _, _ -> }): File {
+    fun exportPack(theme0: OverlayTheme, cfg: OverlayConfig, root: File, opt: PackOptions = PackOptions(), progress: (Float, String) -> Unit = { _, _ -> }): File {
+        val theme = cfg.styled(theme0)
         val dir = File(root, "CuttinxPRO_${slug(cfg.channel)}_${theme.id}").also { it.mkdirs() }
         val animated = opt.scenes.filter { it.fullBackground }
-        val layouts = opt.scenes.filter { !it.fullBackground && it != SceneKind.ALERT }
+        val layouts = opt.scenes.filter { !it.fullBackground && !it.isAlert }
+        val alerts = opt.scenes.filter { it.isAlert }
         val stingers = (opt.stingers + theme.stinger).toList()
-        val steps = (animated.size * 2 + layouts.size + (if (SceneKind.ALERT in opt.scenes) 1 else 0) + stingers.size).coerceAtLeast(1).toFloat()
+        val steps = (animated.size * 2 + layouts.size + alerts.size + stingers.size + (if (opt.profile) 1 else 0)).coerceAtLeast(1).toFloat()
         var done = 0f
         fun step(label: String) { progress(done / steps, label) }
 
@@ -90,11 +94,26 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
             File(sd, "scene.html").writeText(sceneHtml(theme, cfg, s, fontFile, opt.countdownMinutes))
             done++
         }
-        // ------------------------------------------------ alert
-        if (SceneKind.ALERT in opt.scenes) {
-            renderApng(cfg, File(dir, "alertes/nouveau-follow.png"), OverlayAnim.LOOP_SEC, opt.fps, { a, b -> progress((done + a / b.toFloat()) / steps, "Alerte follow ($a/$b)") }) { c, t ->
-                renderer.drawAlert(c, theme, cfg, t)
+        // ------------------------------------------------ alerts
+        for (al in alerts) {
+            renderApng(cfg, File(dir, "alertes/${alertFile(al)}.png"), OverlayAnim.LOOP_SEC, opt.fps, { a, b -> progress((done + a / b.toFloat()) / steps, "${al.label} ($a/$b)") }) { c, t ->
+                renderer.drawAlert(c, theme, cfg, t, al)
             }
+            done++
+        }
+        // ------------------------------------------------ Twitch profile: panels + banners
+        if (opt.profile) {
+            step("Panneaux et bannières Twitch")
+            cfg.panels.filter { it.isNotBlank() }.forEachIndexed { i, label ->
+                val f = raster.frame(640, 200)
+                f.gfx.clear(0); f.gfx.scale(2f, 2f)
+                renderer.drawPanel(f.gfx, theme, cfg, label)
+                File(dir, "twitch-profil/panneaux/${"%02d".format(i + 1)}_${slug(label)}.png").also { it.parentFile.mkdirs() }.writeBytes(f.png())
+            }
+            val b = raster.frame(1200, 480); b.gfx.clear(0); renderer.drawBanner(b.gfx, theme, cfg)
+            File(dir, "twitch-profil/banniere-profil.png").writeBytes(b.png())
+            val off = cfg.copy(width = 1920, height = 1080)
+            File(dir, "twitch-profil/banniere-hors-ligne.png").writeBytes(renderPng(off) { c -> renderer.drawScene(c, theme, off, SceneKind.OFFLINE, 0.0) })
             done++
         }
         // ------------------------------------------------ stingers
@@ -104,9 +123,13 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
             }
             done++
         }
-        File(dir, "LISEZ-MOI.txt").writeText(readme(theme, cfg, animated, layouts, stingers))
+        File(dir, "LISEZ-MOI.txt").writeText(readme(theme, cfg, animated, layouts, stingers, alerts, opt.profile))
         progress(1f, "Terminé")
         return dir
+    }
+
+    private fun alertFile(s: SceneKind) = when (s) {
+        SceneKind.ALERT_SUB -> "nouvel-abonne"; SceneKind.ALERT_RAID -> "raid"; SceneKind.ALERT_DONATION -> "don"; else -> "nouveau-follow"
     }
 
     private fun hex(argb: Long) = "#%06X".format(argb and 0xFFFFFF)
@@ -147,7 +170,7 @@ tick(); setInterval(tick, 250);
 """
     }
 
-    private fun readme(theme: OverlayTheme, cfg: OverlayConfig, scenes: List<SceneKind>, layouts: List<SceneKind>, stingers: List<StingerStyle>) = """
+    private fun readme(theme: OverlayTheme, cfg: OverlayConfig, scenes: List<SceneKind>, layouts: List<SceneKind>, stingers: List<StingerStyle>, alerts: List<SceneKind>, profile: Boolean) = """
 CUTTINX PRO — Pack d'overlays « ${theme.name} » pour ${cfg.channel}
 =====================================================================
 
@@ -168,16 +191,24 @@ Tout est en ${cfg.width}×${cfg.height}, fond transparent. Réglez OBS sur la m�
    l'image (dans la liste des sources, l'overlay doit être au-dessus). Les zones transparentes
    indiquent où mettre l'écran, la caméra et le chat.
 
-3. ALERTE (dossier « alertes »)
-   nouveau-follow.png est une animation transparente : utilisez-la comme image d'alerte dans
-   votre outil d'alertes (Streamlabs, StreamElements…), ou en « Source média » dans OBS.
+3. ALERTES (dossier « alertes »)
+   ${alerts.joinToString("\n   ") { "• " + it.label + " : " + alertFile(it) + ".png" }}
+   Animations transparentes : utilisez-les comme images d'alerte dans votre outil d'alertes
+   (Streamlabs, StreamElements…), ou en « Source média » dans OBS. Le pseudo affiché est un
+   exemple : votre outil d'alertes écrit le vrai pseudo par-dessus.
 
 4. TRANSITIONS (dossier « transitions »)
    ${stingers.joinToString("\n   ") { "• " + it.label }}
    Transitions de scène (en bas à droite) > + > « Stinger » > Fichier vidéo : le PNG animé.
    Point de transition : ${(OverlayAnim.STINGER_COVER_SEC * 1000).toInt()} ms (c'est l'instant où l'écran est entièrement couvert).
 
-Astuce : gardez le même thème partout (scènes, cadres, transitions, miniatures) — c'est ce qui
+${if (profile) """5. PROFIL TWITCH (dossier « twitch-profil »)
+   • Panneaux : Tableau de bord Twitch > Paramètres > Chaîne > « À propos » > Ajouter un panneau >
+     image du dossier « panneaux » (320×100, fournis en 640×200 pour les écrans haute définition).
+   • banniere-profil.png : Paramètres > Profil > Bannière de profil (1200×480).
+   • banniere-hors-ligne.png : Paramètres > Chaîne > Bannière vidéo (affichée quand vous êtes hors ligne).
+
+""" else ""}Astuce : gardez le même thème partout (scènes, cadres, transitions, miniatures) — c'est ce qui
 rend une chaîne reconnaissable.
 """.trimStart()
 }

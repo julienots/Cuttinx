@@ -99,11 +99,20 @@ private fun TransformPanel(m: EditorModel, c: Clip) {
     val t = c.transform
     val id = c.id
     Title("POSITION & TAILLE")
-    Prop("Position horizontale", t.posX.toFloat(), -0.5f..1.5f, { "%.0f %%".format(it * 100) }, 0.5f) { v -> m.updateClip("Position", "px_$id") { it.copy(transform = it.transform.copy(posX = v.toDouble())) } }
-    Prop("Position verticale", t.posY.toFloat(), -0.5f..1.5f, { "%.0f %%".format(it * 100) }, 0.5f) { v -> m.updateClip("Position", "py_$id") { it.copy(transform = it.transform.copy(posY = v.toDouble())) } }
-    Prop("Échelle", t.scaleX.toFloat(), 0.05f..4f, { "%.0f %%".format(it * 100) }, 1f) { v -> m.updateClip("Échelle", "sc_$id") { it.copy(transform = it.transform.copy(scaleX = v.toDouble(), scaleY = v.toDouble())) } }
-    Prop("Rotation", t.rotation.toFloat(), -180f..180f, { "%.0f°".format(it) }, 0f) { v -> m.updateClip("Rotation", "rot_$id") { it.copy(transform = it.transform.copy(rotation = v.toDouble())) } }
-    Prop("Opacité", t.opacity.toFloat(), 0f..1f, { "%.0f %%".format(it * 100) }, 1f) { v -> m.updateClip("Opacité", "op_$id") { it.copy(transform = it.transform.copy(opacity = v.toDouble())) } }
+    // values at the playhead: when a property has keyframes, moving the slider edits / adds the keyframe there
+    m.player.position.collectAsState().value
+    val animated = c.keyframes.isNotEmpty()
+    if (animated) Hint("◆ Clip animé : les réglages créent des images clés à la tête de lecture.")
+    Prop("Position horizontale", m.valueAt(Prop.POS_X, t.posX).toFloat(), -0.5f..1.5f, { "%.0f %%".format(it * 100) }, 0.5f) { v -> m.setAnimated(Prop.POS_X, v.toDouble()) { cl, x -> cl.copy(transform = cl.transform.copy(posX = x)) } }
+    Prop("Position verticale", m.valueAt(Prop.POS_Y, t.posY).toFloat(), -0.5f..1.5f, { "%.0f %%".format(it * 100) }, 0.5f) { v -> m.setAnimated(Prop.POS_Y, v.toDouble()) { cl, x -> cl.copy(transform = cl.transform.copy(posY = x)) } }
+    val k = m.valueAt(Prop.SCALE, 1.0)
+    Prop("Échelle", (t.scaleX * k).toFloat(), 0.05f..4f, { "%.0f %%".format(it * 100) }, 1f) { v ->
+        if (c.keyframes[Prop.SCALE]?.keyframes?.isNotEmpty() == true) m.setAnimated(Prop.SCALE, v / t.scaleX.coerceAtLeast(0.01)) { cl, _ -> cl }
+        else m.updateClip("Échelle", "sc_$id") { it.copy(transform = it.transform.copy(scaleX = v.toDouble(), scaleY = v.toDouble())) }
+    }
+    Prop("Rotation", m.valueAt(Prop.ROTATION, t.rotation).toFloat(), -180f..180f, { "%.0f°".format(it) }, 0f) { v -> m.setAnimated(Prop.ROTATION, v.toDouble()) { cl, x -> cl.copy(transform = cl.transform.copy(rotation = x)) } }
+    Prop("Opacité", m.valueAt(Prop.OPACITY, t.opacity).toFloat(), 0f..1f, { "%.0f %%".format(it * 100) }, 1f) { v -> m.setAnimated(Prop.OPACITY, v.toDouble()) { cl, x -> cl.copy(transform = cl.transform.copy(opacity = x)) } }
+    if (animated) TextButton({ m.updateClip("Retirer l'animation") { it.copy(keyframes = it.keyframes.filterKeys { k2 -> k2.startsWith("fx:") }) } }) { Text("Retirer toutes les images clés", fontSize = 12.sp) }
     if (c.kind == ClipKind.MEDIA) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Remplir l'écran (recadrer)", Modifier.weight(1f), fontSize = 12.sp)

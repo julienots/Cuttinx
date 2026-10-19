@@ -118,6 +118,14 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
                     Text(project.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${project.format.width}×${project.format.height} • ${project.format.frameRate} i/s", style = MaterialTheme.typography.labelSmall, color = cx.dim)
                 }
+                // one-tap keyframe (diamond + plus), next to undo / redo like the pro editors
+                val kfOn = selected != null && vm.anyKeyframeAtPlayhead()
+                IconButton(vm::toggleQuickKeyframe) {
+                    Box {
+                        Icon(Icons.Default.Diamond, if (kfOn) "Retirer l'image clé" else "Ajouter une image clé", tint = if (kfOn) cx.accent else if (selected != null) MaterialTheme.colorScheme.onSurface else cx.dim)
+                        Text(if (kfOn) "−" else "+", Modifier.align(Alignment.TopStart).offset((-6).dp, (-8).dp), fontSize = 14.sp, fontWeight = FontWeight.Black, color = if (kfOn) cx.accent else MaterialTheme.colorScheme.onSurface)
+                    }
+                }
                 IconButton(vm::undo, enabled = vm.session.history.canUndo || true) { Icon(Icons.AutoMirrored.Filled.Undo, "Annuler") }
                 IconButton(vm::redo) { Icon(Icons.AutoMirrored.Filled.Redo, "Rétablir") }
                 IconButton({ vm.panel.value = Panel.HISTORY }) { Icon(Icons.Default.History, "Historique") }

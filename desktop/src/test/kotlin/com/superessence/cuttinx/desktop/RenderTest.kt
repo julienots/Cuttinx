@@ -68,13 +68,30 @@ class RenderTest {
         val files = out.walkTopDown().filter { it.isFile }.map { it.relativeTo(out).path.replace('\\', '/') }.toSet()
         assertTrue("LISEZ-MOI.txt" in files)
         assertTrue(files.any { it.startsWith("scenes/") && it.endsWith("scene.html") })
-        assertTrue(files.count { it.startsWith("cadres/") } == 5)
+        assertEquals(6, files.count { it.startsWith("cadres/") })
         assertTrue("transitions/toile-d-araignee.png" in files && "transitions/tempete-de-sakura.png" in files)
-        assertTrue("alertes/nouveau-follow.png" in files)
+        for (a in listOf("nouveau-follow", "nouvel-abonne", "raid", "don")) assertTrue(a, "alertes/$a.png" in files)
+        assertEquals(6, files.count { it.startsWith("twitch-profil/panneaux/") })
+        assertTrue("twitch-profil/banniere-profil.png" in files && "twitch-profil/banniere-hors-ligne.png" in files)
+        assertEquals(1200, javax.imageio.ImageIO.read(File(out, "twitch-profil/banniere-profil.png")).width)
         assertTrue(files.any { it.startsWith("polices/") })
         val html = File(out, files.first { it.endsWith("scene.html") && "commencer" in it }).readText()
         assertTrue("setInterval" in html && "fond.png" in html && "animation.png" in html)
         dir.deleteRecursively()
+    }
+
+    @Test fun everyStyleChoiceRenders() {
+        val s = raster.frame(small.width, small.height).gfx
+        val t = OverlayThemes["armor"]
+        for (f in FrameStyle.entries) for (shape in CameraShape.entries) {
+            val cfg = small.copy(frame = f, cameraShape = shape, font = TitleFont.entries[f.ordinal % TitleFont.entries.size], motifs = listOf(Motif.entries[f.ordinal]), badge = "EN DIRECT", textScale = 1.3f)
+            for (sc in listOf(SceneKind.GAMEPLAY, SceneKind.STARTING, SceneKind.GOAL, SceneKind.ALERT_RAID)) { s.clear(0); r.drawScene(s, t, cfg, sc, 1.0) }
+            s.clear(0); r.drawPanel(s, t, cfg, "PLANNING"); r.drawBanner(s, t, cfg, 480f, 192f)
+        }
+        // the style overrides really change the picture
+        val a = ex.renderPng(small) { c -> r.drawScene(c, t, small, SceneKind.STARTING, 0.0) }
+        val b = ex.renderPng(small) { c -> r.drawScene(c, t, small.copy(frame = FrameStyle.COMIC), SceneKind.STARTING, 0.0) }
+        assertFalse(a.contentEquals(b))
     }
 
     @Test fun brandBoardRenders() {

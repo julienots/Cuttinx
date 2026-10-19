@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -43,6 +44,17 @@ import java.io.File
 private sealed interface Target {
     data class Scene(val kind: SceneKind) : Target
     data class Stinger(val style: StingerStyle) : Target
+    data class Panel(val index: Int) : Target
+    data object Banner : Target
+}
+
+/** Families of editable elements. */
+private enum class Family(val label: String) { SCENES("Scènes"), FRAMES("Cadres & widgets"), ALERTS("Alertes"), PROFILE("Profil Twitch"), STINGERS("Transitions") }
+
+private fun familyOf(t: Target) = when (t) {
+    is Target.Scene -> when { t.kind.fullBackground -> Family.SCENES; t.kind.isAlert -> Family.ALERTS; else -> Family.FRAMES }
+    is Target.Stinger -> Family.STINGERS
+    is Target.Panel, Target.Banner -> Family.PROFILE
 }
 
 @Composable
@@ -62,10 +74,21 @@ fun TwitchStudio(state: AppState) {
             Spacer(Modifier.height(10.dp))
             Preview(state, target, minutes, Modifier.fillMaxWidth().weight(1f))
             Spacer(Modifier.height(10.dp))
-            Title("SCÈNES")
-            Chips(SceneKind.entries.toList(), (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
-            Title("TRANSITIONS DE SCÈNE (STINGERS)")
-            Chips(StingerStyle.entries.toList(), (target as? Target.Stinger)?.style, { it.label + if (it == state.theme.stinger) " ★" else "" }, { target = Target.Stinger(it) })
+            val fam = familyOf(target)
+            Chips(Family.entries.toList(), fam, { it.label }, { f ->
+                target = when (f) {
+                    Family.SCENES -> Target.Scene(SceneKind.STARTING); Family.FRAMES -> Target.Scene(SceneKind.GAMEPLAY); Family.ALERTS -> Target.Scene(SceneKind.ALERT)
+                    Family.PROFILE -> Target.Panel(0); Family.STINGERS -> Target.Stinger(state.theme.stinger)
+                }
+            })
+            Spacer(Modifier.height(8.dp))
+            when (fam) {
+                Family.SCENES -> Chips(SceneKind.entries.filter { it.fullBackground }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
+                Family.FRAMES -> Chips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
+                Family.ALERTS -> Chips(SceneKind.entries.filter { it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
+                Family.PROFILE -> Chips(state.config.panels.indices.map { Target.Panel(it) } + Target.Banner, target, { if (it is Target.Panel) "Panneau « ${state.config.panels.getOrNull(it.index) ?: ""} »" else "Bannière de profil" }, { target = it })
+                Family.STINGERS -> Chips(StingerStyle.entries.toList(), (target as? Target.Stinger)?.style, { it.label + if (it == state.theme.stinger) " ★" else "" }, { target = Target.Stinger(it) })
+            }
         }
         Settings(state, target, minutes, { minutes = it }, Modifier.width(360.dp).fillMaxHeight())
     }
@@ -132,7 +155,7 @@ private fun Preview(state: AppState, target: Target, minutes: Int, modifier: Mod
                 c.save()
                 c.scale(size.width / cfg.width, size.height / cfg.height)
                 // checkerboard = transparent areas (where OBS shows your game / camera)
-                val transparent = when (target) { is Target.Stinger -> true; is Target.Scene -> !target.kind.fullBackground }
+                val transparent = when (target) { is Target.Scene -> !target.kind.fullBackground; else -> true }
                 if (transparent) {
                     val sq = 40f
                     val a = com.superessence.cuttinx.core.gfx.fill(0xFF2A2C33.toInt())
@@ -146,6 +169,16 @@ private fun Preview(state: AppState, target: Target, minutes: Int, modifier: Mod
                         state.renderer.drawScene(c, theme, cfg, target.kind, time, OverlayRenderer.Layer.ALL, countdown = "%02d:%02d".format(left / 60, left % 60))
                     }
                     is Target.Stinger -> state.renderer.drawStinger(c, theme, cfg, target.style, (time % 2.2).coerceAtMost(OverlayAnim.STINGER_SEC))
+                    is Target.Panel -> {
+                        val k = cfg.width * 0.6f / 320f
+                        c.save(); c.translate(cfg.width * 0.2f, (cfg.height - 100f * k) / 2); c.scale(k, k)
+                        state.renderer.drawPanel(c, theme, cfg, cfg.panels.getOrNull(target.index) ?: ""); c.restore()
+                    }
+                    Target.Banner -> {
+                        val k = cfg.width * 0.9f / 1200f
+                        c.save(); c.translate(cfg.width * 0.05f, (cfg.height - 480f * k) / 2); c.scale(k, k)
+                        state.renderer.drawBanner(c, theme, cfg); c.restore()
+                    }
                 }
                 c.restore()
             }
@@ -168,28 +201,27 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
     var fps by remember { mutableStateOf(24) }
     fun set(f: (OverlayConfig) -> OverlayConfig) { state.config = f(state.config) }
 
+    var tab by remember { mutableStateOf(0) }
     Column(modifier.background(Cx.Panel).verticalScroll(rememberScrollState()).padding(14.dp)) {
         Text("Personnaliser", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Title("TEXTES")
+        Spacer(Modifier.height(6.dp))
+        Chips(listOf(0, 1, 2, 3), tab, { listOf("Textes", "Couleurs", "Style", "Exporter")[it] }, { tab = it })
+        if (tab == 1) { ColorsTab(state); return@Column }
+        if (tab == 2) { StyleTab(state); return@Column }
+        if (tab == 0) {
+        ElementTexts(state, target)
+        Title("MA CHAÎNE (PARTOUT)")
         OutlinedTextField(cfg.channel, { v -> set { it.copy(channel = v) } }, Modifier.fillMaxWidth(), label = { Text("Nom de la chaîne") }, singleLine = true)
         OutlinedTextField(cfg.tagline, { v -> set { it.copy(tagline = v) } }, Modifier.fillMaxWidth(), label = { Text("Phrase d'accroche") }, singleLine = true)
         OutlinedTextField(cfg.socials.joinToString(", "), { v -> set { it.copy(socials = v.split(",").map(String::trim)) } }, Modifier.fillMaxWidth(), label = { Text("Réseaux (séparés par des virgules)") })
         OutlinedTextField(cfg.schedule, { v -> set { it.copy(schedule = v) } }, Modifier.fillMaxWidth(), label = { Text("Planning des lives") }, singleLine = true)
-        (target as? Target.Scene)?.kind?.takeIf { it.title.isNotEmpty() }?.let { s ->
-            OutlinedTextField(cfg.sceneTitles[s] ?: "", { v -> set { it.copy(sceneTitles = it.sceneTitles + (s to v)) } }, Modifier.fillMaxWidth(), label = { Text("Titre de « ${s.label} »") }, placeholder = { Text(s.title) }, singleLine = true)
-        }
-        Title("MISE EN PAGE")
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("Caméra à droite", Modifier.weight(1f)); Switch(cfg.cameraRight, { v -> set { it.copy(cameraRight = v) } }) }
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("Particules animées", Modifier.weight(1f)); Switch(cfg.particles, { v -> set { it.copy(particles = v) } }) }
         Text("Compte à rebours : $minutes min", fontSize = 13.sp)
         Slider(minutes.toFloat(), { setMinutes(it.toInt().coerceIn(1, 30)) }, valueRange = 1f..30f, steps = 28)
-        if (cfg.palette != null) Row(verticalAlignment = Alignment.CenterVertically) {
-            Hint("Couleurs de votre identité appliquées")
-            TextButton({ set { it.copy(palette = null) } }) { Text("Couleurs du thème") }
+        return@Column
         }
 
         Title("EXPORT POUR OBS")
-        Hint("Le pack contient toutes les scènes animées (HTML + PNG animé), les cadres jeu / discussion / caméra / chat, l'alerte de follow, les transitions choisies et un guide d'installation OBS.")
+        Hint("Le pack contient toutes les scènes animées (HTML + PNG animé), les cadres jeu / discussion / caméra / chat, la barre d'objectif, 4 alertes (follow, abonnement, raid, don), les panneaux et bannières du profil Twitch, les transitions choisies et un guide d'installation OBS.")
         Spacer(Modifier.height(6.dp))
         Text("Transitions incluses :", fontSize = 13.sp)
         StingerStyle.entries.chunked(2).forEach { row ->
@@ -220,12 +252,20 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
         }, Modifier.fillMaxWidth(), enabled = progress == null) { Text("Exporter le pack OBS complet") }
         OutlinedButton({
             val s = (target as? Target.Scene)?.kind ?: SceneKind.GAMEPLAY
-            val file = chooseFile("Enregistrer l'image", "${ObsExporter(state.raster).slug(s.label)}.png") ?: return@OutlinedButton
+            val name = when (target) { is Target.Panel -> "panneau-${state.config.panels.getOrNull(target.index) ?: ""}"; Target.Banner -> "banniere-profil"; else -> s.label }
+            val file = chooseFile("Enregistrer l'image", "${ObsExporter(state.raster).slug(name)}.png") ?: return@OutlinedButton
             scope.launch(Dispatchers.Default) {
-                runCatching { file.writeBytes(ObsExporter(state.raster, state.renderer).renderPng(state.config) { c -> state.renderer.drawScene(c, state.theme, state.config, s, 0.0) }) }
-                    .onSuccess { lastExport = file.parentFile }.onFailure { error = it.message }
+                runCatching {
+                    val ex = ObsExporter(state.raster, state.renderer)
+                    val bytes = when (target) {
+                        is Target.Panel -> state.raster.frame(640, 200).let { fr -> fr.gfx.clear(0); fr.gfx.scale(2f, 2f); state.renderer.drawPanel(fr.gfx, state.theme, state.config, state.config.panels.getOrNull(target.index) ?: ""); fr.png() }
+                        Target.Banner -> state.raster.frame(1200, 480).let { fr -> state.renderer.drawBanner(fr.gfx, state.theme, state.config); fr.png() }
+                        else -> ex.renderPng(state.config) { c -> state.renderer.drawScene(c, state.theme, state.config, s, 0.0) }
+                    }
+                    file.writeBytes(bytes)
+                }.onSuccess { lastExport = file.parentFile }.onFailure { error = it.message }
             }
-        }, Modifier.fillMaxWidth()) { Text("Exporter cette scène en PNG") }
+        }, Modifier.fillMaxWidth()) { Text("Exporter cet élément en PNG") }
         progress?.let {
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(progress = { it }, modifier = Modifier.fillMaxWidth(), color = Color(0xFF3D8BFF))
@@ -238,4 +278,92 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
             TextButton({ openFolder(f) }) { Text("Ouvrir le dossier") }
         }
     }
+}
+
+// ---------------------------------------------------------------------- element texts, colours, style
+
+@Composable
+private fun ElementTexts(state: AppState, target: Target) {
+    val cfg = state.config
+    fun set(f: (OverlayConfig) -> OverlayConfig) { state.config = f(state.config) }
+    when (target) {
+        is Target.Scene -> {
+            val s = target.kind
+            Title(s.label.uppercase())
+            if (s.title.isNotEmpty()) OutlinedTextField(cfg.sceneTitles[s] ?: "", { v -> set { it.copy(sceneTitles = it.sceneTitles + (s to v)) } }, Modifier.fillMaxWidth(), label = { Text("Titre") }, placeholder = { Text(s.title) }, singleLine = true)
+            if (s.fullBackground && s != SceneKind.STARTING || s.isAlert)
+                OutlinedTextField(cfg.sceneSubtitles[s] ?: "", { v -> set { it.copy(sceneSubtitles = it.sceneSubtitles + (s to v)) } }, Modifier.fillMaxWidth(), label = { Text(if (s.isAlert) "Message sous le pseudo" else "Deuxième ligne") }, placeholder = { Text(cfg.copy(sceneSubtitles = emptyMap()).subtitleOf(s)) }, singleLine = true)
+            if (s.isAlert) OutlinedTextField(cfg.alertUser, { v -> set { it.copy(alertUser = v) } }, Modifier.fillMaxWidth(), label = { Text("Pseudo d'exemple") }, singleLine = true)
+            if (s == SceneKind.GOAL) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(cfg.goalCurrent.toString(), { v -> v.filter(Char::isDigit).toIntOrNull()?.let { n -> set { it.copy(goalCurrent = n) } } }, Modifier.weight(1f), label = { Text("Actuel") }, singleLine = true)
+                OutlinedTextField(cfg.goalTarget.toString(), { v -> v.filter(Char::isDigit).toIntOrNull()?.let { n -> set { it.copy(goalTarget = n) } } }, Modifier.weight(1f), label = { Text("Objectif") }, singleLine = true)
+            }
+        }
+        is Target.Panel, Target.Banner -> {
+            Title("PANNEAUX DU PROFIL (320×100)")
+            cfg.panels.forEachIndexed { i, p ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(p, { v -> set { it.copy(panels = it.panels.mapIndexed { j, x -> if (j == i) v else x }) } }, Modifier.weight(1f), singleLine = true, label = { Text("Panneau ${i + 1}") })
+                    TextButton({ set { it.copy(panels = it.panels.filterIndexed { j, _ -> j != i }) } }) { Text("✕") }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("DISCORD", "MES JEUX", "FAQ", "PARTENAIRES", "BOUTIQUE").filter { it !in cfg.panels }.take(4).forEach { s -> Chip("+ $s", false) { set { it.copy(panels = it.panels + s) } } }
+            }
+        }
+        else -> {}
+    }
+}
+
+@Composable
+private fun ColorsTab(state: AppState) {
+    val cfg = state.config
+    val pal = cfg.palette ?: state.theme.palette
+    Hint("Clique une couleur : scènes, cadres, alertes, transitions et panneaux suivent.")
+    OverlayLabels.paletteRoles.forEachIndexed { i, role ->
+        val cur = OverlayLabels.get(pal, i)
+        Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(20.dp).clip(RoundedCornerShape(5.dp)).background(Color(cur)))
+            Spacer(Modifier.width(8.dp)); Text(role, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            OverlayLabels.swatches.forEach { c ->
+                Box(Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)).background(Color(c))
+                    .border(if (c == cur) 3.dp else 1.dp, if (c == cur) Color(0xFF3D8BFF) else Color.White.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                    .clickable { state.config = state.config.copy(palette = OverlayLabels.set(state.config.palette ?: state.theme.palette, i, c)) })
+            }
+        }
+    }
+    Title("COULEURS D'UN AUTRE THÈME")
+    Chips(OverlayThemes.all, null, { it.name }, { t -> state.config = state.config.copy(palette = t.palette) })
+    if (cfg.palette != null) TextButton({ state.config = state.config.copy(palette = null) }) { Text("Revenir aux couleurs du thème") }
+}
+
+@Composable
+private fun StyleTab(state: AppState) {
+    val cfg = state.config
+    val th = state.theme
+    fun set(f: (OverlayConfig) -> OverlayConfig) { state.config = f(state.config) }
+    Title("POLICE DES TITRES")
+    Chips(TitleFont.entries.toList(), cfg.font ?: th.font, { OverlayLabels.font(it) }, { f -> set { it.copy(font = f) } })
+    Text("Taille des titres : ${(cfg.textScale * 100).toInt()} %", fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+    Slider(cfg.textScale, { v -> set { it.copy(textScale = v) } }, valueRange = 0.6f..1.5f)
+    Title("CADRES")
+    Chips(FrameStyle.entries.toList(), cfg.frame ?: th.frame, { OverlayLabels.frame(it) }, { f -> set { it.copy(frame = f) } })
+    Title("CAMÉRA")
+    Chips(CameraShape.entries.toList(), cfg.cameraShape, { it.label }, { s -> set { it.copy(cameraShape = s) } })
+    Row(verticalAlignment = Alignment.CenterVertically) { Text("Pseudo sur la caméra", Modifier.weight(1f)); Switch(cfg.nameOnCamera, { v -> set { it.copy(nameOnCamera = v) } }) }
+    Row(verticalAlignment = Alignment.CenterVertically) { Text("Caméra à droite", Modifier.weight(1f)); Switch(cfg.cameraRight, { v -> set { it.copy(cameraRight = v) } }) }
+    Title("DÉCORS ANIMÉS")
+    val motifs = cfg.motifs ?: th.motifs
+    Motif.entries.chunked(4).forEach { row ->
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
+            row.forEach { m -> Chip(OverlayLabels.motif(m), m in motifs) { val next = if (m in motifs) motifs - m else motifs + m; if (next.isNotEmpty()) set { it.copy(motifs = next) } } }
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) { Text("Particules animées", Modifier.weight(1f)); Switch(cfg.particles, { v -> set { it.copy(particles = v) } }) }
+    Title("BADGE")
+    OutlinedTextField(cfg.badge ?: "", { v -> set { it.copy(badge = v) } }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(th.badge) }, label = { Text("LIVE, EN DIRECT, 配信中…") })
+    Spacer(Modifier.height(10.dp))
+    OutlinedButton({ set { it.copy(font = null, frame = null, motifs = null, badge = null, palette = null, textScale = 1f, cameraShape = CameraShape.THEME) } }, Modifier.fillMaxWidth()) { Text("Revenir au style du thème") }
 }

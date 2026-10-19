@@ -71,8 +71,11 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
     val boardLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri -> if (uri != null) vm.exportBoard(uri) }
     fun generate() { vm.generate(BrandBrief(name.ifBlank { "MaChaîne" }, niche, traits, audience, if (useHue) hue.toInt() else -1, keywords), seed); showForm = false }
 
+    var tuto by remember { mutableStateOf(false) }
+    if (tuto) com.superessence.cuttinx.ui.help.FilmPlayerDialog(com.superessence.cuttinx.core.tutorial.Tutorials["brand"]!!) { tuto = false }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) {
         msg?.let { m -> Text(m, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(IdPink.copy(alpha = 0.18f)).clickable { vm.message.value = null }.padding(10.dp), fontSize = 13.sp) }
+        Text("▶ Tuto vidéo : créer ton identité", Modifier.clip(RoundedCornerShape(50)).background(IdPink.copy(alpha = 0.15f)).clickable { tuto = true }.padding(horizontal = 12.dp, vertical = 6.dp), color = IdPink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         if (showForm || kit == null) {
             Text("Crée ton univers de créateur", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text("Couleurs, polices, slogans, bios, idées de contenus et ton : une image cohérente sur TikTok, Instagram, YouTube et Twitch.", color = LocalCx.current.dim, fontSize = 13.sp)

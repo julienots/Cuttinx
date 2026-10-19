@@ -37,8 +37,9 @@ object OverlayLayout {
         )
         SceneKind.WEBCAM -> listOf(Zone(ZoneKind.CAMERA, 160f, 90f, 1600f, 900f))
         SceneKind.CHAT -> listOf(Zone(ZoneKind.CHAT, 660f, 60f, 600f, 960f))
-        SceneKind.ALERT -> listOf(Zone(ZoneKind.TITLE, 460f, 80f, 1000f, 220f))
-        SceneKind.STARTING, SceneKind.BRB, SceneKind.PAUSE, SceneKind.ENDING -> listOf(
+        SceneKind.ALERT, SceneKind.ALERT_SUB, SceneKind.ALERT_RAID, SceneKind.ALERT_DONATION -> listOf(Zone(ZoneKind.TITLE, 460f, 80f, 1000f, 220f))
+        SceneKind.GOAL -> listOf(Zone(ZoneKind.INFO, 560f, 40f, 800f, 110f))
+        SceneKind.STARTING, SceneKind.BRB, SceneKind.PAUSE, SceneKind.TECH, SceneKind.ENDING, SceneKind.OFFLINE -> listOf(
             Zone(ZoneKind.TITLE, 260f, 330f, 1400f, 260f),
             Zone(ZoneKind.INFO, 460f, 620f, 1000f, 120f),
             Zone(ZoneKind.SOCIALS, 360f, 900f, 1200f, 90f),

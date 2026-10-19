@@ -77,6 +77,13 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
             }
         }
         Spacer(Modifier.weight(1f))
+        // one-click keyframe (◇+) next to undo / redo, like the pro editors
+        val sel by m.selection.collectAsState()
+        m.player.position.collectAsState().value
+        val kfOn = sel.isNotEmpty() && m.anyKeyframeAtPlayhead()
+        TextButton({ m.toggleQuickKeyframe() }, enabled = sel.isNotEmpty()) {
+            Text(if (kfOn) "◆−" else "◇+", fontSize = 18.sp, fontWeight = FontWeight.Black, color = if (kfOn) LocalAccent.current else if (sel.isNotEmpty()) Color.White else Cx.Dim)
+        }
         TextButton({ m.undo() }, enabled = canUndo) { Text("↶ Annuler") }
         TextButton({ m.redo() }, enabled = canRedo) { Text("↷ Rétablir") }
         var more by remember { mutableStateOf(false) }

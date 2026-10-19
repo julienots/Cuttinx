@@ -28,12 +28,14 @@ class OverlayRenderer {
      * @param countdown text shown in the countdown plate of the "starting" scene (null = left empty:
      *   the HTML export draws a live countdown there).
      */
-    fun drawScene(c: Gfx, theme: OverlayTheme, cfg: OverlayConfig, scene: SceneKind, t: Double, layer: Layer = Layer.ALL, countdown: String? = "BIENTÔT") {
+    fun drawScene(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, scene: SceneKind, t: Double, layer: Layer = Layer.ALL, countdown: String? = "BIENTÔT") {
+        val theme = cfg.styled(theme0)
         val w = cfg.width.toFloat(); val h = cfg.height.toFloat()
         val p = pal(theme, cfg)
         val k = w / OverlayLayout.REF_W
         when {
-            scene == SceneKind.ALERT -> { if (layer != Layer.STATIC) drawAlert(c, theme, cfg, t); return }
+            scene.isAlert -> { if (layer != Layer.STATIC) drawAlert(c, theme, cfg, t, scene); return }
+            scene == SceneKind.GOAL -> { if (layer != Layer.MOVING) drawGoal(c, theme, cfg); return }
             scene.fullBackground -> {
                 val static = layer != Layer.MOVING; val moving = layer != Layer.STATIC
                 if (static) background(c, p, w, h)
@@ -69,23 +71,20 @@ class OverlayRenderer {
         // title plate + title
         plate(c, theme, p, title, k, strong = true)
         val titleText = cfg.titleOf(scene)
-        val size = c.txt.fit(titleText, tf, (if (theme.font == TitleFont.PIXEL) 74f else 118f) * k, title.w - 120f * k)
+        // letter spacing is added on top of the measured width: keep room for it
+        val size = c.txt.fit(titleText, tf, (if (theme.font == TitleFont.PIXEL) 74f else 118f) * k * cfg.textScale.coerceIn(0.5f, 1.6f), title.w - 140f * k - titleSpacing(theme, k) * titleText.length)
         val base = c.txt.baselineFor(title.y + title.h / 2, tf, size)
         c.txt.draw(titleText, w / 2 + 6f * k, base + 6f * k, tf, size, fill(col(0xFF000000, 0.35f)).glow(6f * k), spacing = titleSpacing(theme, k))
         c.txt.draw(titleText, w / 2, base, tf, size, titlePaint(theme, p, title), spacing = titleSpacing(theme, k))
         // info line
-        val line = when (scene) {
-            SceneKind.STARTING -> null
-            SceneKind.BRB -> "Le live reprend dans un instant"
-            SceneKind.PAUSE -> "On souffle et on revient !"
-            else -> "À très vite — ${cfg.schedule}"
-        }
+        val line = if (scene == SceneKind.STARTING) null else cfg.subtitleOf(scene)
         if (scene == SceneKind.STARTING) {
             plate(c, theme, p, info, k, strong = false)
             c.txt.draw("DÉBUT DANS", w / 2, info.y + 30f * k, FontId.BOLD, 20f * k, fill(col(p.text, 0.7f)), spacing = 6f * k)
             if (countdown != null) c.txt.draw(countdown, w / 2, info.y + info.h - 26f * k, tf, 58f * k, fill(col(p.text)))
         } else if (line != null) {
-            c.txt.draw(line, w / 2, c.txt.baselineFor(info.y + info.h / 2, FontId.REGULAR, 40f * k), FontId.REGULAR, 40f * k, fill(col(p.text, 0.9f)))
+            val ls = c.txt.fit(line, FontId.REGULAR, 40f * k, info.w)
+            c.txt.draw(line, w / 2, c.txt.baselineFor(info.y + info.h / 2, FontId.REGULAR, ls), FontId.REGULAR, ls, fill(col(p.text, 0.9f)))
         }
         // socials + schedule
         val soc = (cfg.socials.filter { it.isNotBlank() } + if (scene == SceneKind.STARTING) listOf(cfg.schedule) else emptyList()).joinToString("   •   ")
@@ -118,7 +117,7 @@ class OverlayRenderer {
         c.line(w / 2 - len / 2, y, w / 2 + len / 2, y, stroke(col(p.glow, 0.85f), 6f * k).glow(10f * k))
         c.line(w / 2 - len / 2, y, w / 2 + len / 2, y, stroke(col(0xFFFFFFFF, 0.9f), 2f * k))
         // loading dots
-        if (scene == SceneKind.STARTING || scene == SceneKind.BRB || scene == SceneKind.PAUSE) {
+        if (scene == SceneKind.STARTING || scene == SceneKind.BRB || scene == SceneKind.PAUSE || scene == SceneKind.TECH) {
             val phase = (t / OverlayAnim.LOOP_SEC * 4) % 1.0
             for (i in 0 until 3) {
                 val a = (sin((phase - i * 0.15) * 2 * PI) * 0.5 + 0.5).toFloat()
@@ -140,7 +139,15 @@ class OverlayRenderer {
         when (z.kind) {
             ZoneKind.SCREEN -> frame(c, theme, p, z, k)
             ZoneKind.CAMERA -> {
-                frame(c, theme, p, z, k)
+                when (cfg.cameraShape) {
+                    CameraShape.THEME -> frame(c, theme, p, z, k)
+                    CameraShape.ROUNDED -> roundFrame(c, p, RR(z.x, z.y, z.w, z.h, min(z.w, z.h) * 0.12f), k)
+                    CameraShape.CIRCLE -> {
+                        val r = min(z.w, z.h) / 2
+                        roundFrame(c, p, RR(z.x + z.w / 2 - r, z.y + z.h / 2 - r, 2 * r, 2 * r, r), k)
+                    }
+                }
+                if (!cfg.nameOnCamera) return
                 // name plate overlapping the bottom edge of the camera
                 val pw = min(z.w * 0.8f, max(260f * k, c.txt.width(cfg.channel, FontId.of(theme.font), 36f * k) + 80f * k)); val ph = 54f * k
                 val plateZone = Zone(ZoneKind.TITLE, z.x + (z.w - pw) / 2, z.bottom - ph / 2, pw, ph)
@@ -189,6 +196,13 @@ class OverlayRenderer {
                 }
             }
         }
+    }
+
+    /** Rounded / round camera window in the palette colours (glow + double ring). */
+    private fun roundFrame(c: Gfx, p: OverlayPalette, rr: RR, k: Float) {
+        c.rrect(rr.inflate(6f * k), stroke(col(p.glow, 0.8f), 10f * k).glow(14f * k))
+        c.rrect(rr, stroke(col(p.primary), 7f * k))
+        c.rrect(rr.inflate(9f * k), stroke(col(p.accent, 0.8f), 2.5f * k))
     }
 
     private fun radius(theme: OverlayTheme, k: Float) = when (theme.frame) {
@@ -362,9 +376,10 @@ class OverlayRenderer {
 
     // ================================================================== alert
 
-    fun drawAlert(c: Gfx, theme: OverlayTheme, cfg: OverlayConfig, t: Double, user: String = "Pseudo") {
+    fun drawAlert(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, t: Double, scene: SceneKind = SceneKind.ALERT, user: String = cfg.alertUser) {
+        val theme = cfg.styled(theme0)
         val p = pal(theme, cfg); val k = cfg.width / OverlayLayout.REF_W
-        val z = OverlayLayout.zone(SceneKind.ALERT, cfg, ZoneKind.TITLE)!!
+        val z = OverlayLayout.zone(scene, cfg, ZoneKind.TITLE)!!
         val dur = OverlayAnim.LOOP_SEC
         val tt = t % dur
         val inP = (tt / 0.45).coerceIn(0.0, 1.0).toFloat(); val outP = ((dur - tt) / 0.45).coerceIn(0.0, 1.0).toFloat()
@@ -374,14 +389,95 @@ class OverlayRenderer {
         // burst of particles
         for (i in 0 until 18) {
             val a = i / 18f * 2 * PI.toFloat(); val r = z.h * (0.6f + inP * 0.9f)
-            c.path(Shapes.sparkle(z.x + z.w / 2 + cos(a) * r * 2.2f, z.y + z.h / 2 + sin(a) * r, 14f * k), fill(col(listOf(p.primary, p.accent, p.glow)[i % 3], (1f - inP * 0.6f) * outP)))
+            val px = z.x + z.w / 2 + cos(a) * r * 2.2f; val py = z.y + z.h / 2 + sin(a) * r
+            val pc = fill(col(listOf(p.primary, p.accent, p.glow)[i % 3], (1f - inP * 0.6f) * outP))
+            when (scene) {
+                SceneKind.ALERT_SUB -> c.path(Shapes.star(px, py, 16f * k, 5, 0.45f), pc)
+                SceneKind.ALERT_DONATION -> c.path(Shapes.heart(px, py, 26f * k), pc)
+                SceneKind.ALERT_RAID -> c.path(Shapes.star(px, py, 18f * k, 4, 0.25f), pc)
+                else -> c.path(Shapes.sparkle(px, py, 14f * k), pc)
+            }
+        }
+        // raid: speed lines rushing in
+        if (scene == SceneKind.ALERT_RAID) for (i in 0 until 10) {
+            val yy = z.y + z.h * (i + 0.5f) / 10f; val len = z.w * (0.25f + 0.2f * ((i * 37) % 10) / 10f)
+            val x0 = z.x - 40f * k - len * (1f - inP)
+            c.line(x0 - len, yy, x0, yy, stroke(col(p.glow, 0.6f * outP), 4f * k))
         }
         plate(c, theme, p, z, k, strong = true)
         val tf = FontId.of(theme.font)
-        val title = cfg.titleOf(SceneKind.ALERT)
-        c.txt.draw(title, z.x + z.w / 2, z.y + z.h * 0.42f, tf, c.txt.fit(title, tf, 56f * k, z.w - 60f * k), fill(col(p.accent)), spacing = titleSpacing(theme, k))
-        c.txt.draw(user, z.x + z.w / 2, z.y + z.h * 0.8f, FontId.BOLD, 60f * k, fill(col(p.text)))
+        val title = cfg.titleOf(scene)
+        val sub = cfg.subtitleOf(scene)
+        c.txt.draw(title, z.x + z.w / 2, z.y + z.h * 0.36f, tf, c.txt.fit(title, tf, 52f * k, z.w - 60f * k), fill(col(p.accent)), spacing = titleSpacing(theme, k))
+        val us = c.txt.fit(user, FontId.BOLD, 58f * k, z.w - 60f * k)
+        c.txt.draw(user, z.x + z.w / 2, z.y + z.h * (if (sub.isBlank()) 0.8f else 0.68f), FontId.BOLD, us, fill(col(p.text)))
+        if (sub.isNotBlank()) c.txt.draw(sub, z.x + z.w / 2, z.y + z.h * 0.9f, FontId.REGULAR, c.txt.fit(sub, FontId.REGULAR, 28f * k, z.w - 60f * k), fill(col(p.text, 0.85f)))
         c.restore()
+    }
+
+    // ================================================================== widgets & Twitch profile
+
+    /** Follower / sub goal bar (transparent overlay). */
+    fun drawGoal(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig) {
+        val theme = cfg.styled(theme0)
+        val p = pal(theme, cfg); val k = cfg.width / OverlayLayout.REF_W
+        val z = OverlayLayout.zone(SceneKind.GOAL, cfg, ZoneKind.INFO)!!
+        plate(c, theme, p, z, k, strong = true)
+        val tf = FontId.of(theme.font)
+        val label = cfg.titleOf(SceneKind.GOAL)
+        val count = "${cfg.goalCurrent} / ${cfg.goalTarget}"
+        val pad = 28f * k
+        c.txt.draw(label, z.x + pad, z.y + 44f * k, tf, c.txt.fit(label, tf, 32f * k, z.w * 0.6f), fill(col(p.text)), Align.LEFT, titleSpacing(theme, k) / 2)
+        c.txt.draw(count, z.right - pad, z.y + 44f * k, FontId.BOLD, 30f * k, fill(col(p.accent)), Align.RIGHT)
+        val bx = z.x + pad; val by = z.y + z.h - 44f * k; val bw = z.w - 2 * pad; val bh = 22f * k
+        val frac = if (cfg.goalTarget <= 0) 0f else (cfg.goalCurrent.toFloat() / cfg.goalTarget).coerceIn(0f, 1f)
+        c.rrect(RR(bx, by, bw, bh, bh / 2), fill(col(0xFF000000, 0.45f)))
+        if (frac > 0f) {
+            val fw = max(bh, bw * frac)
+            c.rrect(RR(bx, by, fw, bh, bh / 2), Paint().apply { shader = linear(bx, 0f, bx + fw, 0f, intArrayOf(col(p.primary), col(p.accent))) }.glow(6f * k))
+            c.rrect(RR(bx, by, fw, bh, bh / 2), Paint().apply { shader = linear(bx, 0f, bx + fw, 0f, intArrayOf(col(p.primary), col(p.accent))) })
+        }
+        c.rrect(RR(bx, by, bw, bh, bh / 2), stroke(col(p.text, 0.5f), 2f * k))
+        c.txt.draw("${(frac * 100).toInt()} %", bx + bw / 2, by + bh - 4f * k, FontId.BOLD, 18f * k, fill(col(0xFFFFFFFF)))
+    }
+
+    /** Background shared by the panels and the banner: gradient, theme pattern, vignette. */
+    private fun cardBackground(c: Gfx, theme: OverlayTheme, p: OverlayPalette, w: Float, h: Float, density: Float) {
+        c.rect(0f, 0f, w, h, shaded(linear(0f, 0f, w, h, intArrayOf(col(p.background), col(p.backgroundAlt)))))
+        c.circle(w * 0.5f, h * 0.5f, max(w, h) * 0.6f, shaded(radial(w * 0.5f, h * 0.5f, max(w, h) * 0.6f, intArrayOf(col(p.primary, 0.25f), 0))))
+        for (m in theme.motifs) Motifs.draw(c, m, p, w, h, 0.9, density)
+    }
+
+    /** One Twitch profile panel (the boxes under the stream). Reference size 320×100. */
+    fun drawPanel(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, label: String, w: Float = 320f, h: Float = 100f) {
+        val theme = cfg.styled(theme0)
+        val p = pal(theme, cfg); val k = w / 320f
+        c.save(); c.clipRRect(0f, 0f, w, h, radius(theme, k * 0.5f))
+        cardBackground(c, theme, p, w, h, 0.45f)
+        c.restore()
+        val z = Zone(ZoneKind.TITLE, 10f * k, 14f * k, w - 20f * k, h - 28f * k)
+        plate(c, theme, p, z, k * 0.45f, strong = true)
+        val tf = FontId.of(theme.font)
+        val s = c.txt.fit(label, tf, 40f * k, z.w - 30f * k)
+        c.txt.draw(label, w / 2, c.txt.baselineFor(z.y + z.h / 2, tf, s), tf, s, titlePaint(theme, p, z), spacing = titleSpacing(theme, k * 0.4f))
+    }
+
+    /** Twitch profile banner (1200×480 reference). */
+    fun drawBanner(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, w: Float = 1200f, h: Float = 480f) {
+        val theme = cfg.styled(theme0)
+        val p = pal(theme, cfg); val k = w / 1200f
+        cardBackground(c, theme, p, w, h, 0.9f)
+        c.rect(0f, 0f, w, h, shaded(radial(w / 2, h / 2, hypot(w, h) / 2, intArrayOf(0, 0, col(0xFF000000, 0.45f)), floatArrayOf(0f, 0.6f, 1f))))
+        val tf = FontId.of(theme.font)
+        val z = Zone(ZoneKind.TITLE, 200f * k, 150f * k, 800f * k, 150f * k)
+        plate(c, theme, p, z, k * 0.8f, strong = true)
+        val s = c.txt.fit(cfg.channel, tf, 96f * k * cfg.textScale.coerceIn(0.5f, 1.6f), z.w - 60f * k)
+        c.txt.draw(cfg.channel, w / 2, c.txt.baselineFor(z.y + z.h / 2, tf, s), tf, s, titlePaint(theme, p, z), spacing = titleSpacing(theme, k))
+        val ts = c.txt.fit(cfg.tagline, FontId.REGULAR, 34f * k, w - 200f * k)
+        c.txt.draw(cfg.tagline, w / 2, z.bottom + 56f * k, FontId.REGULAR, ts, fill(col(p.text, 0.92f)).also { it.shadow = Shadow(0f, 2f * k, 4f * k, col(0xFF000000, 0.7f)) })
+        val soc = (cfg.socials.filter { it.isNotBlank() } + cfg.schedule).joinToString("   •   ")
+        c.txt.draw(soc, w / 2, h - 40f * k, FontId.BOLD, c.txt.fit(soc, FontId.BOLD, 26f * k, w - 160f * k), fill(col(p.text, 0.85f)))
+        badge(c, theme, p, 40f * k, 40f * k, theme.badge, k * 0.9f)
     }
 
     private fun backOut(x: Float): Float { val c1 = 1.70158f; val c3 = c1 + 1; return 1 + c3 * (x - 1) * (x - 1) * (x - 1) + c1 * (x - 1) * (x - 1) }
@@ -392,7 +488,8 @@ class OverlayRenderer {
      * Full-screen transition. At [OverlayAnim.STINGER_COVER_SEC] the screen is entirely covered
      * (that is where OBS switches the scenes), before and after it is partly transparent.
      */
-    fun drawStinger(c: Gfx, theme: OverlayTheme, cfg: OverlayConfig, style: StingerStyle, t: Double) {
+    fun drawStinger(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, style: StingerStyle, t: Double) {
+        val theme = cfg.styled(theme0)
         val p = pal(theme, cfg)
         val w = cfg.width.toFloat(); val h = cfg.height.toFloat(); val k = w / OverlayLayout.REF_W
         val cover = OverlayAnim.stingerCover(t)

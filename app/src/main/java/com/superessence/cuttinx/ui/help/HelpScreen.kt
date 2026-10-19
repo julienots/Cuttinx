@@ -57,6 +57,7 @@ fun HelpScreen(onBack: () -> Unit, startTutorial: () -> Unit) {
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf<String?>(null) }
     var tutorial by remember { mutableStateOf(false) }
+    var film by remember { mutableStateOf<com.superessence.cuttinx.core.tutorial.Film?>(null) }
     val cx = LocalCx.current
     Box {
         Scaffold(topBar = { TopAppBar(title = { Text("Guide d'utilisation") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") } }) }) { pad ->
@@ -65,6 +66,10 @@ fun HelpScreen(onBack: () -> Unit, startTutorial: () -> Unit) {
                     Button({ tutorial = true }, Modifier.weight(1f)) { Text("Tutoriel pas à pas") }
                     OutlinedButton(startTutorial, Modifier.weight(1f)) { Text("Projet d'exemple") }
                 }
+                SectionTitle("🎬 Tutos vidéo (${com.superessence.cuttinx.core.tutorial.Tutorials.all.size})")
+                Text("Des petits films qui montrent chaque outil en vrai, étape par étape.", style = MaterialTheme.typography.bodySmall, color = cx.dim)
+                Spacer(Modifier.height(6.dp))
+                FilmGallery { film = it }
                 OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(top = 10.dp), singleLine = true, placeholder = { Text("Rechercher (zoom lent, bruit, transition…)") })
                 Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (listOf<String?>(null) + topics.map { it.category }.distinct()).forEach { c ->
@@ -89,6 +94,7 @@ fun HelpScreen(onBack: () -> Unit, startTutorial: () -> Unit) {
                 Spacer(Modifier.height(30.dp))
             }
         }
+        film?.let { f -> FilmPlayerDialog(f) { film = null } }
         if (tutorial) TutorialOverlay { tutorial = false }
     }
 }

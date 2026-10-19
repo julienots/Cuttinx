@@ -13,6 +13,21 @@ import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicBoolean
 
 class EngineTest {
+    @Test fun everyTutorialFilmPlaysFromStartToEnd() {
+        val raster = com.superessence.cuttinx.desktop.render.SkiaRaster()
+        val f = raster.frame(640, 360)
+        val r = com.superessence.cuttinx.core.tutorial.FilmRenderer()
+        for (film in com.superessence.cuttinx.core.tutorial.Tutorials.all) {
+            assertTrue(film.id, film.script.caps.size >= 3)
+            var t = 0.0
+            while (t <= film.duration) {
+                r.draw(f.gfx, film, t, 640, 360)
+                film.script.cursor(t)?.let { p -> assertTrue("${film.id} finger at $t", p.x in 0f..1280f && p.y in 0f..720f) }
+                t += 0.5
+            }
+        }
+    }
+
     @Test fun everyEffectRunsOnThePc() {
         val failed = EffectRegistry.all.filter { it.glsl.isNotBlank() }.mapNotNull { d -> Sksl.error(d.id)?.let { "${d.id}: $it" } }
         assertTrue(failed.joinToString("\n"), failed.isEmpty())

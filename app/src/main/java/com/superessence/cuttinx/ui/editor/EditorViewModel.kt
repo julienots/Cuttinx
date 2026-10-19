@@ -374,6 +374,37 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
         else updateClip(prop, "prop_${c.id}_$prop") { base(it, value) }
     }
 
+    /** Transform properties animated by the one-tap keyframe button (CapCut style). */
+    private val quickProps = listOf(Prop.POS_X, Prop.POS_Y, Prop.SCALE, Prop.ROTATION, Prop.OPACITY)
+
+    /** True when the selected clip has a keyframe at the playhead (any property). */
+    fun anyKeyframeAtPlayhead(): Boolean {
+        val c = selectedClip() ?: return false
+        val rel = position - c.startUs
+        return c.keyframes.values.any { k -> k.keyframes.any { kotlin.math.abs(it.timeUs - rel) < 30_000 } }
+    }
+
+    /**
+     * One tap: adds a keyframe on position, scale, rotation and opacity at the playhead with the
+     * current values (then moving / zooming the clip elsewhere animates it), or removes them.
+     */
+    fun toggleQuickKeyframe() {
+        val c = selectedClip() ?: run { message.value = "Sélectionne d'abord un clip"; return }
+        val rel = (position - c.startUs).coerceIn(0, c.durationUs)
+        if (position < c.startUs || position > c.endUs) { message.value = "Place la tête de lecture sur le clip sélectionné"; return }
+        if (anyKeyframeAtPlayhead()) {
+            edit("Supprimer l'image clé") { p -> TimelineEditor.updateClip(p, c.id) { cl -> cl.copy(keyframes = cl.keyframes.mapValues { (_, k) -> KeyframeTrack(k.keyframes.filterNot { kotlin.math.abs(it.timeUs - rel) < 30_000 }) }.filterValues { it.keyframes.isNotEmpty() }) } }
+            return
+        }
+        val t = FrameEvaluator.transform(c, rel, withMotion = false)
+        val values = mapOf(
+            Prop.POS_X to t.posX, Prop.POS_Y to t.posY, Prop.ROTATION to t.rotation, Prop.OPACITY to t.opacity,
+            Prop.SCALE to KeyframeEvaluator.evaluate(c.keyframes[Prop.SCALE], rel, 1.0),
+        )
+        edit("Image clé") { p -> quickProps.fold(p) { acc, prop -> TimelineEditor.setKeyframe(acc, c.id, prop, rel, values[prop] ?: 0.0) } }
+        message.value = "Image clé ajoutée ◆ — déplace la tête de lecture puis bouge / zoome le clip"
+    }
+
     fun keyframeAtPlayhead(prop: String): Boolean {
         val c = selectedClip() ?: return false
         val rel = position - c.startUs

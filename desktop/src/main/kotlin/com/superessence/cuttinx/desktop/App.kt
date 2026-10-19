@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,37 @@ object Cx {
 /** The three spaces of CUTTINX PRO (same as the Android home screen) + the guide. */
 enum class Section(val label: String, val icon: String, val color: Color) {
     EDITOR("Éditeur", "🎬", Color(0xFFFFCC1F)), TWITCH("Twitch Editor", "📺", Color(0xFF3D8BFF)), BRAND("ID Influenceur", "✨", Color(0xFFFF4FA3)), GUIDE("Guide", "📖", Color(0xFF9AA0AC)),
+}
+
+/** Slanted card echoing the big « / » separators. */
+private val SlantShape = androidx.compose.foundation.shape.GenericShape { size, _ ->
+    val d = size.height * 0.22f
+    moveTo(d, 0f); lineTo(size.width, 0f); lineTo(size.width - d, size.height); lineTo(0f, size.height); close()
+}
+
+/** Éditeur / Twitch Editor / ID Influenceur: big, separated by « / », the chosen one grows with a spring. */
+@Composable
+private fun SpacesBar(selected: Section, onSelect: (Section) -> Unit, modifier: Modifier) {
+    Row(modifier.height(64.dp), verticalAlignment = Alignment.CenterVertically) {
+        listOf(Section.EDITOR, Section.TWITCH, Section.BRAND).forEachIndexed { i, s ->
+            if (i > 0) Text("/", Modifier.padding(horizontal = 4.dp), fontSize = 46.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color.White.copy(alpha = 0.3f))
+            val sel = s == selected
+            val weight by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.8f else 1f, androidx.compose.animation.core.spring(0.6f, 240f), label = "w")
+            val scale by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.1f else 0.92f, androidx.compose.animation.core.spring(0.42f, 320f), label = "s")
+            val alpha by androidx.compose.animation.core.animateFloatAsState(if (sel) 1f else 0.6f, label = "a")
+            val bounce = remember { androidx.compose.animation.core.Animatable(0f) }
+            LaunchedEffect(sel) { if (sel) { bounce.snapTo(-18f); bounce.animateTo(0f, androidx.compose.animation.core.spring(0.25f, 220f)) } }
+            val bg = if (sel) androidx.compose.ui.graphics.Brush.linearGradient(listOf(s.color, s.color.copy(alpha = 0.6f))) else androidx.compose.ui.graphics.SolidColor(Cx.Panel2)
+            Box(Modifier.weight(weight).fillMaxHeight().clip(SlantShape).background(bg).clickable { onSelect(s) }, contentAlignment = Alignment.Center) {
+                Row(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }, verticalAlignment = Alignment.CenterVertically) {
+                    Text(s.icon, Modifier.graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f }, fontSize = 26.sp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(s.label, fontWeight = FontWeight.Black, fontSize = if (sel) 20.sp else 15.sp, maxLines = 1,
+                        color = if (sel) (if (s == Section.EDITOR) Color.Black else Color.White) else Color.White)
+                }
+            }
+        }
+    }
 }
 
 /** State shared by the sections (the brand kit can feed the overlay generator). */
@@ -112,28 +144,21 @@ fun App(state: AppState = remember { AppState() }) {
                 Text("PRO", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Black,
                     modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Cx.Yellow).padding(horizontal = 6.dp, vertical = 1.dp))
                 Spacer(Modifier.width(28.dp))
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf(Section.EDITOR, Section.TWITCH, Section.BRAND).forEach { s ->
-                        val sel = s == state.section
-                        Row(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (sel) s.color else Cx.Panel2).clickable { state.section = s }.padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                            Text(s.icon, fontSize = 20.sp); Spacer(Modifier.width(8.dp))
-                            Text(s.label, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = if (sel) Color.Black else Color.White)
-                        }
-                    }
-                }
+                SpacesBar(state.section, { state.section = it }, Modifier.weight(1f))
                 Spacer(Modifier.width(16.dp))
-                Text("? Guide", Modifier.clip(RoundedCornerShape(12.dp)).background(if (state.section == Section.GUIDE) Cx.Panel2 else Color.Transparent).clickable { state.section = Section.GUIDE }.padding(horizontal = 12.dp, vertical = 8.dp), color = Cx.Dim)
+                Text("? Guide & tutos", Modifier.clip(RoundedCornerShape(12.dp)).background(if (state.section == Section.GUIDE) Cx.Panel2 else Color.Transparent).clickable { state.section = Section.GUIDE }.padding(horizontal = 12.dp, vertical = 8.dp), color = Cx.Dim)
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val accent = state.section.color.takeIf { state.section != Section.GUIDE } ?: Cx.Yellow
                 MaterialTheme(colorScheme = scheme.copy(primary = accent, secondary = accent, onPrimary = if (accent == Cx.Yellow) Color.Black else Color.White)) {
                 androidx.compose.runtime.CompositionLocalProvider(com.superessence.cuttinx.desktop.ui.LocalAccent provides accent) {
-                when (state.section) {
+                androidx.compose.animation.Crossfade(state.section, label = "space") { sec ->
+                when (sec) {
                     Section.EDITOR -> com.superessence.cuttinx.desktop.editor.EditorSpace(state)
                     Section.TWITCH -> TwitchStudio(state)
                     Section.BRAND -> BrandStudio(state)
-                    Section.GUIDE -> GuideScreen()
+                    Section.GUIDE -> GuideScreen(state)
+                }
                 }
                 }
                 }

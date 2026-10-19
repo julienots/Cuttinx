@@ -18,11 +18,13 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -94,7 +96,7 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
                     Box {
                         IconButton({ menuOpen = true }) { Icon(Icons.Default.MoreVert, "Menu") }
                         DropdownMenu(menuOpen, { menuOpen = false }) {
-                            DropdownMenuItem({ Text("Aide & tutoriel") }, { menuOpen = false; openHelp() }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) })
+                            DropdownMenuItem({ Text("Aide & tutos vidéo") }, { menuOpen = false; openHelp() }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) })
                             DropdownMenuItem({ Text("Paramètres") }, { menuOpen = false; openSettings() }, leadingIcon = { Icon(Icons.Outlined.Settings, null) })
                             DropdownMenuItem({ Text("Importer un projet") }, { menuOpen = false; importDoc.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }, leadingIcon = { Icon(Icons.Default.FileOpen, null) })
                             DropdownMenuItem({ Text("Ressources & licences") }, { menuOpen = false; openResources() }, leadingIcon = { Icon(Icons.Outlined.LibraryMusic, null) })
@@ -104,7 +106,13 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
         }) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
         StudioTabs(tab, { tab = it })
-        when (tab) {
+        // the chosen space slides in from the side of its tab
+        androidx.compose.animation.AnimatedContent(tab, Modifier.weight(1f), transitionSpec = {
+            val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
+            (androidx.compose.animation.slideInHorizontally { it * dir / 3 } + androidx.compose.animation.fadeIn()) togetherWith
+                (androidx.compose.animation.slideOutHorizontally { -it * dir / 3 } + androidx.compose.animation.fadeOut())
+        }, label = "space") { shown ->
+        when (shown) {
         StudioTab.TWITCH -> com.superessence.cuttinx.ui.twitch.TwitchScreen(studio)
         StudioTab.ID -> com.superessence.cuttinx.ui.brand.BrandScreen(studio) { tab = StudioTab.TWITCH }
         StudioTab.EDITOR -> {
@@ -159,6 +167,7 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
             items(visible, key = { it.id }) { p ->
                 ProjectCard(p, vm.thumbnailFile(p.id), onClick = { openProject(p.id) }, onMenu = { menuFor = p })
             }
+        }
         }
         }
         }
@@ -256,22 +265,41 @@ private fun ProBadge() {
 }
 
 /** The three spaces of CUTTINX PRO, chosen at the top of the home screen. */
-enum class StudioTab(val label: String, val emoji: String, val color: Color) {
-    EDITOR("Éditeur", "🎬", Cx.Yellow),
-    TWITCH("Twitch Editor", "📺", Color(0xFF3D8BFF)),
-    ID("ID Influenceur", "✨", Color(0xFFFF4FA3)),
+enum class StudioTab(val label: String, val short: String, val emoji: String, val color: Color) {
+    EDITOR("Éditeur", "Éditeur", "🎬", Cx.Yellow),
+    TWITCH("Twitch Editor", "Twitch", "📺", Color(0xFF3D8BFF)),
+    ID("ID Influenceur", "ID Influ", "✨", Color(0xFFFF4FA3)),
 }
 
+/** Slanted card echoing the big « / » separators. */
+private val SlantShape = androidx.compose.foundation.shape.GenericShape { size, _ ->
+    val d = size.height * 0.2f
+    moveTo(d, 0f); lineTo(size.width, 0f); lineTo(size.width - d, size.height); lineTo(0f, size.height); close()
+}
+
+/**
+ * The three spaces, big, separated by large « / ». Tapping one makes it grow (spring), its emoji
+ * bounces and the two others shrink and fade.
+ */
 @Composable
 private fun StudioTabs(selected: StudioTab, onSelect: (StudioTab) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        StudioTab.entries.forEach { t ->
+    val cx = LocalCx.current
+    Row(Modifier.fillMaxWidth().height(104.dp).padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        StudioTab.entries.forEachIndexed { i, t ->
+            if (i > 0) Text("/", Modifier.padding(horizontal = 1.dp), fontSize = 58.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color.White.copy(alpha = 0.3f))
             val sel = t == selected
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
-                .background(if (sel) Brush.verticalGradient(listOf(t.color, t.color.copy(alpha = 0.75f))) else Brush.verticalGradient(listOf(LocalCx.current.panel2, LocalCx.current.panel2)))
-                .clickable { onSelect(t) }.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(t.emoji, fontSize = 22.sp)
-                Text(t.label, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, color = if (sel) Color.Black else MaterialTheme.colorScheme.onSurface)
+            val weight by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.9f else 1f, androidx.compose.animation.core.spring(0.6f, 240f), label = "w")
+            val scale by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.12f else 0.9f, androidx.compose.animation.core.spring(0.42f, 320f), label = "s")
+            val alpha by androidx.compose.animation.core.animateFloatAsState(if (sel) 1f else 0.6f, label = "a")
+            val bounce = remember { androidx.compose.animation.core.Animatable(0f) }
+            LaunchedEffect(sel) { if (sel) { bounce.snapTo(-18f); bounce.animateTo(0f, androidx.compose.animation.core.spring(0.25f, 220f)) } }
+            val bg = if (sel) Brush.linearGradient(listOf(t.color, t.color.copy(alpha = 0.6f))) else androidx.compose.ui.graphics.SolidColor(cx.panel2)
+            Box(Modifier.weight(weight).fillMaxHeight().clip(SlantShape).background(bg).clickable { onSelect(t) }, contentAlignment = Alignment.Center) {
+                Column(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(t.emoji, Modifier.graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f }, fontSize = 28.sp)
+                    Text(if (sel) t.label else t.short, fontWeight = FontWeight.Black, fontSize = if (sel) 15.sp else 12.sp, maxLines = 1,
+                        color = if (sel) (if (t == StudioTab.EDITOR) Color.Black else Color.White) else MaterialTheme.colorScheme.onSurface)
+                }
             }
         }
     }
