@@ -23,6 +23,10 @@ class AndroidFonts(private val assets: AssetManager) {
     private val cache = HashMap<FontId, Typeface>()
     @Synchronized fun typeface(f: FontId): Typeface = cache.getOrPut(f) { runCatching { Typeface.createFromAsset(assets, "fonts/${f.file}") }.getOrDefault(Typeface.DEFAULT_BOLD) }
     fun bytes(f: FontId): ByteArray? = runCatching { assets.open("fonts/${f.file}").use { it.readBytes() } }.getOrNull()
+
+    private val images = java.util.WeakHashMap<ByteArray, Bitmap?>()
+    /** Decoded picture, cached per byte array (custom logos are decoded once). */
+    @Synchronized fun image(data: ByteArray): Bitmap? = images.getOrPut(data) { runCatching { android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size) }.getOrNull() }
 }
 
 /**
@@ -101,6 +105,14 @@ class AndroidGfx(var canvas: Canvas, private val fonts: AndroidFonts) : Gfx {
     override fun text(text: String, x: Float, y: Float, font: FontId, size: Float, p: Paint) = canvas.drawText(text, x, y, textPaint(font, size, p))
     override fun textWidth(text: String, font: FontId, size: Float): Float = textPaint(font, size, null).measureText(text)
     override fun metrics(font: FontId, size: Float): Pair<Float, Float> { val m = textPaint(font, size, null).fontMetrics; return m.ascent to m.descent }
+
+    override fun image(data: ByteArray, x: Float, y: Float, w: Float, h: Float, alpha: Float) {
+        val b = fonts.image(data) ?: return
+        val k = minOf(w / b.width, h / b.height)
+        val dw = b.width * k; val dh = b.height * k
+        val l = x + (w - dw) / 2; val t = y + (h - dh) / 2
+        canvas.drawBitmap(b, null, RectF(l, t, l + dw, t + dh), android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG).apply { this.alpha = (255 * alpha.coerceIn(0f, 1f)).toInt() })
+    }
 }
 
 /** Offscreen software bitmaps for previews and exports. */

@@ -31,6 +31,11 @@ class Fonts {
         shaper.shapeLine(text, font)
     }
 
+    private val images = java.util.WeakHashMap<ByteArray, Image?>()
+
+    /** Decoded picture, cached per byte array (custom logos are decoded once). */
+    @Synchronized fun image(data: ByteArray): Image? = images.getOrPut(data) { runCatching { Image.makeFromEncoded(data) }.getOrNull() }
+
     /** Typeface able to draw [cp] (system font lookup, cached). */
     @Synchronized fun fallbackFor(cp: Int): Typeface? = fallback.getOrPut(cp) { FontMgr.default.matchFamilyStyleCharacter(null, FontStyle.BOLD, null, cp) }
 }
@@ -108,6 +113,14 @@ class SkiaGfx(var canvas: Canvas, private val fonts: Fonts) : CxGfx {
     override fun textWidth(text: String, font: FontId, size: Float): Float = runs(text, font, size).sumOf { fonts.line(it.text, it.font).width.toDouble() }.toFloat()
 
     override fun metrics(font: FontId, size: Float): Pair<Float, Float> { val m = Font(fonts.typeface(font), size).metrics; return m.ascent to m.descent }
+
+    override fun image(data: ByteArray, x: Float, y: Float, w: Float, h: Float, alpha: Float) {
+        val img = fonts.image(data) ?: return
+        val k = minOf(w / img.width, h / img.height)
+        val dw = img.width * k; val dh = img.height * k
+        canvas.drawImageRect(img, Rect.makeWH(img.width.toFloat(), img.height.toFloat()), Rect.makeXYWH(x + (w - dw) / 2, y + (h - dh) / 2, dw, dh),
+            SamplingMode.LINEAR, Paint().apply { isAntiAlias = true; this.alpha = (255 * alpha.coerceIn(0f, 1f)).toInt() }, true)
+    }
 }
 
 /** Offscreen Skia surfaces for exports. */

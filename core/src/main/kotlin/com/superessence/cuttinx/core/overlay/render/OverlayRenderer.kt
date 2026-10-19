@@ -31,9 +31,18 @@ class OverlayRenderer {
     fun drawScene(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, scene: SceneKind, t: Double, layer: Layer = Layer.ALL, countdown: String? = "BIENTÔT") {
         val theme = cfg.styled(theme0)
         val w = cfg.width.toFloat(); val h = cfg.height.toFloat()
+        if (scene == SceneKind.VERTICAL && w > h) {
+            // landscape preview of the vertical layout: centred 9:16 frame
+            val pw = (h * 9f / 16f).toInt().coerceAtLeast(2)
+            c.save(); c.translate((w - pw) / 2f, 0f)
+            drawScene(c, theme, cfg.copy(width = pw, height = cfg.height), scene, t, layer, countdown)
+            c.restore(); return
+        }
         val p = pal(theme, cfg)
-        val k = w / OverlayLayout.REF_W
+        val k = if (scene == SceneKind.VERTICAL) w / 1080f else w / OverlayLayout.REF_W
         when {
+            scene == SceneKind.TICKER -> { drawTicker(c, theme, cfg, t, layer); return }
+            scene == SceneKind.SOCIALS -> { if (layer != Layer.STATIC) drawSocialsPop(c, theme, cfg, t); return }
             scene.isAlert -> { if (layer != Layer.STATIC) drawAlert(c, theme, cfg, t, scene); return }
             scene == SceneKind.GOAL -> { if (layer != Layer.MOVING) drawGoal(c, theme, cfg); return }
             scene.fullBackground -> {
@@ -90,6 +99,13 @@ class OverlayRenderer {
         val soc = (cfg.socials.filter { it.isNotBlank() } + if (scene == SceneKind.STARTING) listOf(cfg.schedule) else emptyList()).joinToString("   •   ")
         if (soc.isNotBlank()) c.txt.draw(soc, w / 2, c.txt.baselineFor(socials.y + socials.h / 2, FontId.BOLD, 30f * k), FontId.BOLD, c.txt.fit(soc, FontId.BOLD, 30f * k, socials.w), fill(col(p.text, 0.85f)))
         cornerDecorations(c, theme, p, w, h, k)
+        OverlayLayout.zone(scene, cfg, ZoneKind.LOGO)?.let { logo(c, cfg, it) }
+    }
+
+    /** The streamer's own logo, fitted in the zone (nothing when no logo was imported). */
+    fun logo(c: Gfx, cfg: OverlayConfig, z: Zone, alpha: Float = 1f) {
+        val b = cfg.logoBytes ?: return
+        c.image(b, z.x, z.y, z.w, z.h, alpha)
     }
 
     private fun titleSpacing(theme: OverlayTheme, k: Float) = when (theme.font) { TitleFont.CONDENSED, TitleFont.TECH, TitleFont.IMPACT -> 6f * k; else -> 0f }
@@ -117,7 +133,7 @@ class OverlayRenderer {
         c.line(w / 2 - len / 2, y, w / 2 + len / 2, y, stroke(col(p.glow, 0.85f), 6f * k).glow(10f * k))
         c.line(w / 2 - len / 2, y, w / 2 + len / 2, y, stroke(col(0xFFFFFFFF, 0.9f), 2f * k))
         // loading dots
-        if (scene == SceneKind.STARTING || scene == SceneKind.BRB || scene == SceneKind.PAUSE || scene == SceneKind.TECH) {
+        if (scene == SceneKind.STARTING || scene == SceneKind.BRB || scene == SceneKind.PAUSE || scene == SceneKind.TECH || scene == SceneKind.INTERMISSION) {
             val phase = (t / OverlayAnim.LOOP_SEC * 4) % 1.0
             for (i in 0 until 3) {
                 val a = (sin((phase - i * 0.15) * 2 * PI) * 0.5 + 0.5).toFloat()
@@ -138,7 +154,9 @@ class OverlayRenderer {
     private fun zone(c: Gfx, theme: OverlayTheme, cfg: OverlayConfig, p: OverlayPalette, z: Zone, k: Float) {
         when (z.kind) {
             ZoneKind.SCREEN -> frame(c, theme, p, z, k)
-            ZoneKind.CAMERA -> {
+            ZoneKind.LOGO -> logo(c, cfg, z)
+            ZoneKind.CAMERA, ZoneKind.CAMERA2 -> {
+                val name = if (z.kind == ZoneKind.CAMERA2) cfg.guest else cfg.channel
                 when (cfg.cameraShape) {
                     CameraShape.THEME -> frame(c, theme, p, z, k)
                     CameraShape.ROUNDED -> roundFrame(c, p, RR(z.x, z.y, z.w, z.h, min(z.w, z.h) * 0.12f), k)
@@ -149,11 +167,11 @@ class OverlayRenderer {
                 }
                 if (!cfg.nameOnCamera) return
                 // name plate overlapping the bottom edge of the camera
-                val pw = min(z.w * 0.8f, max(260f * k, c.txt.width(cfg.channel, FontId.of(theme.font), 36f * k) + 80f * k)); val ph = 54f * k
+                val pw = min(z.w * 0.8f, max(260f * k, c.txt.width(name, FontId.of(theme.font), 36f * k) + 80f * k)); val ph = 54f * k
                 val plateZone = Zone(ZoneKind.TITLE, z.x + (z.w - pw) / 2, z.bottom - ph / 2, pw, ph)
                 plate(c, theme, p, plateZone, k, strong = true)
-                val tf = FontId.of(theme.font); val s = c.txt.fit(cfg.channel, tf, 34f * k, pw - 40f * k)
-                c.txt.draw(cfg.channel, plateZone.x + pw / 2, c.txt.baselineFor(plateZone.y + ph / 2, tf, s), tf, s, fill(col(p.text)), spacing = titleSpacing(theme, k) / 2)
+                val tf = FontId.of(theme.font); val s = c.txt.fit(name, tf, 34f * k, pw - 40f * k)
+                c.txt.draw(name, plateZone.x + pw / 2, c.txt.baselineFor(plateZone.y + ph / 2, tf, s), tf, s, fill(col(p.text)), spacing = titleSpacing(theme, k) / 2)
             }
             ZoneKind.CHAT -> {
                 c.rrect(z.x, z.y, z.w, z.h, radius(theme, k), fill(col(p.background, 0.55f)))
@@ -458,8 +476,11 @@ class OverlayRenderer {
         val z = Zone(ZoneKind.TITLE, 10f * k, 14f * k, w - 20f * k, h - 28f * k)
         plate(c, theme, p, z, k * 0.45f, strong = true)
         val tf = FontId.of(theme.font)
-        val s = c.txt.fit(label, tf, 40f * k, z.w - 30f * k)
-        c.txt.draw(label, w / 2, c.txt.baselineFor(z.y + z.h / 2, tf, s), tf, s, titlePaint(theme, p, z), spacing = titleSpacing(theme, k * 0.4f))
+        val lb = cfg.logoBytes
+        val lw = if (lb != null) z.h - 8f * k else 0f
+        if (lb != null) c.image(lb, z.x + 8f * k, z.y + 4f * k, lw, lw)
+        val s = c.txt.fit(label, tf, 40f * k, z.w - 30f * k - lw)
+        c.txt.draw(label, w / 2 + lw / 2, c.txt.baselineFor(z.y + z.h / 2, tf, s), tf, s, titlePaint(theme, p, z), spacing = titleSpacing(theme, k * 0.4f))
     }
 
     /** Twitch profile banner (1200×480 reference). */
@@ -478,6 +499,136 @@ class OverlayRenderer {
         val soc = (cfg.socials.filter { it.isNotBlank() } + cfg.schedule).joinToString("   •   ")
         c.txt.draw(soc, w / 2, h - 40f * k, FontId.BOLD, c.txt.fit(soc, FontId.BOLD, 26f * k, w - 160f * k), fill(col(p.text, 0.85f)))
         badge(c, theme, p, 40f * k, 40f * k, theme.badge, k * 0.9f)
+        cfg.logoBytes?.let { b -> c.image(b, 1030f * k, 140f * k, 150f * k, 170f * k) }
+    }
+
+    /** Bottom ticker: channel tag on the left, socials / schedule / tagline scrolling in a seamless loop. */
+    fun drawTicker(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, t: Double, layer: Layer = Layer.ALL) {
+        val theme = cfg.styled(theme0)
+        val p = pal(theme, cfg); val k = cfg.width / OverlayLayout.REF_W
+        val z = OverlayLayout.zone(SceneKind.TICKER, cfg, ZoneKind.INFO)!!
+        val tagW = min(z.w * 0.3f, 360f * k)
+        if (layer != Layer.MOVING) plate(c, theme, p, z, k * 0.7f, strong = false)
+        if (layer != Layer.STATIC) {
+            val items = (listOf(cfg.tagline, cfg.schedule) + cfg.socials.filter { it.isNotBlank() }).filter { it.isNotBlank() }
+            val line = items.joinToString("     •     ") + "     •     "
+            val ts = z.h * 0.42f
+            val seg = max(1f, c.txt.width(line, FontId.BOLD, ts))
+            val off = ((t / OverlayAnim.LOOP_SEC) % 1.0).toFloat() * seg
+            c.save(); c.clipRect(z.x + tagW, z.y, z.w - tagW, z.h)
+            var x = z.x + tagW - off
+            while (x < z.right) { c.txt.draw(line, x, c.txt.baselineFor(z.y + z.h / 2, FontId.BOLD, ts), FontId.BOLD, ts, fill(col(p.text, 0.92f)), Align.LEFT); x += seg }
+            c.restore()
+        }
+        if (layer != Layer.MOVING) {
+            val tag = Zone(ZoneKind.TITLE, z.x, z.y, tagW, z.h)
+            c.rect(tag.x, tag.y, tag.w, tag.h, Paint().apply { shader = linear(tag.x, 0f, tag.right, 0f, intArrayOf(col(p.primary), col(p.secondary))) })
+            val tf = FontId.of(theme.font)
+            val s = c.txt.fit(cfg.channel, tf, z.h * 0.5f, tagW - 30f * k)
+            c.txt.draw(cfg.channel, tag.x + tag.w / 2, c.txt.baselineFor(tag.y + tag.h / 2, tf, s), tf, s, fill(col(contrastOn(p.primary))))
+        }
+    }
+
+    /** Socials pop-up: each network slides in, stays, slides out (whole cycle = one loop). */
+    fun drawSocialsPop(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, t: Double) {
+        val theme = cfg.styled(theme0)
+        val p = pal(theme, cfg); val k = cfg.width / OverlayLayout.REF_W
+        val z = OverlayLayout.zone(SceneKind.SOCIALS, cfg, ZoneKind.SOCIALS)!!
+        val socials = cfg.socials.filter { it.isNotBlank() }.ifEmpty { listOf("@" + cfg.channel.lowercase().replace(" ", "")) }
+        val per = OverlayAnim.LOOP_SEC / socials.size
+        val i = ((t % OverlayAnim.LOOP_SEC) / per).toInt().coerceIn(0, socials.lastIndex)
+        val lt = ((t % OverlayAnim.LOOP_SEC) - i * per) / per
+        val inP = (lt / 0.2).coerceIn(0.0, 1.0).toFloat(); val outP = ((1 - lt) / 0.2).coerceIn(0.0, 1.0).toFloat()
+        val slide = (1f - backOut(inP)) * -z.w + (1f - outP) * -z.w * 0.4f
+        val a = min(inP * 2, outP * 2).coerceIn(0f, 1f)
+        if (a <= 0.01f) return
+        c.save(); c.translate(slide, 0f)
+        plate(c, theme, p, z, k, strong = true)
+        val r = z.h * 0.32f
+        c.circle(z.x + z.h / 2, z.y + z.h / 2, r, fill(col(p.primary, a)))
+        val handle = socials[i]
+        val net = when {
+            handle.contains("tiktok", true) -> "TikTok"; handle.contains("insta", true) -> "Instagram"; handle.contains("youtu", true) -> "YouTube"
+            handle.contains("twitter", true) || handle.contains("x.com", true) -> "X"; handle.contains("discord", true) -> "Discord"; else -> "Suis-moi"
+        }
+        c.txt.draw(net.take(1), z.x + z.h / 2, c.txt.baselineFor(z.y + z.h / 2, FontId.BOLD, r), FontId.BOLD, r, fill(col(contrastOn(p.primary), a)))
+        c.txt.draw(net.uppercase(), z.x + z.h, z.y + z.h * 0.4f, FontId.BOLD, 22f * k, fill(col(p.accent, a)), Align.LEFT, 3f * k)
+        c.txt.draw(handle, z.x + z.h, z.y + z.h * 0.78f, FontId.of(theme.font), c.txt.fit(handle, FontId.of(theme.font), z.h * 0.34f, z.w - z.h - 30f * k), fill(col(p.text, a)), Align.LEFT)
+        c.restore()
+    }
+
+    // ================================================================== Twitch profile assets (square)
+
+    private fun initials(name: String): String {
+        val words = name.split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotBlank() }
+        val camel = Regex("(?<=[a-z])(?=[A-Z])")
+        val parts = if (words.size >= 2) words else words.firstOrNull()?.split(camel) ?: emptyList()
+        return parts.take(2).joinToString("") { it.take(1).uppercase() }.ifEmpty { "TV" }
+    }
+
+    /** Subscriber badge for [months] (shape grows with seniority). Square of [s] pixels. */
+    fun drawSubBadge(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, months: Int, s: Float) {
+        val theme = cfg.styled(theme0); val p = pal(theme, cfg)
+        val cx = s / 2; val cy = s / 2; val r = s * 0.46f
+        val tier = OverlayConfig.SUB_TIERS.indexOf(months).coerceAtLeast(0)
+        val colors = listOf(p.secondary, p.primary, p.accent, p.glow, p.primary, p.accent)
+        val shape = when (tier) {
+            0 -> Path().addCircle(cx, cy, r)
+            1 -> Shapes.hexagon(cx, cy, r)
+            2 -> Path().moveTo(cx, cy - r).lineTo(cx + r * 0.85f, cy - r * 0.45f).lineTo(cx + r * 0.7f, cy + r * 0.5f).lineTo(cx, cy + r).lineTo(cx - r * 0.7f, cy + r * 0.5f).lineTo(cx - r * 0.85f, cy - r * 0.45f).closePath()
+            3 -> Shapes.star(cx, cy, r, 5, 0.55f)
+            4 -> Path().moveTo(cx, cy - r).lineTo(cx + r, cy).lineTo(cx, cy + r).lineTo(cx - r, cy).closePath()
+            else -> Shapes.star(cx, cy, r, 8, 0.72f)
+        }
+        c.path(shape, Paint().apply { shader = linear(0f, 0f, s, s, intArrayOf(col(lighten(colors[tier], 0.35f)), col(colors[tier]))) })
+        c.path(shape, stroke(col(0xFF000000, 0.55f), s * 0.06f))
+        if (tier == 5) c.path(Path().moveTo(cx - r * 0.5f, cy - r * 0.55f).lineTo(cx - r * 0.3f, cy - r * 0.8f).lineTo(cx, cy - r * 0.6f).lineTo(cx + r * 0.3f, cy - r * 0.8f).lineTo(cx + r * 0.5f, cy - r * 0.55f).closePath(), fill(col(0xFFFFD45C)))
+        val label = "$months"
+        val ts = s * (if (label.length > 1) 0.4f else 0.48f)
+        c.txt.draw(label, cx, c.txt.baselineFor(cy + s * 0.03f, FontId.BOLD, ts), FontId.BOLD, ts, fill(col(contrastOn(colors[tier]))))
+    }
+
+    /** Text emote in the theme style (GG, HYPE, LOL…). Square of [s] pixels, transparent. */
+    fun drawEmote(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, text: String, s: Float, index: Int = 0) {
+        val theme = cfg.styled(theme0); val p = pal(theme, cfg)
+        val bg = listOf(p.primary, p.secondary, p.accent, p.glow)[index % 4]
+        val cx = s / 2; val cy = s / 2
+        when (index % 3) {
+            0 -> c.circle(cx, cy, s * 0.46f, fill(col(bg)))
+            1 -> c.path(Shapes.star(cx, cy, s * 0.5f, 12, 0.8f), fill(col(bg)))
+            else -> c.path(Shapes.heart(cx, cy + s * 0.04f, s * 0.95f), fill(col(bg)))
+        }
+        val tf = FontId.of(theme.font).let { if (it == FontId.PIXEL || it == FontId.SCRIPT) FontId.BOLD else it }
+        val ts = c.txt.fit(text, tf, s * 0.42f, s * 0.82f)
+        val y = c.txt.baselineFor(cy, tf, ts)
+        c.txt.draw(text, cx, y, tf, ts, stroke(col(0xFF000000), s * 0.07f))
+        c.txt.draw(text, cx, y, tf, ts, fill(col(0xFFFFFFFF)))
+    }
+
+    /** Channel points icon: coin with the channel initial. */
+    fun drawPoints(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, s: Float) {
+        val theme = cfg.styled(theme0); val p = pal(theme, cfg)
+        val cx = s / 2; val cy = s / 2; val r = s * 0.44f
+        c.circle(cx, cy, r, Paint().apply { shader = radial(cx - r * 0.3f, cy - r * 0.3f, r * 1.6f, intArrayOf(col(lighten(p.accent, 0.5f)), col(p.accent), col(p.primary))) })
+        c.circle(cx, cy, r * 0.78f, stroke(col(0xFFFFFFFF, 0.8f), s * 0.05f))
+        val ini = initials(cfg.channel).take(1)
+        val ts = r * 1.1f
+        c.txt.draw(ini, cx, c.txt.baselineFor(cy, FontId.BOLD, ts), FontId.BOLD, ts, fill(col(contrastOn(p.accent))))
+    }
+
+    /** Profile picture / logo: theme background, monogram and ring. Square of [s] pixels. */
+    fun drawAvatar(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig, s: Float) {
+        val theme = cfg.styled(theme0); val p = pal(theme, cfg)
+        c.save(); c.clipPath(Path().addCircle(s / 2, s / 2, s / 2))
+        cardBackground(c, theme, p, s, s, 0.6f)
+        c.restore()
+        c.circle(s / 2, s / 2, s * 0.47f, stroke(col(p.glow), s * 0.03f).glow(s * 0.02f))
+        cfg.logoBytes?.let { b -> c.image(b, s * 0.17f, s * 0.17f, s * 0.66f, s * 0.66f); return }
+        val tf = FontId.of(theme.font)
+        val ini = initials(cfg.channel)
+        val ts = c.txt.fit(ini, tf, s * 0.42f, s * 0.7f)
+        c.txt.draw(ini, s / 2 + s * 0.01f, c.txt.baselineFor(s / 2, tf, ts) + s * 0.01f, tf, ts, fill(col(0xFF000000, 0.35f)))
+        c.txt.draw(ini, s / 2, c.txt.baselineFor(s / 2, tf, ts), tf, ts, titlePaint(theme, p, Zone(ZoneKind.TITLE, 0f, s * 0.3f, s, s * 0.4f)))
     }
 
     private fun backOut(x: Float): Float { val c1 = 1.70158f; val c3 = c1 + 1; return 1 + c3 * (x - 1) * (x - 1) * (x - 1) + c1 * (x - 1) * (x - 1) }

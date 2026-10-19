@@ -27,6 +27,8 @@ interface Gfx {
     fun textWidth(text: String, font: FontId, size: Float): Float
     /** (ascent, descent) of the font: ascent is negative (above the baseline). */
     fun metrics(font: FontId, size: Float): Pair<Float, Float>
+    /** Draws an encoded picture (PNG / JPEG) fitted inside the box, keeping its proportions (custom logos). */
+    fun image(data: ByteArray, x: Float, y: Float, w: Float, h: Float, alpha: Float = 1f) {}
 }
 
 /** An offscreen surface able to encode itself as PNG (exports). */

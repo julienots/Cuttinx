@@ -64,12 +64,21 @@ enum class SceneKind(val label: String, val title: String, val animated: Boolean
     TECH("Problème technique", "PROBLÈME TECHNIQUE", true, true),
     ENDING("Fin du live", "MERCI D'AVOIR REGARDÉ", true, true),
     OFFLINE("Hors ligne", "ACTUELLEMENT HORS LIGNE", true, true),
+    QNA("Questions / réponses", "QUESTIONS & RÉPONSES", true, true),
+    GIVEAWAY("Concours", "CONCOURS EN COURS", true, true),
+    SPECIAL("Live spécial", "LIVE SPÉCIAL", true, true),
+    INTERMISSION("Entracte", "ENTRACTE", true, true),
     GAMEPLAY("Jeu (écran + caméra + chat)", "", false, false),
     JUST_CHATTING("Discussion (caméra + chat)", "", false, false),
     SCREEN_ONLY("Écran seul + caméra", "", false, false),
     WEBCAM("Cadre caméra seul", "", false, false),
     CHAT("Cadre du chat seul", "", false, false),
     GOAL("Barre d'objectif", "OBJECTIF FOLLOWS", false, false),
+    TICKER("Bandeau défilant", "", true, false),
+    SOCIALS("Pop-up réseaux", "", true, false),
+    VERTICAL("Live vertical (TikTok)", "", false, false),
+    DUO("Duo (2 caméras + jeu)", "", false, false),
+    FULLCAM("Caméra plein écran", "", false, false),
     ALERT("Alerte nouveau follow", "NOUVEAU FOLLOW !", true, false),
     ALERT_SUB("Alerte abonnement", "NOUVEL ABONNÉ !", true, false),
     ALERT_RAID("Alerte raid", "RAID EN APPROCHE !", true, false),
@@ -85,6 +94,10 @@ enum class SceneKind(val label: String, val title: String, val animated: Boolean
         TECH -> "On règle un petit souci, on revient très vite"
         ENDING -> "À très vite"
         OFFLINE -> "Prochain live"
+        QNA -> "Pose ta question dans le chat avec « ? »"
+        GIVEAWAY -> "Tape !participer dans le chat pour tenter ta chance"
+        SPECIAL -> "Ce soir, on fête ça ensemble !"
+        INTERMISSION -> "On reprend dans quelques minutes"
         ALERT -> "Bienvenue dans la team !"
         ALERT_SUB -> "s'abonne pour 3 mois"
         ALERT_RAID -> "arrive avec 42 viewers"
@@ -92,6 +105,10 @@ enum class SceneKind(val label: String, val title: String, val animated: Boolean
         else -> ""
     }
 }
+
+/** Move / resize of one zone, in 1920×1080 reference units (scale around the zone centre). */
+@Serializable
+data class ZoneMove(val dx: Float = 0f, val dy: Float = 0f, val scale: Float = 1f)
 
 /** Shape of the camera window in the layouts. */
 @Serializable
@@ -113,7 +130,7 @@ data class Zone(val kind: ZoneKind, val x: Float, val y: Float, val w: Float, va
 }
 
 @Serializable
-enum class ZoneKind(val label: String) { SCREEN("Écran / jeu"), CAMERA("Caméra"), CHAT("Chat"), TITLE("Titre"), INFO("Infos"), SOCIALS("Réseaux") }
+enum class ZoneKind(val label: String) { SCREEN("Écran / jeu"), CAMERA("Caméra"), CAMERA2("Caméra invité"), CHAT("Chat"), TITLE("Titre"), INFO("Infos"), SOCIALS("Réseaux"), LOGO("Logo") }
 
 /** What the streamer types once and finds on every scene. */
 @Serializable
@@ -151,7 +168,20 @@ data class OverlayConfig(
     val goalTarget: Int = 200,
     /** Titles of the Twitch profile panels (exported as 320×100 images). */
     val panels: List<String> = DEFAULT_PANELS,
+    /** Elements moved / resized by the streamer, key = "SCENE:ZONE" (see [OverlayLayout.key]). */
+    val zoneMoves: Map<String, ZoneMove> = emptyMap(),
+    /** Names of the custom emotes (text drawn in the theme style). */
+    val emotes: List<String> = DEFAULT_EMOTES,
+    /** Custom logo imported by the streamer (PNG / JPEG, base64), shown on scenes, profile and assets. */
+    val logo: String? = null,
+    /** Logo shown on the scenes and layouts (it stays on the profile assets either way). */
+    val logoOnScenes: Boolean = true,
+    /** Name of the guest in the duo layout. */
+    val guest: String = "Invité",
 ) {
+    /** Decoded logo bytes (null = no logo); the same array is returned while the logo is unchanged. */
+    val logoBytes: ByteArray? get() = logo?.let { LogoMemo.decode(it) }
+
     fun titleOf(s: SceneKind) = sceneTitles[s]?.takeIf { it.isNotBlank() } ?: s.title
     fun subtitleOf(s: SceneKind) = sceneSubtitles[s]?.takeIf { it.isNotBlank() } ?: when (s) {
         SceneKind.ENDING -> "À très vite — $schedule"
@@ -167,6 +197,9 @@ data class OverlayConfig(
 
     companion object {
         val DEFAULT_PANELS = listOf("À PROPOS", "PLANNING", "RÈGLES", "RÉSEAUX", "SOUTENIR", "MON SETUP")
+        val DEFAULT_EMOTES = listOf("GG", "HYPE", "LOL", "LOVE", "WOW", "GL")
+        /** Months of the subscriber badges. */
+        val SUB_TIERS = listOf(1, 2, 3, 6, 9, 12)
     }
 }
 
@@ -210,4 +243,15 @@ object OverlayLabels {
         0xFFE53935, 0xFFFF6A00, 0xFFFFCC1F, 0xFFFFE14D, 0xFF9CFF3D, 0xFF2FB67C, 0xFF00E5FF, 0xFF3D8BFF,
         0xFF6C4DFF, 0xFFB45CFF, 0xFFFF3D8B, 0xFFFF8AC6, 0xFF9146FF,
     )
+}
+
+/** Single-entry cache of the decoded logo (configs are copied on every edit, the logo rarely changes). */
+internal object LogoMemo {
+    private var key: String? = null
+    private var bytes: ByteArray? = null
+    @Synchronized fun decode(b64: String): ByteArray? {
+        if (key === b64 || key == b64) return bytes
+        bytes = runCatching { java.util.Base64.getDecoder().decode(b64) }.getOrNull(); key = b64
+        return bytes
+    }
 }

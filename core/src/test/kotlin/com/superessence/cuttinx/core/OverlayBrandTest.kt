@@ -63,4 +63,42 @@ class OverlayBrandTest {
             k.overlayPalette()
         }
     }
+
+    @Test fun keywordAssistantUnderstandsTheStreamer() {
+        val base = OverlayConfig(channel = "Luna")
+        assertEquals("horror", OverlayAi.propose("live horreur rouge sur phasmophobia", base).first().config.themeId)
+        assertEquals("retro8", OverlayAi.propose("minecraft entre potes", base).first().config.themeId)
+        assertEquals("cozy", OverlayAi.propose("just chatting cosy", base).first().config.themeId)
+        val red = OverlayAi.propose("esport rouge", base).first().config
+        assertEquals(0xFFE53935, red.palette!!.primary)
+        val snow = OverlayAi.propose("noel avec de la neige", base).first().config
+        assertTrue(Motif.SNOW in (snow.motifs ?: emptyList()) || OverlayThemes[snow.themeId].motifs.contains(Motif.SNOW))
+        // always 3 different proposals, even for unknown words, and the channel is kept
+        val p = OverlayAi.propose("xyzzy", base)
+        assertEquals(3, p.size); assertEquals(3, p.map { it.config.themeId }.toSet().size)
+        assertTrue(p.all { it.config.channel == "Luna" && it.reasons.isNotEmpty() })
+    }
+
+    @Test fun zonesCanBeMovedAndResized() {
+        val cfg = OverlayConfig()
+        val cam = OverlayLayout.zone(SceneKind.GAMEPLAY, cfg, ZoneKind.CAMERA)!!
+        assertEquals(ZoneKind.CAMERA, OverlayLayout.hit(SceneKind.GAMEPLAY, cfg, cam.x + 10, cam.y + 10))
+        val moved = OverlayLayout.move(cfg, SceneKind.GAMEPLAY, ZoneKind.CAMERA, -100f, 50f, 1.2f)
+        val cam2 = OverlayLayout.zone(SceneKind.GAMEPLAY, moved, ZoneKind.CAMERA)!!
+        assertEquals(cam.w * 1.2f, cam2.w, 0.5f)
+        assertEquals(cam.x + cam.w / 2 - 100f, cam2.x + cam2.w / 2, 1f)
+        // never leaves the frame, and other scenes are untouched
+        val far = OverlayLayout.move(cfg, SceneKind.GAMEPLAY, ZoneKind.CAMERA, 5000f, 5000f)
+        val cam3 = OverlayLayout.zone(SceneKind.GAMEPLAY, far, ZoneKind.CAMERA)!!
+        assertTrue(cam3.right <= 1920.5f && cam3.bottom <= 1080.5f)
+        assertEquals(OverlayLayout.zone(SceneKind.SCREEN_ONLY, cfg, ZoneKind.CAMERA), OverlayLayout.zone(SceneKind.SCREEN_ONLY, moved, ZoneKind.CAMERA))
+        assertEquals(cam, OverlayLayout.zone(SceneKind.GAMEPLAY, OverlayLayout.reset(moved, SceneKind.GAMEPLAY), ZoneKind.CAMERA))
+    }
+
+    @Test fun socialKitIsComplete() {
+        val k = BrandGenerator.generate(BrandBrief("Sakura Chan", Niche.ANIME, setOf(Trait.SOFT)))
+        assertEquals(7, k.weekPlan.size)
+        assertTrue(k.handles.size == 5 && k.handles.all { it.startsWith("@sakurachan") || it.startsWith("@thesakurachan") })
+        assertEquals(5, k.highlights.size)
+    }
 }

@@ -60,10 +60,11 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
         val theme = cfg.styled(theme0)
         val dir = File(root, "CuttinxPRO_${slug(cfg.channel)}_${theme.id}").also { it.mkdirs() }
         val animated = opt.scenes.filter { it.fullBackground }
-        val layouts = opt.scenes.filter { !it.fullBackground && !it.isAlert }
+        val layouts = opt.scenes.filter { !it.fullBackground && !it.isAlert && !it.animated }
+        val widgets = opt.scenes.filter { !it.fullBackground && !it.isAlert && it.animated }
         val alerts = opt.scenes.filter { it.isAlert }
         val stingers = (opt.stingers + theme.stinger).toList()
-        val steps = (animated.size * 2 + layouts.size + alerts.size + stingers.size + (if (opt.profile) 1 else 0)).coerceAtLeast(1).toFloat()
+        val steps = (animated.size * 2 + layouts.size + widgets.size + alerts.size + stingers.size + (if (opt.profile) 2 else 0)).coerceAtLeast(1).toFloat()
         var done = 0f
         fun step(label: String) { progress(done / steps, label) }
 
@@ -78,7 +79,16 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
             step("Cadre « ${s.label} »")
             val f = File(dir, "cadres/${"%02d".format(i + 1)}_${slug(s.label)}.png")
             f.parentFile.mkdirs()
-            f.writeBytes(renderPng(cfg) { c -> renderer.drawScene(c, theme, cfg, s, 0.0) })
+            // the vertical live layout is exported upright (9:16)
+            val sc = if (s == SceneKind.VERTICAL) cfg.copy(width = cfg.height * 9 / 16 / 2 * 2, height = cfg.height) else cfg
+            f.writeBytes(renderPng(sc) { c -> renderer.drawScene(c, theme, sc, s, 0.0) })
+            done++
+        }
+        // ------------------------------------------------ animated widgets (ticker, socials pop-up)
+        for (s in widgets) {
+            renderApng(cfg, File(dir, "widgets/${slug(s.label)}.png"), OverlayAnim.LOOP_SEC, opt.fps, { a, b -> progress((done + a / b.toFloat()) / steps, "${s.label} ($a/$b)") }) { c, t ->
+                renderer.drawScene(c, theme, cfg, s, t)
+            }
             done++
         }
         // ------------------------------------------------ animated scenes
@@ -114,6 +124,16 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
             File(dir, "twitch-profil/banniere-profil.png").writeBytes(b.png())
             val off = cfg.copy(width = 1920, height = 1080)
             File(dir, "twitch-profil/banniere-hors-ligne.png").writeBytes(renderPng(off) { c -> renderer.drawScene(c, theme, off, SceneKind.OFFLINE, 0.0) })
+            done++
+            step("Badges, emotes, points de chaîne, avatar")
+            fun square(path: String, size: Int, draw: (Gfx) -> Unit) {
+                val fr = raster.frame(size, size); fr.gfx.clear(0); draw(fr.gfx)
+                File(dir, path).also { it.parentFile.mkdirs() }.writeBytes(fr.png())
+            }
+            for (m in OverlayConfig.SUB_TIERS) for (sz in listOf(72, 36, 18)) square("twitch-profil/badges-abonnes/${m}-mois_$sz.png", sz) { g -> renderer.drawSubBadge(g, theme, cfg, m, sz.toFloat()) }
+            cfg.emotes.filter { it.isNotBlank() }.forEachIndexed { i, e -> for (sz in listOf(112, 56, 28)) square("twitch-profil/emotes/${slug(e)}_$sz.png", sz) { g -> renderer.drawEmote(g, theme, cfg, e, sz.toFloat(), i) } }
+            for (sz in listOf(112, 56, 28)) square("twitch-profil/points-de-chaine_$sz.png", sz) { g -> renderer.drawPoints(g, theme, cfg, sz.toFloat()) }
+            square("twitch-profil/avatar.png", 800) { g -> renderer.drawAvatar(g, theme, cfg, 800f) }
             done++
         }
         // ------------------------------------------------ stingers
@@ -207,6 +227,14 @@ ${if (profile) """5. PROFIL TWITCH (dossier « twitch-profil »)
      image du dossier « panneaux » (320×100, fournis en 640×200 pour les écrans haute définition).
    • banniere-profil.png : Paramètres > Profil > Bannière de profil (1200×480).
    • banniere-hors-ligne.png : Paramètres > Chaîne > Bannière vidéo (affichée quand vous êtes hors ligne).
+   • avatar.png : Paramètres > Profil > Photo de profil.
+   • badges-abonnes : Tableau de bord > Monétisation > Badges d'abonné (72, 36 et 18 px par durée).
+   • emotes : Tableau de bord > Monétisation > Emotes (112, 56 et 28 px).
+   • points-de-chaine : Tableau de bord > Points de chaîne > Icône personnalisée.
+
+6. WIDGETS (dossier « widgets »)
+   Bandeau défilant et pop-up réseaux : PNG animés transparents, en « Source média » dans OBS
+   (cochez « Lecture en boucle »).
 
 """ else ""}Astuce : gardez le même thème partout (scènes, cadres, transitions, miniatures) — c'est ce qui
 rend une chaîne reconnaissable.

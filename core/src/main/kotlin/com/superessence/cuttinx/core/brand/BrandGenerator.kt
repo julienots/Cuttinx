@@ -77,6 +77,12 @@ data class BrandKit(
     val overlayThemeId: String,
     val postingRhythm: String,
     val seed: Int,
+    /** Username ideas, the same everywhere (@…). */
+    val handles: List<String> = emptyList(),
+    /** One content idea per day of the week (Lundi → Dimanche). */
+    val weekPlan: List<String> = emptyList(),
+    /** Titles of the Instagram story highlights. */
+    val highlights: List<String> = emptyList(),
 ) {
     /** Palette ready for the Twitch overlay generator. */
     fun overlayPalette(): OverlayPalette {
@@ -119,7 +125,36 @@ object BrandGenerator {
             overlayThemeId = overlayTheme(brief.niche, traits),
             postingRhythm = rhythm(brief.niche),
             seed = seed,
-        )
+        ).let { k -> k.copy(handles = handles(name, brief.niche, rnd), weekPlan = weekPlan(k), highlights = highlights(brief.niche)) }
+    }
+
+    private fun slugName(name: String) = java.text.Normalizer.normalize(name.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").replace(Regex("[^a-z0-9]"), "")
+
+    private fun handles(name: String, n: Niche, rnd: java.util.Random): List<String> {
+        val b = slugName(name).ifEmpty { "createur" }
+        val suffix = when (n) { Niche.GAMING -> listOf("plays", "gg", "tv", "live"); else -> listOf("off", "tv", "live", "studio") }
+        return (listOf(b, "${b}_", "$b.${suffix[0]}", "$b${suffix[1]}", "the$b", "${b}_${suffix[2]}", "$b${suffix[3]}").shuffled(rnd).take(5)).map { "@$it" }
+    }
+
+    /** One post / live idea per day, rotating through the content pillars, with rest days. */
+    fun weekPlan(k: BrandKit): List<String> {
+        val days = listOf("Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche")
+        // round-robin over the pillars so that two days never repeat the same idea
+        val maxIdeas = k.pillars.maxOfOrNull { it.ideas.size } ?: 0
+        val ideas = (0 until maxIdeas).flatMap { j -> k.pillars.mapNotNull { p -> p.ideas.getOrNull(j)?.let { "${p.name} : $it" } } }.ifEmpty { listOf("Contenu libre") }
+        var n = 0
+        return days.mapIndexed { i, d ->
+            when (i) {
+                2 -> "$d — Story Q&R avec ta communauté"
+                6 -> "$d — Repos, récap de la semaine en story"
+                else -> "$d — ${ideas[(n++ + k.seed) % ideas.size]}"
+            }
+        }
+    }
+
+    private fun highlights(n: Niche) = when (n) {
+        Niche.GAMING -> listOf("Clips", "Setup", "Lives", "Collabs", "FAQ")
+        else -> listOf("À propos", "Coulisses", "Favoris", "Collabs", "FAQ")
     }
 
     // ------------------------------------------------------------------ archetype

@@ -80,6 +80,25 @@ object OverlayThemes {
             pal(0xFF3A0A1A, 0xFF7A1238, 0xFFFF4D7D, 0xFFFFC2D4, 0xFFFFFFFF, glow = 0xFFFF8FB0), T.SCRIPT, F.BUBBLE, listOf(M.HEARTS, M.SPARKLES), "love live", S.HEARTS_RAIN),
         OverlayTheme("newyear", "Nouvel An", C.SEASON, "Confettis, or et noir chic pour le compte à rebours",
             pal(0xFF0A0A12, 0xFF1F1A0A, 0xFFFFD45C, 0xFFFFFFFF, 0xFFFF5FA2, glow = 0xFFFFE9A8), T.ELEGANT, F.ELEGANT, listOf(M.CONFETTI, M.SPARKLES), "BONNE ANNÉE", S.SHUTTER),
+        // ---------------------------------------------------------------- nouveaux univers
+        OverlayTheme("horror", "Horreur", C.GAMING, "Rouge sang, brume, éclairs et encre qui coule : pour les jeux qui font peur",
+            pal(0xFF070205, 0xFF1F0508, 0xFFB3121E, 0xFF5A0A12, 0xFFE8E2D0, 0xFFF2EDE4, 0xFFFF2A2A), T.BRUSH, F.BRUSH, listOf(M.LIGHTNING, M.GRAIN), "NE CRIE PAS", S.INK_SPLASH),
+        OverlayTheme("pirate", "Pirates", C.GAMING, "Bois, or et carte au trésor, cap sur l'aventure",
+            pal(0xFF0E1B26, 0xFF2B1D12, 0xFFD9A441, 0xFF8B2E1E, 0xFF3FB8C9, 0xFFFFF1D6, 0xFFFFD27A), T.ELEGANT, F.WOOD, listOf(M.WAVES, M.GRAIN), "À L'ABORDAGE", S.PORTAL),
+        OverlayTheme("racing", "Course automobile", C.GAMING, "Damier, vitesse et orange piste pour les jeux de course",
+            pal(0xFF0B0B0F, 0xFF1C1C24, 0xFFFF6A00, 0xFFFFFFFF, 0xFF00D1FF), T.CONDENSED, F.SHARP, listOf(M.SPEED_LINES, M.GRAIN), "PLEIN GAZ", S.SHUTTER),
+        OverlayTheme("football", "Football", C.GAMING, "Pelouse, craie et tableau de score pour le foot et les jeux de sport",
+            pal(0xFF07230F, 0xFF0E3D1D, 0xFF2FD15B, 0xFFFFFFFF, 0xFFFFD21F), T.CONDENSED, F.SHARP, listOf(M.SPEED_LINES, M.CONFETTI), "COUP D'ENVOI", S.SHUTTER),
+        OverlayTheme("steampunk", "Steampunk", C.GEEK, "Laiton, engrenages et vapeur rétro-futuriste",
+            pal(0xFF1A120A, 0xFF33230F, 0xFFC98B3B, 0xFF6E4A24, 0xFF7FE0D0, 0xFFFFF0D6, 0xFFFFC27A), T.ELEGANT, F.WOOD, listOf(M.CIRCUIT, M.GRAIN), "SOUS PRESSION", S.SHUTTER),
+        OverlayTheme("magical", "Magical girl", C.ANIME, "Étoiles, rubans et paillettes pastel façon anime de magie",
+            pal(0xFF2A1240, 0xFF4B1F6B, 0xFFFF8AD8, 0xFFFFE680, 0xFF8AE6FF, 0xFFFFFFFF, 0xFFFFB3EC), T.ROUNDED, F.BUBBLE, listOf(M.SPARKLES, M.HEARTS), "✧ magie ✧", S.HEARTS_RAIN),
+        OverlayTheme("luxe", "Noir & or", C.CUTE, "Noir profond, or et lignes fines : élégant et premium",
+            pal(0xFF070707, 0xFF16130C, 0xFFD4AF37, 0xFF8C7A4A, 0xFFFFFFFF, 0xFFF7EBD0, 0xFFFFE08A), T.ELEGANT, F.ELEGANT, listOf(M.GRAIN, M.SPARKLES), "PRIVATE LIVE", S.PORTAL),
+        OverlayTheme("lofi", "Lo-fi nuit", C.CUTE, "Chambre la nuit, violet doux et lumières de la ville pour chiller",
+            pal(0xFF151127, 0xFF2A2048, 0xFF9C8CFF, 0xFFFFB38A, 0xFF7FE0FF, 0xFFF1ECFF, 0xFFB9AEFF), T.ROUNDED, F.SOFT, listOf(M.PIXEL_STARS, M.CLOUDS), "lofi beats", S.PORTAL),
+        OverlayTheme("jungle", "Jungle", C.NATURE, "Feuillage tropical, vert émeraude et lumière dorée",
+            pal(0xFF062014, 0xFF0F3B22, 0xFF3FCF6A, 0xFFFFC94A, 0xFFFF6B4A, 0xFFEFFFF2, 0xFF9BFFB4), T.IMPACT, F.SOFT, listOf(M.LEAVES, M.SUN_RAYS), "EXPLORATION", S.SHUTTER),
     )
 
     operator fun get(id: String): OverlayTheme = all.firstOrNull { it.id == id } ?: all.first()
