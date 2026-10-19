@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WinPocket icon: a PC window (four panes) inside a phone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- phone -->
+    <path android:fillColor="#FFFFFF" android:pathData="M38,26h32a6,6 0 0 1 6,6v44a6,6 0 0 1 -6,6h-32a6,6 0 0 1 -6,-6v-44a6,6 0 0 1 6,-6z"/>
+    <path android:fillColor="#141726" android:pathData="M39,31h30v40h-30z"/>
+    <path android:fillColor="#141726" android:pathData="M51,75h6a1.5,1.5 0 0 1 0,3h-6a1.5,1.5 0 0 1 0,-3z"/>
+    <!-- window panes -->
+    <path android:fillColor="#3D8BFF" android:pathData="M43,40l10,-1.4v10h-10z"/>
+    <path android:fillColor="#5AA2FF" android:pathData="M55,38.3l11,-1.6v12.3h-11z"/>
+    <path android:fillColor="#3D8BFF" android:pathData="M43,51h10v10l-10,-1.4z"/>
+    <path android:fillColor="#7BB6FF" android:pathData="M55,51h11v12.3l-11,-1.6z"/>
+</vector>
