@@ -14,8 +14,11 @@ import com.superessence.cuttinx.core.overlay.render.BrandBoard
 import com.superessence.cuttinx.core.overlay.render.OverlayRenderer
 import com.superessence.cuttinx.overlay.AndroidRaster
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.zip.ZipEntry
@@ -35,18 +38,109 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     val renderer = OverlayRenderer()
     val board = BrandBoard()
 
-    val config = MutableStateFlow(load("overlay") { json.decodeFromString(OverlayConfig.serializer(), it) } ?: OverlayConfig())
+    /** Overlay settings live in files (pictures included): many pictures never slow down or break saving. */
+    private val store = OverlayStore(File(app.filesDir, "twitch"))
+    private val history = UndoHistory<OverlayConfig>()
+    val config = MutableStateFlow(loadConfig())
     val brandKit = MutableStateFlow(load("brand") { json.decodeFromString(BrandKit.serializer(), it) })
     val progress = MutableStateFlow<PackProgress?>(null)
     val message = MutableStateFlow<String?>(null)
+    val canUndo = MutableStateFlow(false)
+    val canRedo = MutableStateFlow(false)
+    /** "" = nothing to save, otherwise the save state shown in the header. */
+    val saveStatus = MutableStateFlow(if (store.exists()) "Enregistré" else "")
+    private var saveJob: Job? = null
 
     private fun <T> load(key: String, f: (String) -> T): T? = prefs.getString(key, null)?.let { runCatching { f(it) }.getOrNull() }
 
+    /** Settings file, or the settings of the previous versions (kept in the preferences), moved to the file once. */
+    private fun loadConfig(): OverlayConfig {
+        runCatching { store.load() }.getOrNull()?.let { return it }
+        val old = load("overlay") { json.decodeFromString(OverlayConfig.serializer(), it) } ?: return OverlayConfig()
+        runCatching { store.save(old) }.onSuccess { prefs.edit().remove("overlay").apply() }
+        return old
+    }
+
     val theme get() = OverlayThemes[config.value.themeId]
 
-    fun update(f: (OverlayConfig) -> OverlayConfig) {
-        config.value = f(config.value)
-        prefs.edit().putString("overlay", json.encodeToString(OverlayConfig.serializer(), config.value)).apply()
+    fun update(f: (OverlayConfig) -> OverlayConfig) = set(f(config.value), null)
+
+    /** Changes the settings; [key] groups quick changes (a drag, a slider, typing) into one undo step. */
+    fun set(c: OverlayConfig, key: String?) {
+        if (c == config.value) return
+        history.record(config.value, key)
+        config.value = c
+        changed()
+    }
+
+    /** End of a drag on the preview: the next change starts a new undo step. */
+    fun endGesture() = history.cut()
+
+    fun undo() { history.undo(config.value)?.let { config.value = it; changed() } }
+    fun redo() { history.redo(config.value)?.let { config.value = it; changed() } }
+
+    private fun changed() {
+        canUndo.value = history.canUndo; canRedo.value = history.canRedo
+        saveStatus.value = "Modifications en cours…"
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch(Dispatchers.IO) { delay(500); write() }
+    }
+
+    /** Saves now ("Enregistrer" button, app going to the background). */
+    fun saveNow() {
+        saveJob?.cancel()
+        viewModelScope.launch(Dispatchers.IO) { write() }
+    }
+
+    private fun write() = synchronized(store) {
+        runCatching { store.save(config.value) }
+            .onSuccess { saveStatus.value = "Enregistré ✓" }
+            .onFailure { saveStatus.value = "Échec de l'enregistrement"; message.value = "Enregistrement impossible : ${it.message}" }
+    }
+
+    override fun onCleared() { synchronized(store) { runCatching { store.save(config.value) } } }
+
+    /**
+     * Adds pictures to [scene] (several at once) or replaces the picture [replaceId]. They are
+     * shrunk to 1600 px (photos stay JPEG, the rest PNG with transparency).
+     */
+    fun importImages(uris: List<Uri>, scene: SceneKind?, replaceId: String?, onAdded: (String) -> Unit) = viewModelScope.launch(Dispatchers.Default) {
+        var c = config.value
+        var last: String? = null
+        var failed = 0
+        for (u in uris) {
+            val pic = runCatching { encodePicture(u) }.getOrNull()
+            if (pic == null) { failed++; continue }
+            val (b64, w, h, name) = pic
+            if (replaceId != null) { c = c.updateItem(replaceId) { it.copy(data = b64, aspect = h.toFloat() / w, name = name) }; last = replaceId }
+            else { val item = OverlayItems.image(c, scene, b64, w, h, name); c = OverlayItems.add(c, item); last = item.id }
+        }
+        withContext(Dispatchers.Main) {
+            set(c, null)
+            last?.let(onAdded)
+            if (failed > 0) message.value = "$failed image(s) illisible(s)"
+        }
+    }
+
+    private data class Pic(val b64: String, val w: Int, val h: Int, val name: String)
+
+    private fun encodePicture(uri: Uri, max: Int = 1600): Pic? {
+        val cr = getApplication<Application>().contentResolver
+        val type = cr.getType(uri) ?: ""
+        // read the size first, then decode already reduced (big photos never run out of memory)
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        cr.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0) return null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= max) sample *= 2
+        val src = cr.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) } ?: return null
+        val k = minOf(1f, max.toFloat() / maxOf(src.width, src.height))
+        val bmp = if (k < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * k).toInt().coerceAtLeast(1), (src.height * k).toInt().coerceAtLeast(1), true) else src
+        val jpeg = type.contains("jpeg") || type.contains("jpg")
+        val out = java.io.ByteArrayOutputStream()
+        bmp.compress(if (jpeg) android.graphics.Bitmap.CompressFormat.JPEG else android.graphics.Bitmap.CompressFormat.PNG, 90, out)
+        val name = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')?.take(40) ?: "Image"
+        return Pic(java.util.Base64.getEncoder().encodeToString(out.toByteArray()), bmp.width, bmp.height, name)
     }
 
     fun generate(brief: BrandBrief, seed: Int) {
@@ -119,7 +213,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             val k = minOf(1f, 512f / maxOf(src.width, src.height))
             val bmp = if (k < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * k).toInt().coerceAtLeast(1), (src.height * k).toInt().coerceAtLeast(1), true) else src
             val out = java.io.ByteArrayOutputStream(); bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
-            update { it.copy(logo = com.superessence.cuttinx.twitch.encodeLogo(out.toByteArray())) }
+            withContext(Dispatchers.Main) { update { it.copy(logo = com.superessence.cuttinx.twitch.encodeLogo(out.toByteArray())) } }
         }.onSuccess { message.value = "Logo ajouté : scènes, cadres, photo de profil, panneaux et bannière" }.onFailure { message.value = "Logo impossible à lire : ${it.message}" }
     }
 

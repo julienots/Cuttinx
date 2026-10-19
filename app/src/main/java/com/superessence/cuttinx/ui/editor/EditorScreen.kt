@@ -144,8 +144,17 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
                 }
             }
             // ---------------- timeline (resizable)
-            Box(Modifier.fillMaxWidth().height(10.dp).pointerInput(Unit) { detectVerticalDragGestures { _, d -> timelineH = (timelineH - d / density).coerceIn(120f, 520f) } }, contentAlignment = Alignment.Center) {
-                Box(Modifier.width(40.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(cx.line))
+            Box(Modifier.fillMaxWidth().height(30.dp)) {
+                Box(Modifier.fillMaxSize().pointerInput(Unit) { detectVerticalDragGestures { _, d -> timelineH = (timelineH - d / density).coerceIn(120f, 520f) } }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.width(40.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(cx.line))
+                }
+                // timeline zoom without pinching: down to a single frame
+                Row(Modifier.align(Alignment.CenterEnd).padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TimelineZoomButton(com.superessence.cuttinx.icons.CxIcons.ZoomOut, "Dézoomer la timeline") { pxPerSecond = (pxPerSecond / 1.5f).coerceIn(TIMELINE_MIN_ZOOM, TIMELINE_MAX_ZOOM) }
+                    TimelineZoomButton(com.superessence.cuttinx.icons.CxIcons.ZoomIn, "Zoomer la timeline") { pxPerSecond = (pxPerSecond * 1.5f).coerceIn(TIMELINE_MIN_ZOOM, TIMELINE_MAX_ZOOM) }
+                    TimelineZoomButton(com.superessence.cuttinx.icons.CxIcons.Fit, "Zoom normal") { pxPerSecond = 80f }
+                    Text("MAX", Modifier.clip(RoundedCornerShape(8.dp)).clickable { pxPerSecond = TIMELINE_MAX_ZOOM }.padding(horizontal = 8.dp, vertical = 6.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
             TimelineView(project, ps.positionUs, selection, pxPerSecond, { pxPerSecond = it }, media,
                 TimelineCallbacks(
@@ -303,3 +312,7 @@ private fun RecordingOverlay(vm: EditorViewModel, modifier: Modifier) {
         AccentButton("Arrêter", { vm.stopRecording() }, icon = Icons.Default.Stop)
     }
 }
+
+@Composable
+private fun TimelineZoomButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) =
+    Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick), contentAlignment = Alignment.Center) { Icon(icon, label, Modifier.size(18.dp)) }

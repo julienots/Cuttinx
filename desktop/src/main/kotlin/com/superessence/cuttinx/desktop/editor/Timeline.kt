@@ -75,15 +75,19 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
     val pos by m.player.position.collectAsState()
     val sel by m.selection.collectAsState()
     val pr = p ?: return
-    val pps by m.zoom.collectAsState() // dp per second
+    val zoomWanted by m.zoom.collectAsState() // dp per second
     val scope = rememberCoroutineScope()
     val fit by m.fitRequest.collectAsState()
     val hs = rememberScrollState()
     val vs = rememberScrollState()
     val tracks = displayOrder(pr)
     val totalSec = maxOf(30.0, pr.durationUs / 1e6 + 10)
-    val contentW = (totalSec * pps).dp
     val density = LocalDensity.current
+    // a layout cannot be wider than ~260 000 px: the deepest zoom depends on the length of the film
+    val zoomCap = (240_000.0 / density.density / totalSec).toFloat().coerceIn(EditorModel.MIN_ZOOM, EditorModel.MAX_ZOOM)
+    m.zoomCap = zoomCap
+    val pps = zoomWanted.coerceAtMost(zoomCap)
+    val contentW = (totalSec * pps).dp
     val accent = LocalAccent.current
 
     // zoom around a point of the view (mouse wheel), keeping the time under the cursor in place
@@ -96,7 +100,7 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
     LaunchedEffect(fit) {
         if (fit > 0) {
             val view = hs.viewportSize / density.density
-            if (view > 0) m.zoom.value = (view / ((pr.durationUs / 1e6).coerceAtLeast(1.0) + 1).toFloat()).coerceIn(4f, 600f)
+            if (view > 0) m.zoom.value = (view / ((pr.durationUs / 1e6).coerceAtLeast(1.0) + 1).toFloat()).coerceIn(EditorModel.MIN_ZOOM, 600f)
             withFrameNanos { }; hs.scrollTo(0)
         }
     }
@@ -132,9 +136,16 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
             Text("Molette : défiler · Ctrl + molette : zoom · clic molette / droit glissé : déplacer", color = Cx.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
             Spacer(Modifier.width(8.dp))
             Tool(CxIcons.ZoomOut, "") { m.zoomBy(0.8f) }
-            Slider(pps, { m.zoom.value = it }, Modifier.width(140.dp), valueRange = 4f..600f)
+            // logarithmic slider: as precise for a whole film as for frame-by-frame editing
+            Slider(kotlin.math.ln(pps), { m.zoom.value = kotlin.math.exp(it).coerceIn(EditorModel.MIN_ZOOM, zoomCap) }, Modifier.width(140.dp),
+                valueRange = kotlin.math.ln(EditorModel.MIN_ZOOM)..kotlin.math.ln(zoomCap).coerceAtLeast(kotlin.math.ln(EditorModel.MIN_ZOOM) + 0.01f))
             Tool(CxIcons.ZoomIn, "") { m.zoomBy(1.25f) }
             Tool(CxIcons.Fit, "Tout voir") { m.fitRequest.value++ }
+            Tool(CxIcons.ZoomIn, "Max") {
+                // deepest zoom, centred on the playhead
+                m.zoom.value = zoomCap
+                scope.launch { withFrameNanos { }; val x = with(density) { (m.playhead / 1e6 * zoomCap).dp.toPx() }; hs.scrollTo((x - hs.viewportSize / 2).roundToInt().coerceAtLeast(0)) }
+            }
         }
         Box(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxSize()

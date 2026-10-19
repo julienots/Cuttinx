@@ -62,6 +62,10 @@ class TimelineCallbacks(
 private enum class Hit { NONE, CLIP, HANDLE_L, HANDLE_R, JUNCTION, HEADER, ADD_ROW }
 private data class HitResult(val hit: Hit, val clip: Clip? = null, val track: Track? = null, val kind: TrackKind? = null)
 
+/** Timeline zoom range in px per second (MAX shows every frame wide enough to cut on it). */
+const val TIMELINE_MIN_ZOOM = 4f
+const val TIMELINE_MAX_ZOOM = 6000f
+
 @Composable
 fun TimelineView(
     project: Project,
@@ -143,7 +147,7 @@ fun TimelineView(
                 if (pressed.size >= 2) {
                     pinching = true
                     val z = ev.calculateZoom()
-                    if (z != 1f) onZoom((latestPx * z).coerceIn(4f, 3000f))
+                    if (z != 1f) onZoom((latestPx * z).coerceIn(TIMELINE_MIN_ZOOM, TIMELINE_MAX_ZOOM))
                     ev.changes.forEach { it.consume() }
                     continue
                 }

@@ -60,45 +60,71 @@ private fun familyOf(t: Target) = when (t) {
     is Target.Panel, Target.Banner, is Target.Asset -> Family.PROFILE
 }
 
+private val Blue = Color(0xFF3D8BFF)
+
 @Composable
 fun TwitchStudio(state: AppState) {
     var target by remember { mutableStateOf<Target>(Target.Scene(SceneKind.STARTING)) }
     var minutes by remember { mutableStateOf(5) }
-    var zone by remember { mutableStateOf<ZoneKind?>(null) }
     var tab by remember { mutableStateOf(0) }
-    Row(Modifier.fillMaxSize()) {
-        ThemeGallery(state, Modifier.width(330.dp).fillMaxHeight())
-        Column(Modifier.weight(1f).fillMaxHeight().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Twitch Editor", fontSize = 26.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.width(12.dp))
-                Text(state.theme.name, color = Color(0xFF3D8BFF), fontWeight = FontWeight.Bold)
-                Spacer(Modifier.weight(1f))
-                Hint("${state.config.width}×${state.config.height} · fond transparent pour OBS")
-            }
-            Spacer(Modifier.height(10.dp))
-            Preview(state, target, minutes, zone.takeIf { tab == 4 }, { zone = it; if (it != null) tab = 4 }, Modifier.fillMaxWidth().weight(1f))
-            Hint("Astuce : fais glisser un élément (caméra, chat, logo, titre…) sur l'aperçu pour le déplacer.")
-            Spacer(Modifier.height(10.dp))
-            val fam = familyOf(target)
-            Chips(Family.entries.toList(), fam, { it.label }, { f ->
-                target = when (f) {
-                    Family.SCENES -> Target.Scene(SceneKind.STARTING); Family.FRAMES -> Target.Scene(SceneKind.GAMEPLAY); Family.ALERTS -> Target.Scene(SceneKind.ALERT)
-                    Family.PROFILE -> Target.Asset(TwitchAsset.AVATAR); Family.STINGERS -> Target.Stinger(state.theme.stinger)
+    val scene = (target as? Target.Scene)?.kind
+    LaunchedEffect(scene) { state.twitchScene = scene; state.twitchSel = null }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        // small windows: the theme gallery folds away so the preview and the export stay visible
+        var gallery by remember { mutableStateOf(maxWidth >= 1280.dp) }
+        val sideW = if (maxWidth < 1150.dp) 330.dp else 380.dp
+        Row(Modifier.fillMaxSize()) {
+            if (gallery) ThemeGallery(state, Modifier.width(if (maxWidth < 1400.dp) 280.dp else 330.dp).fillMaxHeight())
+            Column(Modifier.weight(1f).fillMaxHeight().padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton({ gallery = !gallery }) { Text(if (gallery) "◀ Thèmes" else "Thèmes ▶") }
+                    Text("Twitch Editor", fontSize = 24.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                    Spacer(Modifier.width(10.dp))
+                    Text(state.theme.name, color = Blue, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+                    IconButton({ state.undoTwitch() }, enabled = state.canUndo) { Icon(CxIcons.Undo, "Annuler (Ctrl+Z)") }
+                    IconButton({ state.redoTwitch() }, enabled = state.canRedo) { Icon(CxIcons.Redo, "Rétablir (Ctrl+Y)") }
+                    Text(state.saveStatus, color = Cx.Dim, fontSize = 11.sp, maxLines = 1)
+                    Spacer(Modifier.width(6.dp))
+                    OutlinedButton({ state.saveTwitch() }) { Icon(CxIcons.Check, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Enregistrer") }
+                    Spacer(Modifier.width(6.dp))
+                    Button({ tab = 5 }, colors = ButtonDefaults.buttonColors(containerColor = Blue, contentColor = Color.White)) {
+                        Icon(CxIcons.Download, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Exporter", fontWeight = FontWeight.Bold)
+                    }
                 }
-            })
-            Spacer(Modifier.height(8.dp))
-            when (fam) {
-                Family.SCENES -> Chips(SceneKind.entries.filter { it.fullBackground }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
-                Family.FRAMES -> Chips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
-                Family.ALERTS -> Chips(SceneKind.entries.filter { it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
-                Family.PROFILE -> Chips(TwitchAsset.entries.map { Target.Asset(it) } + state.config.panels.indices.map { Target.Panel(it) } + Target.Banner, target, {
-                    when (it) { is Target.Asset -> it.asset.label; is Target.Panel -> "Panneau « ${state.config.panels.getOrNull(it.index) ?: ""} »"; else -> "Bannière de profil" }
-                }, { target = it })
-                Family.STINGERS -> Chips(StingerStyle.entries.toList(), (target as? Target.Stinger)?.style, { it.label + if (it == state.theme.stinger) " (du thème)" else "" }, { target = Target.Stinger(it) })
+                state.twitchMessage?.let { m -> Text(m, Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Blue.copy(alpha = 0.18f)).clickable { state.twitchMessage = null }.padding(8.dp), fontSize = 12.sp) }
+                Spacer(Modifier.height(8.dp))
+                Preview(state, target, minutes, { tab = 4 }, Modifier.fillMaxWidth().weight(1f))
+                Hint("Clique un élément pour le sélectionner, glisse pour le déplacer, tire un coin pour l'agrandir. Molette : zoom · Suppr : supprimer · flèches : ajuster · Ctrl+Z : annuler · Ctrl+S : enregistrer · ${state.config.width}×${state.config.height}, fond transparent pour OBS")
+                Spacer(Modifier.height(8.dp))
+                val fam = familyOf(target)
+                Chips(Family.entries.toList(), fam, { it.label }, { f ->
+                    target = when (f) {
+                        Family.SCENES -> Target.Scene(SceneKind.STARTING); Family.FRAMES -> Target.Scene(SceneKind.GAMEPLAY); Family.ALERTS -> Target.Scene(SceneKind.ALERT)
+                        Family.PROFILE -> Target.Asset(TwitchAsset.AVATAR); Family.STINGERS -> Target.Stinger(state.theme.stinger)
+                    }
+                })
+                Spacer(Modifier.height(8.dp))
+                when (fam) {
+                    Family.SCENES -> FlowChips(SceneKind.entries.filter { it.fullBackground }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
+                    Family.FRAMES -> FlowChips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
+                    Family.ALERTS -> FlowChips(SceneKind.entries.filter { it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
+                    Family.PROFILE -> FlowChips(TwitchAsset.entries.map { Target.Asset(it) } + state.config.panels.indices.map { Target.Panel(it) } + Target.Banner, target, {
+                        when (it) { is Target.Asset -> it.asset.label; is Target.Panel -> "Panneau « ${state.config.panels.getOrNull(it.index) ?: ""} »"; else -> "Bannière de profil" }
+                    }, { target = it })
+                    Family.STINGERS -> FlowChips(StingerStyle.entries.toList(), (target as? Target.Stinger)?.style, { it.label + if (it == state.theme.stinger) " (du thème)" else "" }, { target = Target.Stinger(it) })
+                }
             }
+            Settings(state, target, minutes, { minutes = it }, tab, { tab = it }, Modifier.width(sideW).fillMaxHeight())
         }
-        Settings(state, target, minutes, { minutes = it }, tab, { tab = it }, zone, { zone = it }, Modifier.width(380.dp).fillMaxHeight())
+    }
+}
+
+/** Chips that wrap on several lines: every choice stays visible, even in a small window. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun <T> FlowChips(options: List<T>, selected: T?, label: (T) -> String, onSelect: (T) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEach { o -> Chip(label(o), o == selected) { onSelect(o) } }
     }
 }
 
@@ -147,7 +173,7 @@ private fun ThemeGallery(state: AppState, modifier: Modifier) {
 // ---------------------------------------------------------------------- live preview
 
 @Composable
-private fun Preview(state: AppState, target: Target, minutes: Int, zone: ZoneKind?, onZone: (ZoneKind?) -> Unit, modifier: Modifier) {
+private fun Preview(state: AppState, target: Target, minutes: Int, onElement: () -> Unit, modifier: Modifier) {
     var time by remember { mutableStateOf(0.0) }
     LaunchedEffect(target) {
         val start = withFrameNanos { it }
@@ -155,56 +181,61 @@ private fun Preview(state: AppState, target: Target, minutes: Int, zone: ZoneKin
     }
     val cfg = state.config
     val theme = state.theme
-    Box(modifier, contentAlignment = Alignment.Center) {
-        val cfgNow by rememberUpdatedState(cfg)
-        Canvas(Modifier.aspectRatio(cfg.width / cfg.height.toFloat()).fillMaxSize().clip(RoundedCornerShape(10.dp))
-            .zoneDrag({ cfgNow }, (target as? Target.Scene)?.kind, onZone) { c -> state.config = c }) {
-            drawIntoCanvas { canvas ->
-                val nc = canvas.nativeCanvas
-                val c = SkiaGfx(nc, state.fonts)
-                c.save()
-                c.scale(size.width / cfg.width, size.height / cfg.height)
-                // checkerboard = transparent areas (where OBS shows your game / camera)
-                val transparent = when (target) { is Target.Scene -> !target.kind.fullBackground; else -> true }
-                if (transparent) {
-                    val sq = 40f
-                    val a = com.superessence.cuttinx.core.gfx.fill(0xFF2A2C33.toInt())
-                    val b = com.superessence.cuttinx.core.gfx.fill(0xFF33363E.toInt())
-                    var y = 0f; var row = 0
-                    while (y < cfg.height) { var x = 0f; var col = 0; while (x < cfg.width) { c.rect(x, y, sq, sq, if ((row + col) % 2 == 0) a else b); x += sq; col++ }; y += sq; row++ }
-                }
-                when (target) {
-                    is Target.Scene -> {
-                        val left = (minutes * 60 - time.toInt()).coerceAtLeast(0)
-                        state.renderer.drawScene(c, theme, cfg, target.kind, time, OverlayRenderer.Layer.ALL, countdown = "%02d:%02d".format(left / 60, left % 60))
-                        if (zone != null) {
-                            val (lc, ox) = twitchLayoutOf(cfg, target.kind)
-                            OverlayLayout.zone(target.kind, lc, zone)?.let { z -> c.rect(z.x + ox, z.y, z.w, z.h, com.superessence.cuttinx.core.gfx.Paint(0xFF3D8BFF.toInt(), stroke = true, strokeWidth = 5f)) }
+    val scene = (target as? Target.Scene)?.kind
+    Column(modifier) {
+        ZoomStage(state.stage, cfg.width / cfg.height.toFloat(), Modifier.fillMaxWidth().weight(1f)) { m ->
+            Box(m.clip(RoundedCornerShape(10.dp))
+                // the latest settings are read on every mouse move: the element stays under the cursor
+                .overlayEditing({ state.config }, scene, { state.twitchSel }, { s -> state.twitchSel = s; if (s != null) onElement() }, state.stage,
+                    { c, k -> state.setConfig(c, k) }, { state.endGesture() })) {
+                Canvas(Modifier.fillMaxSize()) {
+                    drawIntoCanvas { canvas ->
+                        val nc = canvas.nativeCanvas
+                        val c = SkiaGfx(nc, state.fonts)
+                        c.save()
+                        c.scale(size.width / cfg.width, size.height / cfg.height)
+                        // checkerboard = transparent areas (where OBS shows your game / camera)
+                        val transparent = when (target) { is Target.Scene -> !target.kind.fullBackground; else -> true }
+                        if (transparent) {
+                            val sq = 40f
+                            val a = com.superessence.cuttinx.core.gfx.fill(0xFF2A2C33.toInt())
+                            val b = com.superessence.cuttinx.core.gfx.fill(0xFF33363E.toInt())
+                            var y = 0f; var row = 0
+                            while (y < cfg.height) { var x = 0f; var col = 0; while (x < cfg.width) { c.rect(x, y, sq, sq, if ((row + col) % 2 == 0) a else b); x += sq; col++ }; y += sq; row++ }
                         }
-                    }
-                    is Target.Asset -> target.asset.draw(c, state.renderer, theme, cfg, cfg.width.toFloat(), cfg.height.toFloat())
-                    is Target.Stinger -> state.renderer.drawStinger(c, theme, cfg, target.style, (time % 2.2).coerceAtMost(OverlayAnim.STINGER_SEC))
-                    is Target.Panel -> {
-                        val k = cfg.width * 0.6f / 320f
-                        c.save(); c.translate(cfg.width * 0.2f, (cfg.height - 100f * k) / 2); c.scale(k, k)
-                        state.renderer.drawPanel(c, theme, cfg, cfg.panels.getOrNull(target.index) ?: ""); c.restore()
-                    }
-                    Target.Banner -> {
-                        val k = cfg.width * 0.9f / 1200f
-                        c.save(); c.translate(cfg.width * 0.05f, (cfg.height - 480f * k) / 2); c.scale(k, k)
-                        state.renderer.drawBanner(c, theme, cfg); c.restore()
+                        when (target) {
+                            is Target.Scene -> {
+                                val left = (minutes * 60 - time.toInt()).coerceAtLeast(0)
+                                state.renderer.drawScene(c, theme, cfg, target.kind, time, OverlayRenderer.Layer.ALL, countdown = "%02d:%02d".format(left / 60, left % 60))
+                            }
+                            is Target.Asset -> target.asset.draw(c, state.renderer, theme, cfg, cfg.width.toFloat(), cfg.height.toFloat())
+                            is Target.Stinger -> state.renderer.drawStinger(c, theme, cfg, target.style, (time % 2.2).coerceAtMost(OverlayAnim.STINGER_SEC))
+                            is Target.Panel -> {
+                                val k = cfg.width * 0.6f / 320f
+                                c.save(); c.translate(cfg.width * 0.2f, (cfg.height - 100f * k) / 2); c.scale(k, k)
+                                state.renderer.drawPanel(c, theme, cfg, cfg.panels.getOrNull(target.index) ?: ""); c.restore()
+                            }
+                            Target.Banner -> {
+                                val k = cfg.width * 0.9f / 1200f
+                                c.save(); c.translate(cfg.width * 0.05f, (cfg.height - 480f * k) / 2); c.scale(k, k)
+                                state.renderer.drawBanner(c, theme, cfg); c.restore()
+                            }
+                        }
+                        c.restore()
                     }
                 }
-                c.restore()
+                SelectionOverlay(cfg, scene, state.twitchSel, state.stage, Blue, Modifier.fillMaxSize())
             }
         }
+        ZoomBar(state.stage, Blue, Modifier.fillMaxWidth())
     }
 }
 
 // ---------------------------------------------------------------------- settings & export
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: (Int) -> Unit, tab: Int, setTab: (Int) -> Unit, zone: ZoneKind?, setZone: (ZoneKind) -> Unit, modifier: Modifier) {
+private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: (Int) -> Unit, tab: Int, setTab: (Int) -> Unit, modifier: Modifier) {
     val cfg = state.config
     val scope = rememberCoroutineScope()
     var progress by remember { mutableStateOf<Float?>(null) }
@@ -220,14 +251,20 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
     Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp)) {
         Text("Personnaliser", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        // tabs stay visible, only the content below scrolls
-        Chips(listOf(0, 1, 2, 3, 4, 5), tab, { listOf("IA", "Textes", "Couleurs", "Style & logo", "Position", "Exporter")[it] }, { setTab(it) })
+        // tabs stay visible (on several lines if needed), only the content below scrolls
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf("IA", "Textes", "Couleurs", "Style & logo", "Éléments & images", "Exporter").forEachIndexed { i, l -> Chip(l, i == tab) { setTab(i) } }
+        }
     }
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {
         if (tab == 0) { AiPanel(cfg, { c -> state.config = c }) { c, m -> AiThumb(state, c, m) }; return@Column }
         if (tab == 2) { ColorsTab(state); return@Column }
         if (tab == 3) { StyleTab(state); return@Column }
-        if (tab == 4) { PositionPanel(cfg, (target as? Target.Scene)?.kind, zone, setZone) { c -> state.config = c }; return@Column }
+        if (tab == 4) {
+            val sc = (target as? Target.Scene)?.kind
+            ElementsPanel(cfg, sc, state.twitchSel, { state.twitchSel = it }, { c, k -> state.setConfig(c, k) }) { rid -> importImages(state, sc, rid) }
+            return@Column
+        }
         if (tab == 1) {
         ElementTexts(state, target)
         if (target is Target.Asset && target.asset == TwitchAsset.EMOTES) EmotesEditor(cfg) { c -> state.config = c }
@@ -313,6 +350,42 @@ private fun AiThumb(state: AppState, cfg: OverlayConfig, modifier: Modifier) {
     }
     Image(img, null, modifier, contentScale = ContentScale.FillBounds)
 }
+
+/**
+ * Adds pictures to the scene (several at once), or replaces the picture [replaceId]. Pictures are
+ * shrunk to 1600 px: sharp in 1080p, light enough to keep saving instantly.
+ */
+private fun importImages(state: AppState, scene: SceneKind?, replaceId: String?) {
+    val files = com.superessence.cuttinx.desktop.editor.openFiles(if (replaceId == null) "Ajouter des images" else "Remplacer l'image",
+        listOf("png", "jpg", "jpeg", "webp", "gif", "bmp"), multiple = replaceId == null)
+    if (files.isEmpty()) return
+    var cfg = state.config
+    var last: String? = null
+    val failed = ArrayList<String>()
+    for (f in files) {
+        val pic = encodePicture(f)
+        if (pic == null) { failed += f.name; continue }
+        val (b64, w, h) = pic
+        if (replaceId != null) { cfg = cfg.updateItem(replaceId) { it.copy(data = b64, aspect = h.toFloat() / w, name = f.nameWithoutExtension.take(40)) }; last = replaceId }
+        else { val item = OverlayItems.image(cfg, scene, b64, w, h, f.nameWithoutExtension); cfg = OverlayItems.add(cfg, item); last = item.id }
+    }
+    state.setConfig(cfg, null)
+    last?.let { state.twitchSel = Sel.Item(it) }
+    if (failed.isNotEmpty()) state.twitchMessage = "Image(s) illisible(s) : ${failed.joinToString()}"
+}
+
+private fun encodePicture(f: File, max: Int = 1600): Triple<String, Int, Int>? = runCatching {
+    val src = org.jetbrains.skia.Image.makeFromEncoded(f.readBytes())
+    val k = minOf(1f, max.toFloat() / maxOf(src.width, src.height))
+    val w = (src.width * k).toInt().coerceAtLeast(1); val h = (src.height * k).toInt().coerceAtLeast(1)
+    val s = Surface.makeRasterN32Premul(w, h)
+    s.canvas.drawImageRect(src, org.jetbrains.skia.Rect.makeWH(src.width.toFloat(), src.height.toFloat()), org.jetbrains.skia.Rect.makeWH(w.toFloat(), h.toFloat()),
+        org.jetbrains.skia.SamplingMode.LINEAR, org.jetbrains.skia.Paint(), true)
+    // photos stay JPEG (light), everything else PNG (transparency kept)
+    val jpeg = f.extension.lowercase() in setOf("jpg", "jpeg")
+    val bytes = s.makeImageSnapshot().encodeToData(if (jpeg) org.jetbrains.skia.EncodedImageFormat.JPEG else org.jetbrains.skia.EncodedImageFormat.PNG, 90)!!.bytes
+    Triple(java.util.Base64.getEncoder().encodeToString(bytes), w, h)
+}.getOrNull()
 
 /** Picks a logo file, shrinks it to 512 px and stores it as PNG (transparency kept). */
 private fun importLogo(state: AppState) {

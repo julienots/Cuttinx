@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class EffectCategory(val label: String) {
-    ADJUST("Réglages"), COLOR("Couleur"), BLUR("Flou & netteté"), STYLIZE("Stylisé"),
+    TREND("Tendances"), ADJUST("Réglages"), COLOR("Couleur"), BLUR("Flou & netteté"), STYLIZE("Stylisé"),
     RETRO("Rétro"), CINEMA("Cinéma"), LIGHT("Lumière"), DISTORT("Distorsion"), MOTION("Mouvement & vitesse"),
     PARTICLES("Particules"), OVERLAY("Superposition"), AUDIO("Audio"), VOICE("Voix"), INTERNAL("Interne"),
 }

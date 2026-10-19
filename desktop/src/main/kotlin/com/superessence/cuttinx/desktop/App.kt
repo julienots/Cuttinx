@@ -75,8 +75,68 @@ private fun SpacesBar(selected: Section, onSelect: (Section) -> Unit, modifier: 
 /** State shared by the sections (the brand kit can feed the overlay generator). */
 class AppState {
     var section by mutableStateOf(Section.EDITOR)
-    var config by mutableStateOf(OverlayConfig())
-    var brandKit by mutableStateOf<BrandKit?>(null)
+
+    // ------------------------------------------------------------------ Twitch Editor: settings saved on disk
+    private val twitchDir = java.io.File(java.io.File(System.getProperty("user.home"), "CuttinxPRO"), "twitch")
+    private val twitchStore = com.superessence.cuttinx.core.overlay.OverlayStore(twitchDir)
+    private val history = com.superessence.cuttinx.core.overlay.UndoHistory<OverlayConfig>()
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; coerceInputValues = true }
+    private val saver = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "cuttinx-twitch-save").apply { isDaemon = true } }
+    private var pendingSave: java.util.concurrent.ScheduledFuture<*>? = null
+    private var _config by mutableStateOf(runCatching { twitchStore.load() }.getOrNull() ?: OverlayConfig())
+
+    /** Overlay settings; every change is undoable and saved automatically. */
+    var config: OverlayConfig
+        get() = _config
+        set(v) = setConfig(v, null)
+    var canUndo by mutableStateOf(false)
+    var canRedo by mutableStateOf(false)
+    /** Save state shown in the Twitch Editor header. */
+    var saveStatus by mutableStateOf(if (twitchStore.exists()) "Enregistré" else "")
+    var twitchMessage by mutableStateOf<String?>(null)
+    /** Selected element of the Twitch preview, scene being edited, zoom of the preview. */
+    var twitchSel by mutableStateOf<com.superessence.cuttinx.twitch.Sel?>(null)
+    var twitchScene by mutableStateOf<com.superessence.cuttinx.core.overlay.SceneKind?>(null)
+    val stage = com.superessence.cuttinx.twitch.StageState()
+
+    /** Changes the overlay settings; [key] groups quick changes (a drag, a slider) into one undo step. */
+    fun setConfig(v: OverlayConfig, key: String?) {
+        if (v == _config) return
+        history.record(_config, key)
+        _config = v
+        afterChange()
+    }
+
+    /** End of a drag on the preview: the next change starts a new undo step. */
+    fun endGesture() = history.cut()
+
+    fun undoTwitch() { history.undo(_config)?.let { _config = it; afterChange() } }
+    fun redoTwitch() { history.redo(_config)?.let { _config = it; afterChange() } }
+
+    private fun afterChange() {
+        canUndo = history.canUndo; canRedo = history.canRedo
+        saveStatus = "Modifications en cours…"
+        pendingSave?.cancel(false)
+        pendingSave = saver.schedule(Runnable { saveTwitch() }, 600, java.util.concurrent.TimeUnit.MILLISECONDS)
+    }
+
+    /** Writes the overlay settings now (Ctrl + S, "Enregistrer" button, window closing). */
+    fun saveTwitch(): Boolean = synchronized(twitchStore) {
+        val c = _config
+        runCatching { twitchStore.save(c) }
+            .onSuccess { saveStatus = "Enregistré ✓" }
+            .onFailure { saveStatus = "Échec de l'enregistrement"; twitchMessage = "Impossible d'enregistrer dans ${twitchDir.absolutePath} : ${it.message}" }
+            .isSuccess
+    }
+
+    private val brandFile = java.io.File(twitchDir, "identite.json")
+    var brandKit by mutableStateOf(runCatching { json.decodeFromString(BrandKit.serializer(), brandFile.readText()) }.getOrNull())
+        private set
+
+    fun updateBrandKit(k: BrandKit?) {
+        brandKit = k
+        if (k != null) saver.execute { runCatching { twitchDir.mkdirs(); brandFile.writeText(json.encodeToString(BrandKit.serializer(), k)) } }
+    }
     val renderer = OverlayRenderer()
     val raster = SkiaRaster()
     val fonts get() = raster.fonts
@@ -95,7 +155,52 @@ class AppState {
         return true
     }
 
-    fun shutdown() { if (editorLazy.isInitialized()) runCatching { editor.saveNow(); editor.player.close() } }
+    fun shutdown() {
+        pendingSave?.cancel(false)
+        saveTwitch()
+        if (editorLazy.isInitialized()) runCatching { editor.saveNow(); editor.player.close() }
+    }
+
+    /** Shortcuts of the Twitch Editor: undo / redo / save, delete, move with the arrows, duplicate, zoom. */
+    private fun onTwitchKey(e: androidx.compose.ui.input.key.KeyEvent, ctrl: Boolean): Boolean {
+        val scene = twitchScene
+        val sel = twitchSel
+        val step = if (e.isShiftPressed) 0.02f else 0.002f
+        fun nudge(dx: Float, dy: Float) {
+            when (sel) {
+                is com.superessence.cuttinx.twitch.Sel.Item -> setConfig(config.updateItem(sel.id) { com.superessence.cuttinx.core.overlay.OverlayItems.place(it, it.x + dx, it.y + dy * 16f / 9f) }, "nudge:${sel.id}")
+                is com.superessence.cuttinx.twitch.Sel.Zone -> if (scene != null) {
+                    val (lc, _) = com.superessence.cuttinx.twitch.twitchLayoutOf(config, scene)
+                    setConfig(config.copy(zoneMoves = com.superessence.cuttinx.core.overlay.OverlayLayout.move(lc, scene, sel.kind, dx * lc.width, dy * lc.width).zoneMoves), "znudge:${sel.kind}")
+                }
+                null -> {}
+            }
+        }
+        when {
+            ctrl && e.key == Key.Z && e.isShiftPressed -> redoTwitch()
+            ctrl && e.key == Key.Z -> undoTwitch()
+            ctrl && e.key == Key.Y -> redoTwitch()
+            ctrl && e.key == Key.S -> saveTwitch()
+            ctrl && e.key == Key.D -> (sel as? com.superessence.cuttinx.twitch.Sel.Item)?.let { s ->
+                config.item(s.id)?.let { val d = com.superessence.cuttinx.core.overlay.OverlayItems.duplicate(it); setConfig(com.superessence.cuttinx.core.overlay.OverlayItems.add(config, d), null); twitchSel = com.superessence.cuttinx.twitch.Sel.Item(d.id) }
+            } ?: return false
+            ctrl && (e.key == Key.Equals || e.key == Key.Plus || e.key == Key.NumPadAdd) -> stage.zoomBy(1.25f)
+            ctrl && (e.key == Key.Minus || e.key == Key.NumPadSubtract) -> stage.zoomBy(0.8f)
+            ctrl && e.key == Key.Zero -> stage.reset()
+            e.key == Key.Delete || e.key == Key.Backspace -> when (sel) {
+                is com.superessence.cuttinx.twitch.Sel.Item -> { setConfig(com.superessence.cuttinx.core.overlay.OverlayItems.remove(config, sel.id), null); twitchSel = null }
+                is com.superessence.cuttinx.twitch.Sel.Zone -> if (scene != null) setConfig(com.superessence.cuttinx.core.overlay.OverlayLayout.setHidden(config, scene, sel.kind, true), null)
+                null -> return false
+            }
+            e.key == Key.Escape -> if (sel != null) twitchSel = null else return false
+            e.key == Key.DirectionLeft && sel != null -> nudge(-step, 0f)
+            e.key == Key.DirectionRight && sel != null -> nudge(step, 0f)
+            e.key == Key.DirectionUp && sel != null -> nudge(0f, -step)
+            e.key == Key.DirectionDown && sel != null -> nudge(0f, step)
+            else -> return false
+        }
+        return true
+    }
 
     /** Keyboard shortcuts of the editor (only when no text field is using the key). */
     fun onKey(e: androidx.compose.ui.input.key.KeyEvent): Boolean {
@@ -110,10 +215,13 @@ class AppState {
             e.key == Key.F1 -> { section = Section.GUIDE; return true }
             ctrl && e.key == Key.Tab -> { section = Section.entries[(section.ordinal + if (e.isShiftPressed) Section.entries.size - 1 else 1) % Section.entries.size]; return true }
         }
+        if (section == Section.TWITCH) return onTwitchKey(e, ctrl)
         if (section != Section.EDITOR) return false
         val m = editor
         if (ctrl && e.key == Key.N) { if (m.current != null) m.close(); return true }
         if (m.current == null) return false
+        if (ctrl && e.key == Key.S) { m.saveNow(); m.message.value = "Projet enregistré"; return true }
+        if (ctrl && e.key == Key.E) { m.exportRequest.value++; return true }
         val fps = m.current?.format?.frameRate ?: 30
         when {
             e.key == Key.Spacebar -> m.player.toggle()
@@ -144,6 +252,7 @@ class AppState {
 
     /** Applies a generated identity to the overlays: palette, theme and channel name. */
     fun useBrand(kit: BrandKit) {
+        updateBrandKit(kit)
         config = config.copy(themeId = kit.overlayThemeId, palette = kit.overlayPalette(), channel = kit.brief.name.ifBlank { config.channel }, tagline = kit.taglines.first())
         section = Section.TWITCH
     }

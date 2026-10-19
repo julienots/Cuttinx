@@ -22,7 +22,11 @@ fois, sur demande.
 - **Effets** : ~45 effets GPU originaux (réglages colorimétriques complets, flou, netteté, vignettage,
   grain, glitch, VHS, CRT, aberration chromatique, lueur, fuite de lumière, distorsions, particules,
   effets de vitesse…), 15 filtres prêts, préréglages utilisateur (enregistrer, renommer, dupliquer,
-  importer/exporter JSON). 17 transitions réglables.
+  importer/exporter JSON). 17 transitions réglables. Catégorie **Tendances** : hologramme irisé, chrome
+  liquide, tranches glitch, impact manga, code matrice, console 4 couleurs, coup de basse (calé sur le
+  tempo), infrarouge rose, tunnel miroir infini, rayons divins, étoiles Y2K, petite planète, halation
+  ciné, tri de pixels, verre cannelé, scanner cyber, écho chromatique. Timeline zoomable jusqu'à
+  l'image près (boutons − / + / MAX, sans pincer).
 - **Audio** : volume, fondus, balance, EQ 8 bandes, compresseur, limiteur, porte de bruit,
   réverbération, écho, de-esser, largeur stéréo, réduction de bruit spectrale, 7 effets de voix,
   normalisation BS.1770 (LUFS), détection des crêtes/saturations, mixage par piste, voix off.
@@ -81,6 +85,12 @@ espaces de l'accueil Android, en onglets en haut de la fenêtre : **Éditeur** �
   rebours, je reviens, pause, fin), cadres jeu / discussion / écran / caméra / chat, alerte de follow,
   12 transitions stinger (toile d'araignée, tempête de sakura, explosion BD, hexagones, portail…).
   Export d'un **pack OBS** prêt à l'emploi (HTML + PNG animés transparents, guide d'installation).
+  **Éditeur d'éléments** (PC, téléphone, tablette) : autant d'images, de textes et de stickers que
+  voulu, chacun sur sa scène (ou sur toutes) ; calques (afficher / masquer, verrouiller, ordre,
+  dupliquer, supprimer), poignées pour agrandir et tourner, magnétisme au centre, position / taille /
+  rotation / opacité au pourcent près, formes (arrondi, rond), bordure, ombre, halo, miroir,
+  12 animations en boucle exportées dans OBS ; zoom de l'aperçu jusqu'à 800 % (molette, pincement,
+  boutons) ; annuler / rétablir ; enregistrement automatique sur disque + bouton Enregistrer.
 - **ID Influenceur** : génère l'univers d'un créateur (archétype, palette, polices, slogans, bios
   TikTok / Instagram / YouTube / Twitch, piliers de contenu, hashtags, ton, moodboard, logo), exporte
   une planche PNG et un guide, et applique la palette aux overlays.

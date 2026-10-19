@@ -57,7 +57,8 @@ private fun familyOf(t: Target) = when (t) {
     is Target.Panel, Target.Banner, is Target.Asset -> Family.PROFILE
 }
 
-private val tabs = listOf("IA", "Thème", "Couleurs", "Style & logo", "Textes", "Position", "Exporter")
+private val tabs = listOf("IA", "Thème", "Couleurs", "Style & logo", "Textes", "Éléments & images", "Exporter")
+private const val TAB_ELEMENTS = 5
 
 @Composable
 private fun <T> BlueChips(options: List<T>, selected: (T) -> Boolean, label: (T) -> String, onClick: (T) -> Unit) {
@@ -79,25 +80,48 @@ fun TwitchScreen(vm: StudioViewModel) {
     val cfg by vm.config.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
     val msg by vm.message.collectAsStateWithLifecycle()
+    val canUndo by vm.canUndo.collectAsStateWithLifecycle()
+    val canRedo by vm.canRedo.collectAsStateWithLifecycle()
+    val saveStatus by vm.saveStatus.collectAsStateWithLifecycle()
     var target by remember { mutableStateOf<Target>(Target.Scene(SceneKind.STARTING)) }
     var tab by remember { mutableIntStateOf(0) }
     var minutes by remember { mutableIntStateOf(5) }
-    var zone by remember { mutableStateOf<ZoneKind?>(null) }
+    var sel by remember { mutableStateOf<Sel?>(null) }
+    val stage = remember { StageState() }
     var tuto by remember { mutableStateOf<com.superessence.cuttinx.core.tutorial.Film?>(null) }
     tuto?.let { f -> com.superessence.cuttinx.ui.help.FilmPlayerDialog(f) { tuto = null } }
-    val cfgNow by rememberUpdatedState(cfg)
     val scene = (target as? Target.Scene)?.kind
+    LaunchedEffect(scene) { sel = null }
+    // saved as soon as the app goes to the background (and on leaving the screen)
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) vm.saveNow() }
+        owner.lifecycle.addObserver(obs)
+        onDispose { owner.lifecycle.removeObserver(obs); vm.saveNow() }
+    }
+    // pictures: several at once to add, one to replace
+    var replaceId by remember { mutableStateOf<String?>(null) }
+    val addPics = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        if (uris.isNotEmpty()) vm.importImages(uris, scene, null) { id -> sel = Sel.Item(id) }
+    }
+    val replacePic = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val id = replaceId
+        if (uri != null && id != null) vm.importImages(listOf(uri), scene, id) { sel = Sel.Item(it) }
+    }
 
     // the preview + element pickers, and the editing tabs: side by side on tablets, stacked on phones
     val previewPart: @Composable (Modifier, Modifier) -> Unit = { mod, previewMod ->
         Column(mod) {
-            val ratio = when (target) { is Target.Panel -> 320f / 100f; Target.Banner -> 1200f / 480f; else -> 16f / 9f }
-            OverlayPreview(vm, cfg, target, minutes, zone.takeIf { tab == 5 }, previewMod.clip(RoundedCornerShape(14.dp))
-                .zoneDrag({ cfgNow }, scene, { zone = it; if (it != null) tab = 5 }) { c -> vm.update { c } }, ratio)
-            Spacer(Modifier.height(8.dp))
+            ZoomStage(stage, 16f / 9f, previewMod.clip(RoundedCornerShape(14.dp))) { m ->
+                Box(m.overlayEditing({ vm.config.value }, scene, { sel }, { s -> sel = s; if (s != null) tab = TAB_ELEMENTS }, stage,
+                    { c, k -> vm.set(c, k) }, { vm.endGesture() })) {
+                    OverlayPreview(vm, cfg, target, minutes, stage.zoom, Modifier.matchParentSize())
+                    SelectionOverlay(cfg, scene, sel, stage, TwitchBlue, Modifier.matchParentSize())
+                }
+            }
+            ZoomBar(stage, TwitchBlue, Modifier.fillMaxWidth())
             val fam = familyOf(target)
             BlueChips(Family.entries.toList(), { it == fam }, { it.label }, { f ->
-                zone = null
                 target = when (f) {
                     Family.SCENES -> Target.Scene(SceneKind.STARTING)
                     Family.FRAMES -> Target.Scene(SceneKind.GAMEPLAY)
@@ -108,8 +132,8 @@ fun TwitchScreen(vm: StudioViewModel) {
             })
             Spacer(Modifier.height(6.dp))
             when (fam) {
-                Family.SCENES -> BlueChips(SceneKind.entries.filter { it.fullBackground }, { target == Target.Scene(it) }, { it.label }, { zone = null; target = Target.Scene(it) })
-                Family.FRAMES -> BlueChips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, { target == Target.Scene(it) }, { it.label }, { zone = null; target = Target.Scene(it) })
+                Family.SCENES -> BlueChips(SceneKind.entries.filter { it.fullBackground }, { target == Target.Scene(it) }, { it.label }, { target = Target.Scene(it) })
+                Family.FRAMES -> BlueChips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, { target == Target.Scene(it) }, { it.label }, { target = Target.Scene(it) })
                 Family.ALERTS -> BlueChips(SceneKind.entries.filter { it.isAlert }, { target == Target.Scene(it) }, { it.label }, { target = Target.Scene(it) })
                 Family.PROFILE -> BlueChips(TwitchAsset.entries.map { Target.Asset(it) } + cfg.panels.indices.map { Target.Panel(it) } + Target.Banner, { target == it }, {
                     when (it) { is Target.Asset -> it.asset.label; is Target.Panel -> "Panneau « ${cfg.panels.getOrNull(it.index) ?: ""} »"; else -> "Bannière de profil" }
@@ -120,6 +144,23 @@ fun TwitchScreen(vm: StudioViewModel) {
     }
     val editPart: @Composable (Modifier) -> Unit = { mod ->
         Column(mod) {
+            // undo / redo / save, always at hand
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val narrow = maxWidth < 400.dp
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton({ vm.undo() }, enabled = canUndo) { Icon(CxIcons.Undo, "Annuler") }
+                    IconButton({ vm.redo() }, enabled = canRedo) { Icon(CxIcons.Redo, "Rétablir") }
+                    Text(saveStatus, Modifier.weight(1f), color = LocalCx.current.dim, fontSize = 11.sp, maxLines = 2, lineHeight = 13.sp)
+                    TextButton({ vm.saveNow() }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Icon(CxIcons.Check, "Enregistrer", Modifier.size(18.dp), tint = TwitchBlue)
+                        if (!narrow) { Spacer(Modifier.width(4.dp)); Text("Enregistrer", color = TwitchBlue) }
+                    }
+                    TextButton({ tab = tabs.lastIndex }, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Icon(CxIcons.Download, "Exporter", Modifier.size(18.dp), tint = TwitchBlue)
+                        if (!narrow) { Spacer(Modifier.width(4.dp)); Text("Exporter", color = TwitchBlue) }
+                    }
+                }
+            }
             // the tab row never scrolls away: only the content below it scrolls
             ScrollableTabRow(tab, containerColor = Color.Transparent, contentColor = TwitchBlue, edgePadding = 0.dp) {
                 tabs.forEachIndexed { i, t -> Tab(tab == i, { tab = i }, text = { Text(t) }) }
@@ -137,7 +178,9 @@ fun TwitchScreen(vm: StudioViewModel) {
                     2 -> ColorsEditor(vm, cfg)
                     3 -> StyleEditor(vm, cfg)
                     4 -> TextsEditor(vm, cfg, target, minutes) { minutes = it }
-                    5 -> PositionPanel(cfg, scene, zone, { zone = it }) { c -> vm.update { c } }
+                    TAB_ELEMENTS -> ElementsPanel(cfg, scene, sel, { sel = it }, { c, k -> vm.set(c, k) }) { rid ->
+                        if (rid == null) addPics.launch("image/*") else { replaceId = rid; replacePic.launch("image/*") }
+                    }
                     else -> ExportPanel(vm, target, minutes, progress)
                 }
                 Spacer(Modifier.height(24.dp))
@@ -151,7 +194,7 @@ fun TwitchScreen(vm: StudioViewModel) {
                 editPart(Modifier.weight(1f).fillMaxHeight())
             }
         } else {
-            val maxPreview = maxHeight * 0.34f
+            val maxPreview = maxHeight * 0.32f
             Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
                 previewPart(Modifier.fillMaxWidth(), Modifier.fillMaxWidth().heightIn(max = maxPreview).aspectRatio(16f / 9f, matchHeightConstraintsFirst = true).align(Alignment.CenterHorizontally))
                 editPart(Modifier.weight(1f).fillMaxWidth())
@@ -177,51 +220,56 @@ private fun StaticPreview(vm: StudioViewModel, cfg: OverlayConfig, modifier: Mod
 }
 
 @Composable
-private fun OverlayPreview(vm: StudioViewModel, cfg: OverlayConfig, target: Target, minutes: Int, zone: ZoneKind?, modifier: Modifier, ratio: Float = 16f / 9f) {
+private fun OverlayPreview(vm: StudioViewModel, cfg: OverlayConfig, target: Target, minutes: Int, zoom: Float, modifier: Modifier) {
     var image by remember { mutableStateOf<ImageBitmap?>(null) }
-    val w = 768; val h = 432
-    LaunchedEffect(cfg, target, minutes, zone) {
-        // two software bitmaps rendered alternately in the background (blurs and glows included)
-        val frames = listOf(vm.raster.frame(w, h), vm.raster.frame(w, h))
-        val pc = cfg.copy(width = w, height = h)
+    // sharper rendering when zoomed in (capped so phones stay fluid)
+    val quality = when { zoom >= 2.4f -> 2.5f; zoom >= 1.6f -> 1.8f; zoom >= 1.15f -> 1.3f; else -> 1f }
+    val w = (768 * quality).toInt(); val h = (432 * quality).toInt()
+    val latest by rememberUpdatedState(cfg)
+    // the loop keeps running while the settings change (no restart, no new bitmaps on every drag)
+    LaunchedEffect(target, minutes, w) {
+        // three software bitmaps used in turn: the one on screen is never drawn into
+        val frames = List(3) { vm.raster.frame(w, h) }
+        val static = target is Target.Panel || target is Target.Banner || target is Target.Asset
         val start = System.nanoTime(); var i = 0
+        var drawn: OverlayConfig? = null; var drawnAt = 0L
         while (isActive) {
-            val t = (System.nanoTime() - start) / 1e9
-            val f = frames[i % 2]
+            val c = latest
+            val now = System.nanoTime()
+            if (static && c === drawn && now - drawnAt < 1_000_000_000L) { delay(30); continue }
+            val t = (now - start) / 1e9
+            val f = frames[i % 3]
             withContext(Dispatchers.Default) {
                 val g = f.gfx
                 g.clear(0)
+                val pc = c.copy(width = w, height = h)
+                val theme = OverlayThemes[c.themeId]
                 when (target) {
                     is Target.Scene -> {
                         val left = (minutes * 60 - t.toInt()).coerceAtLeast(0)
-                        vm.renderer.drawScene(g, vm.theme, pc, target.kind, t, OverlayRenderer.Layer.ALL, countdown = "%02d:%02d".format(left / 60, left % 60))
-                        // element being moved: outlined
-                        if (zone != null) {
-                            val (lc, ox) = twitchLayoutOf(pc, target.kind)
-                            OverlayLayout.zone(target.kind, lc, zone)?.let { z -> g.rect(z.x + ox, z.y, z.w, z.h, com.superessence.cuttinx.core.gfx.Paint(0xFF3D8BFF.toInt(), stroke = true, strokeWidth = 3f)) }
-                        }
+                        vm.renderer.drawScene(g, theme, pc, target.kind, t, OverlayRenderer.Layer.ALL, countdown = "%02d:%02d".format(left / 60, left % 60))
                     }
-                    is Target.Stinger -> vm.renderer.drawStinger(g, vm.theme, pc, target.style, (t % 2.2).coerceAtMost(OverlayAnim.STINGER_SEC))
+                    is Target.Stinger -> vm.renderer.drawStinger(g, theme, pc, target.style, (t % 2.2).coerceAtMost(OverlayAnim.STINGER_SEC))
                     is Target.Panel -> {
                         // panel centred at a readable size
                         val k = w * 0.8f / 320f
                         g.save(); g.translate(w * 0.1f, (h - 100f * k) / 2); g.scale(k, k)
-                        vm.renderer.drawPanel(g, vm.theme, cfg, cfg.panels.getOrNull(target.index) ?: "")
+                        vm.renderer.drawPanel(g, theme, c, c.panels.getOrNull(target.index) ?: "")
                         g.restore()
                     }
                     Target.Banner -> {
                         val k = w * 0.9f / 1200f
                         g.save(); g.translate(w * 0.05f, (h - 480f * k) / 2); g.scale(k, k)
-                        vm.renderer.drawBanner(g, vm.theme, cfg)
+                        vm.renderer.drawBanner(g, theme, c)
                         g.restore()
                     }
-                    is Target.Asset -> target.asset.draw(g, vm.renderer, vm.theme, cfg, w.toFloat(), h.toFloat())
+                    is Target.Asset -> target.asset.draw(g, vm.renderer, theme, c, w.toFloat(), h.toFloat())
                 }
             }
             image = f.bitmap.asImageBitmap()
+            drawn = c; drawnAt = now
             i++
-            // static elements: no need to redraw 60 times per second
-            delay(if (target is Target.Panel || target is Target.Banner || target is Target.Asset) 400 else 16)
+            delay(if (static) 30 else 16)
         }
     }
     val transparent = when (target) { is Target.Stinger -> true; is Target.Scene -> !target.kind.fullBackground; else -> true }

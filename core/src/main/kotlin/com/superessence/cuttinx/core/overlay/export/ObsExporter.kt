@@ -107,7 +107,7 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
         // ------------------------------------------------ alerts
         for (al in alerts) {
             renderApng(cfg, File(dir, "alertes/${alertFile(al)}.png"), OverlayAnim.LOOP_SEC, opt.fps, { a, b -> progress((done + a / b.toFloat()) / steps, "${al.label} ($a/$b)") }) { c, t ->
-                renderer.drawAlert(c, theme, cfg, t, al)
+                renderer.drawScene(c, theme, cfg, al, t)
             }
             done++
         }

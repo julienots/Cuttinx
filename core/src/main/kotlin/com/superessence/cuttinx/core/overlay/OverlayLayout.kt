@@ -16,8 +16,11 @@ object OverlayLayout {
 
     fun zones(scene: SceneKind, cfg: OverlayConfig): List<Zone> {
         val (rw, rh) = refSize(scene)
-        val ref = (refZones(scene) + logoZone(scene, cfg)).map { z -> if (cfg.cameraRight || z.kind == ZoneKind.TITLE || scene == SceneKind.VERTICAL) z else z.copy(x = rw - z.x - z.w) }
+        // moves are stored in the "camera on the right" layout, then mirrored with it: dragging
+        // always follows the mouse / finger, whatever side the camera is on
+        val ref = (refZones(scene) + logoZone(scene, cfg))
             .map { z -> cfg.zoneMoves[key(scene, z.kind)]?.let { m -> moved(z, m, rw, rh) } ?: z }
+            .map { z -> if (!mirrored(cfg, scene, z.kind)) z else z.copy(x = rw - z.x - z.w) }
         val sx = cfg.width / rw; val sy = cfg.height / rh
         return ref.map { Zone(it.kind, it.x * sx, it.y * sy, it.w * sx, it.h * sy) }
     }
@@ -40,12 +43,27 @@ object OverlayLayout {
         val k = key(scene, kind)
         val old = cfg.zoneMoves[k] ?: ZoneMove()
         // mirrored layouts (camera on the left) move the other way round horizontally
-        val mirror = !cfg.cameraRight && kind != ZoneKind.TITLE && scene != SceneKind.VERTICAL
-        val m = ZoneMove(old.dx + dx * rw / cfg.width * (if (mirror) -1 else 1), old.dy + dy * rh / cfg.height, (old.scale * scale).coerceIn(0.3f, 2.5f))
+        val mirror = mirrored(cfg, scene, kind)
+        var m = ZoneMove(old.dx + dx * rw / cfg.width * (if (mirror) -1 else 1), old.dy + dy * rh / cfg.height, (old.scale * scale).coerceIn(0.3f, 2.5f))
+        // the stored move never goes past the edges: coming back with the mouse moves the element at once
+        (refZones(scene) + logoZone(scene, cfg)).firstOrNull { it.kind == kind }?.let { z ->
+            val w = (z.w * m.scale).coerceAtMost(rw); val h = (z.h * m.scale).coerceAtMost(rh)
+            val cx = z.x + z.w / 2; val cy = z.y + z.h / 2
+            m = m.copy(dx = m.dx.coerceIn(w / 2 - cx, rw - w / 2 - cx), dy = m.dy.coerceIn(h / 2 - cy, rh - h / 2 - cy))
+        }
         return cfg.copy(zoneMoves = cfg.zoneMoves + (k to m))
     }
 
-    fun reset(cfg: OverlayConfig, scene: SceneKind) = cfg.copy(zoneMoves = cfg.zoneMoves.filterKeys { !it.startsWith(scene.name + ":") })
+    private fun mirrored(cfg: OverlayConfig, scene: SceneKind, kind: ZoneKind) = !cfg.cameraRight && kind != ZoneKind.TITLE && scene != SceneKind.VERTICAL
+
+    /** Shows / hides a built-in element on one scene. */
+    fun setHidden(cfg: OverlayConfig, scene: SceneKind, kind: ZoneKind, hidden: Boolean) =
+        cfg.copy(hiddenZones = if (hidden) cfg.hiddenZones + key(scene, kind) else cfg.hiddenZones - key(scene, kind))
+
+    fun reset(cfg: OverlayConfig, scene: SceneKind) = cfg.copy(
+        zoneMoves = cfg.zoneMoves.filterKeys { !it.startsWith(scene.name + ":") },
+        hiddenZones = cfg.hiddenZones.filterTo(HashSet()) { !it.startsWith(scene.name + ":") },
+    )
 
     fun zone(scene: SceneKind, cfg: OverlayConfig, kind: ZoneKind) = zones(scene, cfg).firstOrNull { it.kind == kind }
 
