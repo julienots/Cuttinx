@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop.ui
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -87,7 +88,7 @@ fun TwitchStudio(state: AppState) {
                 Family.FRAMES -> Chips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
                 Family.ALERTS -> Chips(SceneKind.entries.filter { it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
                 Family.PROFILE -> Chips(state.config.panels.indices.map { Target.Panel(it) } + Target.Banner, target, { if (it is Target.Panel) "Panneau « ${state.config.panels.getOrNull(it.index) ?: ""} »" else "Bannière de profil" }, { target = it })
-                Family.STINGERS -> Chips(StingerStyle.entries.toList(), (target as? Target.Stinger)?.style, { it.label + if (it == state.theme.stinger) " ★" else "" }, { target = Target.Stinger(it) })
+                Family.STINGERS -> Chips(StingerStyle.entries.toList(), (target as? Target.Stinger)?.style, { it.label + if (it == state.theme.stinger) " (du thème)" else "" }, { target = Target.Stinger(it) })
             }
         }
         Settings(state, target, minutes, { minutes = it }, Modifier.width(360.dp).fillMaxHeight())
@@ -274,7 +275,7 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
         error?.let { Text(it, color = Color(0xFFFF6B6B), fontSize = 12.sp) }
         lastExport?.let { f ->
             Spacer(Modifier.height(8.dp))
-            Text("✅ Exporté dans ${f.absolutePath}", fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) { Icon(CxIcons.Check, null, Modifier.size(16.dp), tint = Color(0xFF3D8BFF)); Spacer(Modifier.width(6.dp)); Text("Exporté dans ${f.absolutePath}", fontSize = 12.sp) }
             TextButton({ openFolder(f) }) { Text("Ouvrir le dossier") }
         }
     }
@@ -304,7 +305,7 @@ private fun ElementTexts(state: AppState, target: Target) {
             cfg.panels.forEachIndexed { i, p ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(p, { v -> set { it.copy(panels = it.panels.mapIndexed { j, x -> if (j == i) v else x }) } }, Modifier.weight(1f), singleLine = true, label = { Text("Panneau ${i + 1}") })
-                    TextButton({ set { it.copy(panels = it.panels.filterIndexed { j, _ -> j != i }) } }) { Text("✕") }
+                    IconButton({ set { it.copy(panels = it.panels.filterIndexed { j, _ -> j != i }) } }) { Icon(CxIcons.Close, "Retirer") }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

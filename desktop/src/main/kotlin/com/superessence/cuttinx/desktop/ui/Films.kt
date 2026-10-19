@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop.ui
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -57,7 +58,7 @@ fun FilmGrid(state: AppState, onPlay: (Film) -> Unit) {
             Column(Modifier.clip(RoundedCornerShape(12.dp)).background(Cx.Panel).clickable { onPlay(f) }) {
                 Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black), contentAlignment = Alignment.Center) {
                     thumbs[f.id]?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
-                    Text("▶", Modifier.clip(RoundedCornerShape(50)).background(spaceColor(f.space)).padding(horizontal = 16.dp, vertical = 6.dp), color = if (f.space == TutoSpace.EDITOR) Color.Black else Color.White, fontWeight = FontWeight.Black)
+                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(50)).background(spaceColor(f.space)), contentAlignment = Alignment.Center) { Icon(CxIcons.Play, "Lire", Modifier.size(22.dp), tint = if (f.space == TutoSpace.EDITOR) Color.Black else Color.White) }
                     Text(mmss(f.duration), Modifier.align(Alignment.BottomEnd).padding(6.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xCC000000)).padding(horizontal = 5.dp), color = Color.White, fontSize = 11.sp)
                 }
                 Text(f.title, Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp), fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 2)
@@ -85,7 +86,7 @@ fun FilmPlayer(state: AppState, start: Film, onClose: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Color(0xFF08090B)).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(film.title, Modifier.weight(1f), fontWeight = FontWeight.Black, fontSize = 20.sp)
-            TextButton(onClose) { Text("✕ Fermer", color = acc) }
+            TextButton(onClose) { Icon(CxIcons.Close, null, Modifier.size(16.dp), tint = acc); Spacer(Modifier.width(6.dp)); Text("Fermer", color = acc) }
         }
         Row(Modifier.weight(1f)) {
             Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
@@ -107,17 +108,17 @@ fun FilmPlayer(state: AppState, start: Film, onClose: () -> Unit) {
                 Spacer(Modifier.weight(1f))
                 val idx = Tutorials.all.indexOf(film)
                 Row {
-                    TextButton({ film = Tutorials.all[(idx - 1 + Tutorials.all.size) % Tutorials.all.size] }) { Text("← Précédent") }
+                    TextButton({ film = Tutorials.all[(idx - 1 + Tutorials.all.size) % Tutorials.all.size] }) { Icon(CxIcons.Prev, null, Modifier.size(16.dp)); Text("Précédent") }
                     Spacer(Modifier.weight(1f))
-                    TextButton({ film = Tutorials.all[(idx + 1) % Tutorials.all.size] }) { Text("Suivant →") }
+                    TextButton({ film = Tutorials.all[(idx + 1) % Tutorials.all.size] }) { Text("Suivant"); Icon(CxIcons.Next, null, Modifier.size(16.dp)) }
                 }
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Button({ if (time >= film.duration) time = 0.0; playing = !playing }, colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = if (film.space == TutoSpace.EDITOR) Color.Black else Color.White)) {
-                Text(if (playing) "⏸ Pause" else "▶ Lecture", fontWeight = FontWeight.Bold)
+                Icon(if (playing) CxIcons.Pause else CxIcons.Play, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(if (playing) "Pause" else "Lecture", fontWeight = FontWeight.Bold)
             }
-            TextButton({ time = 0.0; playing = true }) { Text("⏮ Revoir") }
+            TextButton({ time = 0.0; playing = true }) { Icon(CxIcons.Replay, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Revoir") }
             Text("${mmss(time)} / ${mmss(film.duration)}", Modifier.padding(horizontal = 10.dp), fontSize = 13.sp)
             Slider(time.toFloat(), { time = it.toDouble() }, Modifier.weight(1f), valueRange = 0f..film.duration.toFloat())
         }

@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.ui.home
 
+import com.superessence.cuttinx.icons.CxIcons
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -265,10 +266,10 @@ private fun ProBadge() {
 }
 
 /** The three spaces of CUTTINX PRO, chosen at the top of the home screen. */
-enum class StudioTab(val label: String, val short: String, val emoji: String, val color: Color) {
-    EDITOR("Éditeur", "Éditeur", "🎬", Cx.Yellow),
-    TWITCH("Twitch Editor", "Twitch", "📺", Color(0xFF3D8BFF)),
-    ID("ID Influenceur", "ID Influ", "✨", Color(0xFFFF4FA3)),
+enum class StudioTab(val label: String, val short: String, val icon: () -> androidx.compose.ui.graphics.vector.ImageVector, val color: Color) {
+    EDITOR("Éditeur", "Éditeur", { CxIcons.Editor }, Cx.Yellow),
+    TWITCH("Twitch Editor", "Twitch", { CxIcons.Twitch }, Color(0xFF3D8BFF)),
+    ID("ID Influenceur", "ID Influ", { CxIcons.Identity }, Color(0xFFFF4FA3)),
 }
 
 /** Slanted card echoing the big « / » separators. */
@@ -296,7 +297,8 @@ private fun StudioTabs(selected: StudioTab, onSelect: (StudioTab) -> Unit) {
             val bg = if (sel) Brush.linearGradient(listOf(t.color, t.color.copy(alpha = 0.6f))) else androidx.compose.ui.graphics.SolidColor(cx.panel2)
             Box(Modifier.weight(weight).fillMaxHeight().clip(SlantShape).background(bg).clickable { onSelect(t) }, contentAlignment = Alignment.Center) {
                 Column(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }, horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(t.emoji, Modifier.graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f }, fontSize = 28.sp)
+                    Icon(t.icon(), null, Modifier.size(30.dp).graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f },
+                        tint = if (sel) (if (t == StudioTab.EDITOR) Color.Black else Color.White) else MaterialTheme.colorScheme.onSurface)
                     Text(if (sel) t.label else t.short, fontWeight = FontWeight.Black, fontSize = if (sel) 15.sp else 12.sp, maxLines = 1,
                         color = if (sel) (if (t == StudioTab.EDITOR) Color.Black else Color.White) else MaterialTheme.colorScheme.onSurface)
                 }

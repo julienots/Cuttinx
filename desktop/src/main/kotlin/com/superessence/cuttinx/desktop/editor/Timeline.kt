@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop.editor
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -80,14 +81,14 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
     Column(modifier.background(Cx.Bg)) {
         // edit toolbar
         Row(Modifier.fillMaxWidth().background(Cx.Panel).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Tool("✂ Couper (S)") { m.splitAtPlayhead() }
-            Tool("🗑 Supprimer") { m.deleteSelection() }
-            Tool("⇤ Supprimer et resserrer") { m.deleteSelection(ripple = true) }
-            Tool("⧉ Dupliquer") { m.duplicateSelection() }
-            Tool("⚑ Marqueur") { m.addMarker() }
+            Tool(CxIcons.Split, "Couper (S)") { m.splitAtPlayhead() }
+            Tool(CxIcons.Delete, "Supprimer") { m.deleteSelection() }
+            Tool(CxIcons.RippleDelete, "Supprimer et resserrer") { m.deleteSelection(ripple = true) }
+            Tool(CxIcons.Duplicate, "Dupliquer") { m.duplicateSelection() }
+            Tool(CxIcons.Marker, "Marqueur") { m.addMarker() }
             var addMenu by remember { mutableStateOf(false) }
             Box {
-                Tool("+ Piste") { addMenu = true }
+                Tool(CxIcons.Add, "Piste") { addMenu = true }
                 DropdownMenu(addMenu, { addMenu = false }) {
                     listOf(TrackKind.VIDEO to "Vidéo / incrustation", TrackKind.AUDIO to "Audio", TrackKind.TEXT to "Texte", TrackKind.SUBTITLE to "Sous-titres", TrackKind.EFFECT to "Calque d'effets").forEach { (k, l) ->
                         DropdownMenuItem({ Text(l) }, { m.addTrack(k); addMenu = false })
@@ -125,21 +126,27 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
 }
 
 @Composable
-private fun Tool(label: String, onClick: () -> Unit) = TextButton(onClick, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) { Text(label, fontSize = 12.sp) }
+private fun Tool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) = TextButton(onClick, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+    Icon(icon, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(label, fontSize = 12.sp)
+}
+
+@Composable
+private fun Toggle(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, on: Boolean = true, onClick: () -> Unit) =
+    Icon(icon, label, Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = onClick).padding(3.dp).size(15.dp), tint = if (on) Color.White else Cx.Dim)
 
 @Composable
 private fun TrackHeader(m: EditorModel, t: Track, modifier: Modifier) {
     Row(modifier.fillMaxWidth().background(Cx.Panel).border(0.5.dp, Cx.Line).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        val icon = when (t.kind) { TrackKind.VIDEO -> "🎞"; TrackKind.AUDIO -> if (t.audioRole == AudioRole.SFX) "💥" else "🎵"; TrackKind.TEXT -> "T"; TrackKind.SUBTITLE -> "💬"; TrackKind.EFFECT -> "✨" }
-        Text(icon, fontSize = 13.sp)
+        val icon = when (t.kind) { TrackKind.VIDEO -> CxIcons.Video; TrackKind.AUDIO -> if (t.audioRole == AudioRole.SFX) CxIcons.Sfx else CxIcons.Music; TrackKind.TEXT -> CxIcons.Text; TrackKind.SUBTITLE -> CxIcons.Captions; TrackKind.EFFECT -> CxIcons.Effects }
+        Icon(icon, null, Modifier.size(15.dp), tint = Cx.Dim)
         Spacer(Modifier.width(4.dp))
         Text(t.name.ifBlank { t.kind.name }, Modifier.weight(1f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (t.kind == TrackKind.AUDIO || t.kind == TrackKind.VIDEO)
-            Text(if (t.muted) "🔇" else "🔊", Modifier.clickable { m.updateTrack(t.id, if (t.muted) "Son activé" else "Piste muette") { it.copy(muted = !it.muted) } }.padding(2.dp), fontSize = 12.sp)
+            Toggle(if (t.muted) CxIcons.VolumeOff else CxIcons.Volume, "Son", !t.muted) { m.updateTrack(t.id, if (t.muted) "Son activé" else "Piste muette") { it.copy(muted = !it.muted) } }
         if (t.kind != TrackKind.AUDIO)
-            Text(if (t.hidden) "🙈" else "👁", Modifier.clickable { m.updateTrack(t.id, if (t.hidden) "Piste visible" else "Piste masquée") { it.copy(hidden = !it.hidden) } }.padding(2.dp), fontSize = 12.sp)
-        Text(if (t.locked) "🔒" else "🔓", Modifier.clickable { m.updateTrack(t.id, if (t.locked) "Piste déverrouillée" else "Piste verrouillée") { it.copy(locked = !it.locked) } }.padding(2.dp), fontSize = 12.sp)
-        if (t.clips.isEmpty()) Text("✕", Modifier.clickable { m.removeTrack(t.id) }.padding(2.dp), fontSize = 12.sp, color = Cx.Dim)
+            Toggle(if (t.hidden) CxIcons.EyeOff else CxIcons.Eye, "Visible", !t.hidden) { m.updateTrack(t.id, if (t.hidden) "Piste visible" else "Piste masquée") { it.copy(hidden = !it.hidden) } }
+        Toggle(if (t.locked) CxIcons.Lock else CxIcons.Unlock, "Verrou", t.locked) { m.updateTrack(t.id, if (t.locked) "Piste déverrouillée" else "Piste verrouillée") { it.copy(locked = !it.locked) } }
+        if (t.clips.isEmpty()) Toggle(CxIcons.Close, "Supprimer la piste", false) { m.removeTrack(t.id) }
     }
 }
 
@@ -213,14 +220,15 @@ private fun ClipBox(m: EditorModel, p: Project, t: Track, tracks: List<Track>, c
         Column(Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) {
             val label = c.text?.text?.lines()?.firstOrNull() ?: c.name.ifBlank { p.asset(c.assetId)?.displayName ?: "" }
             Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val badges = buildList {
-                if (c.speed != 1.0 || c.speedCurve.isNotEmpty()) add("×%.2g".format(c.speed))
-                if (c.effects.isNotEmpty()) add("✨${c.effects.size}")
-                if (!c.motion.isIdentity) add("🎬")
-                if (c.audio.effects.isNotEmpty()) add("🎙")
-                if (p.asset(c.assetId)?.missing == true) add("⚠ média introuvable")
+            // small badges: speed, effects, animation, voice, missing media
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                val tint = Color.White.copy(alpha = 0.85f)
+                if (c.speed != 1.0 || c.speedCurve.isNotEmpty()) Text("×%.2g".format(c.speed), color = tint, fontSize = 10.sp)
+                if (c.effects.isNotEmpty()) { Icon(CxIcons.Effects, null, Modifier.size(11.dp), tint = tint); Text("${c.effects.size}", color = tint, fontSize = 10.sp) }
+                if (!c.motion.isIdentity) Icon(CxIcons.Animation, null, Modifier.size(11.dp), tint = tint)
+                if (c.audio.effects.isNotEmpty()) Icon(CxIcons.Voice, null, Modifier.size(11.dp), tint = tint)
+                if (p.asset(c.assetId)?.missing == true) { Icon(CxIcons.Warning, null, Modifier.size(11.dp), tint = Color(0xFFFFB020)); Text("média introuvable", color = tint, fontSize = 10.sp, maxLines = 1) }
             }
-            if (badges.isNotEmpty()) Text(badges.joinToString(" "), color = Color.White.copy(alpha = 0.85f), fontSize = 10.sp, maxLines = 1)
         }
         // keyframes (diamonds), click = jump there
         c.keyframes.filterKeys { !it.startsWith("fx:") }.values.flatMap { k -> k.keyframes.map { it.timeUs } }.distinct().forEach { kt ->

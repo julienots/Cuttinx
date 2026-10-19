@@ -56,12 +56,16 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
     private fun text(c: Gfx, s: String, x: Float, y: Float, size: Float, color: Long, font: FontId = FontId.BOLD, align: Align = Align.LEFT, alpha: Float = 1f) =
         c.txt.draw(s, x, y, font, size, fill(col(color, alpha)), align)
 
-    private fun button(c: Gfx, label: String, cx: Float, cy: Float, w: Float, h: Float, fillC: Long, textC: Long, pressed: Boolean) {
+    private fun button(c: Gfx, label: String, cx: Float, cy: Float, w: Float, h: Float, fillC: Long, textC: Long, pressed: Boolean, icon: IconDef? = null) {
         val s = if (pressed) 0.92f else 1f
         val ww = w * s; val hh = h * s
         if (pressed) c.rrect(cx - ww / 2 - 4, cy - hh / 2 - 4, ww + 8, hh + 8, hh / 2 + 4, fill(col(fillC, 0.35f)).glow(8f))
         c.rrect(cx - ww / 2, cy - hh / 2, ww, hh, hh / 2, fill(col(fillC)))
-        c.txt.draw(label, cx, c.txt.baselineFor(cy, FontId.BOLD, 14f * s), FontId.BOLD, 14f * s, fill(col(textC)))
+        if (icon == null) { c.txt.draw(label, cx, c.txt.baselineFor(cy, FontId.BOLD, 14f * s), FontId.BOLD, 14f * s, fill(col(textC))); return }
+        val tw = c.txt.width(label, FontId.BOLD, 14f * s); val isz = 16f * s
+        val x0 = cx - (tw + isz + 6f) / 2
+        c.icon(icon, x0, cy - isz / 2, isz, col(textC))
+        c.txt.draw(label, x0 + isz + 6f, c.txt.baselineFor(cy, FontId.BOLD, 14f * s), FontId.BOLD, 14f * s, fill(col(textC)), Align.LEFT)
     }
 
     private fun toast(c: Gfx, s: String) {
@@ -131,11 +135,10 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
         // keyframe ◇+ / undo / redo / export
         val kfOn = u.clips.firstOrNull { it.id == u.selected }?.keyframes?.any { abs(it - u.playhead) < 0.15f } == true
         val kfc = if (u.pressed == "kf" || kfOn) acc else 0xFFFFFFFF
-        c.save(); c.translate(L.KF_X, L.TOP_Y); c.rotate(45f); c.rect(-8f, -8f, 16f, 16f, stroke(col(kfc), 2.5f)); if (kfOn) c.rect(-5f, -5f, 10f, 10f, fill(col(kfc))); c.restore()
-        text(c, "+", L.KF_X - 18f, L.TOP_Y - 4f, 16f, kfc)
         if (u.pressed == "kf") c.circle(L.KF_X, L.TOP_Y, 22f, fill(col(acc, 0.2f)))
-        text(c, "↶", L.UNDO_X, L.TOP_Y + 8f, 24f, 0xFFFFFFFF, FontId.REGULAR, Align.CENTER)
-        text(c, "↷", L.REDO_X, L.TOP_Y + 8f, 24f, 0xFFFFFFFF, FontId.REGULAR, Align.CENTER)
+        c.icon(if (kfOn) IconSet.KeyframeRemove else IconSet.KeyframeAdd, L.KF_X - 13f, L.TOP_Y - 13f, 26f, col(kfc))
+        c.icon(IconSet.Undo, L.UNDO_X - 12f, L.TOP_Y - 12f, 24f, col(0xFFFFFFFF))
+        c.icon(IconSet.Redo, L.REDO_X - 12f, L.TOP_Y - 12f, 24f, col(0xFFFFFFFF))
         button(c, "Exporter", L.EXPORT_X, L.TOP_Y, 120f, 34f, yellow, 0xFF000000, u.pressed == "export")
         // library
         c.rect(0f, 56f, 322f, 400f, fill(col(panel)))
@@ -143,7 +146,7 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
         L.tabs.forEachIndexed { i, ic ->
             val sel = i == u.leftTab
             if (sel) c.rrect(6f, L.tabY(i) - 16f, 70f, 32f, 8f, fill(col(panel2)))
-            text(c, ic, 30f, L.tabY(i) + 7f, 17f, if (sel) acc else 0xFFFFFFFF, FontId.BOLD, Align.CENTER)
+            c.icon(IconSet.all.getValue(ic), 20f, L.tabY(i) - 10f, 20f, col(if (sel) acc else 0xFFFFFFFF))
             text(c, L.tabNames[i].take(6), 58f, L.tabY(i) + 5f, 9f, if (sel) acc else dim, FontId.REGULAR, Align.CENTER)
         }
         text(c, L.tabNames.getOrNull(u.leftTab) ?: "", 96f, 84f, 16f, 0xFFFFFFFF)
@@ -151,11 +154,11 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
             val y = L.itemY(i)
             c.rrect(94f, y - 16f, 216f, 32f, 8f, fill(col(if (i == u.leftHi) acc else panel2, if (i == u.leftHi) 0.35f else 1f)))
             text(c, s, 106f, c.txt.baselineFor(y, FontId.REGULAR, 13f), c.txt.fit(s, FontId.REGULAR, 13f, 170f), 0xFFFFFFFF, FontId.REGULAR)
-            text(c, "+", 296f, c.txt.baselineFor(y, FontId.BOLD, 16f), 16f, acc, align = Align.CENTER)
+            c.icon(IconSet.Add, 288f, y - 8f, 16f, col(acc))
         }
         if (u.leftItems.isEmpty()) {
             c.rrect(94f, 100f, 216f, 40f, 10f, fill(col(yellow)))
-            text(c, "⬆ Importer", 202f, 126f, 15f, 0xFF000000, align = Align.CENTER)
+            c.icon(IconSet.Upload, 150f, 110f, 18f, col(0xFF000000)); text(c, "Importer", 176f, 126f, 15f, 0xFF000000)
         }
         // preview
         c.rect(322f, 56f, 640f, 400f, fill(col(0xFF08090B)))
@@ -186,8 +189,9 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
         // tool bar
         c.rect(0f, 412f, L.W, 44f, fill(col(panel)))
         L.tools.forEachIndexed { i, s ->
-            val label = if (i == 3 && u.playing) "⏸ Pause" else s
-            button(c, label, L.toolX(i), L.TOOL_Y, 130f, 30f, if (i == 3) acc else panel2, if (i == 3 && acc == yellow) 0xFF000000 else 0xFFFFFFFF, u.pressed == "tool$i")
+            val label = if (i == 3 && u.playing) "Pause" else s
+            val ic = if (i == 3 && u.playing) IconSet.Pause else IconSet.all.getValue(L.toolIcons[i])
+            button(c, label, L.toolX(i), L.TOOL_Y, 130f, 30f, if (i == 3) acc else panel2, if (i == 3 && acc == yellow) 0xFF000000 else 0xFFFFFFFF, u.pressed == "tool$i", ic)
         }
         timeline(c, u, acc)
         u.dialog?.let { exportDialog(c, u, acc) }
@@ -204,11 +208,13 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
             text(c, "0:%02d".format(s), x + 3f, L.RULER_Y + 8f, 10f, dim, FontId.REGULAR)
             s++
         }
-        val names = listOf("🎞 Vidéo", "🎞 Incrust.", "T Texte", "🎵 Son")
+        val names = listOf("Vidéo", "Incrust.", "Texte", "Son")
+        val icons = listOf(IconSet.Video, IconSet.Image, IconSet.Text, IconSet.Music)
         for (r in 0 until 4) {
             c.rect(0f, L.rowY[r], L.W, L.rowH[r], fill(col(if (r % 2 == 0) 0xFF14151A else 0xFF121317)))
             c.rect(0f, L.rowY[r], 112f, L.rowH[r], fill(col(panel)))
-            text(c, names[r], 10f, c.txt.baselineFor(L.rowY[r] + L.rowH[r] / 2, FontId.REGULAR, 11f), 11f, 0xFFFFFFFF, FontId.REGULAR)
+            c.icon(icons[r], 8f, L.rowY[r] + L.rowH[r] / 2 - 7f, 14f, col(dim))
+            text(c, names[r], 28f, c.txt.baselineFor(L.rowY[r] + L.rowH[r] / 2, FontId.REGULAR, 11f), 11f, 0xFFFFFFFF, FontId.REGULAR)
         }
         for (cl in u.clips) {
             val x = L.x(cl.start); val w = max(4f, cl.len * L.PPS); val y = L.rowY[cl.track] + 3f; val hh = L.rowH[cl.track] - 6f
@@ -217,8 +223,8 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
             if (cl.track == 3) wave(c, x, y, w, hh, if (cl.id == "v") u.noise else 0.1f)
             if (cl.track == 0) for (i in 0 until (w / 46f).toInt() + 1) c.rect(x + i * 46f + 2f, y + hh - 14f, 40f, 10f, fill(col(0xFF000000, 0.18f)))
             text(c, cl.label, x + 8f, y + 15f, 11f, 0xFFFFFFFF)
-            cl.badge?.let { text(c, it, x + w - 8f, y + 15f, 11f, 0xFFFFFFFF, align = Align.RIGHT) }
-            cl.transition?.let { c.rect(x, y, 26f, hh, fill(col(0xFFFFFFFF, 0.3f))); text(c, "⇄", x + 13f, y + hh / 2 + 5f, 13f, 0xFFFFFFFF, align = Align.CENTER) }
+            cl.badge?.let { IconSet.all[it]?.let { ic -> c.icon(ic, x + w - 20f, y + 4f, 13f, col(0xFFFFFFFF)) } }
+            cl.transition?.let { c.rect(x, y, 26f, hh, fill(col(0xFFFFFFFF, 0.3f))); c.icon(IconSet.Transitions, x + 5f, y + hh / 2 - 8f, 16f, col(0xFFFFFFFF)) }
             c.restore()
             for (kf in cl.keyframes) {
                 val kx = L.x(kf); val ky = y + hh - 8f
@@ -358,7 +364,7 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
 
     private fun twitch(c: Gfx, u: Ui, t: Double) {
         c.rect(0f, 0f, L.W, 56f, fill(col(panel)))
-        text(c, "📺 Twitch Editor", 20f, 36f, 20f, blue)
+        c.icon(IconSet.Twitch, 20f, 16f, 24f, col(blue)); text(c, "Twitch Editor", 52f, 36f, 20f, blue)
         // theme grid
         c.rect(0f, 56f, 430f, 664f, fill(col(panel)))
         text(c, "Thèmes", 20f, 90f, 16f, 0xFFFFFFFF)
@@ -419,11 +425,11 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
             c.rect(6f, dy + 32f + i * 28f, 288f, 24f, fill(col(if (sel) 0xFF3A5BA0 else 0xFF33353F)))
             text(c, s, 16f, dy + 49f + i * 28f, 12f, 0xFFFFFFFF, FontId.REGULAR)
         }
-        u.obsSources.take(4).forEachIndexed { i, s -> c.rect(310f, dy + 32f + i * 28f, 318f, 24f, fill(col(0xFF33353F))); text(c, "👁  $s", 320f, dy + 49f + i * 28f, 12f, 0xFFFFFFFF, FontId.REGULAR) }
-        text(c, "+", 560f, dy + 150f, 22f, 0xFFFFFFFF, align = Align.CENTER)
+        u.obsSources.take(4).forEachIndexed { i, s -> c.rect(310f, dy + 32f + i * 28f, 318f, 24f, fill(col(0xFF33353F))); c.icon(IconSet.Eye, 316f, dy + 36f + i * 28f, 15f, col(0xFFBBBBBB)); text(c, s, 338f, dy + 49f + i * 28f, 12f, 0xFFFFFFFF, FontId.REGULAR) }
+        c.icon(IconSet.Add, 549f, dy + 132f, 22f, col(0xFFFFFFFF))
         for (i in 0 until 2) { c.rect(650f, dy + 40f + i * 50f, 270f, 8f, fill(col(0xFF33353F))); c.rect(650f, dy + 40f + i * 50f, 150f + i * 40f, 8f, fill(col(0xFF4CAF50))) }
         c.rect(952f, dy + 36f, 318f, 28f, fill(col(0xFF33353F))); text(c, "Stinger ▾", 962f, dy + 55f, 13f, 0xFFFFFFFF, FontId.REGULAR)
-        text(c, "+", 990f, dy + 60f, 18f, 0xFFFFFFFF, align = Align.CENTER)
+        c.icon(IconSet.Add, 980f, dy + 42f, 20f, col(0xFFFFFFFF))
         text(c, "Durée : 1200 ms", 962f, dy + 92f, 12f, 0xFFBBBBBB, FontId.REGULAR)
         // add-source menu
         if (u.obsMenu) {
@@ -455,7 +461,7 @@ class FilmRenderer(private val overlays: OverlayRenderer = OverlayRenderer()) {
 
     private fun brand(c: Gfx, u: Ui) {
         c.rect(0f, 0f, L.W, 56f, fill(col(panel)))
-        text(c, "✨ ID Influenceur", 20f, 36f, 20f, pink)
+        c.icon(IconSet.Identity, 20f, 16f, 24f, col(pink)); text(c, "ID Influenceur", 52f, 36f, 20f, pink)
         c.rect(0f, 56f, 480f, 664f, fill(col(panel)))
         text(c, "Nom de créateur", 30f, 120f, 12f, pink)
         c.rrect(30f, 130f, 420f, 40f, 8f, stroke(col(pink), 2f))

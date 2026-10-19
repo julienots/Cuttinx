@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.ui.twitch
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -101,7 +102,7 @@ fun TwitchScreen(vm: StudioViewModel) {
                 Family.FRAMES -> BlueChips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, { target == Target.Scene(it) }, { it.label }, { target = Target.Scene(it) })
                 Family.ALERTS -> BlueChips(SceneKind.entries.filter { it.isAlert }, { target == Target.Scene(it) }, { it.label }, { target = Target.Scene(it) })
                 Family.PROFILE -> BlueChips(cfg.panels.indices.map { Target.Panel(it) } + Target.Banner, { target == it }, { if (it is Target.Panel) "Panneau « ${cfg.panels.getOrNull(it.index) ?: ""} »" else "Bannière de profil" }, { target = it })
-                Family.STINGERS -> BlueChips(StingerStyle.entries.toList(), { target == Target.Stinger(it) }, { it.label + if (it == vm.theme.stinger) " ★" else "" }, { target = Target.Stinger(it) })
+                Family.STINGERS -> BlueChips(StingerStyle.entries.toList(), { target == Target.Stinger(it) }, { it.label + if (it == vm.theme.stinger) " (du thème)" else "" }, { target = Target.Stinger(it) })
             }
             Spacer(Modifier.height(6.dp))
             ScrollableTabRow(tab, containerColor = Color.Transparent, contentColor = TwitchBlue, edgePadding = 0.dp) {
@@ -110,7 +111,10 @@ fun TwitchScreen(vm: StudioViewModel) {
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) {
             msg?.let { m -> Text(m, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(TwitchBlue.copy(alpha = 0.18f)).clickable { vm.message.value = null }.padding(10.dp), fontSize = 13.sp) }
-            Text("▶ Tutos vidéo : créer le pack, l'installer dans OBS", Modifier.clip(RoundedCornerShape(50)).background(TwitchBlue.copy(alpha = 0.15f)).clickable { tuto = com.superessence.cuttinx.core.tutorial.Tutorials.of(com.superessence.cuttinx.core.tutorial.TutoSpace.TWITCH).first() }.padding(horizontal = 12.dp, vertical = 6.dp), color = TwitchBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Row(Modifier.clip(RoundedCornerShape(50)).background(TwitchBlue.copy(alpha = 0.15f)).clickable { tuto = com.superessence.cuttinx.core.tutorial.Tutorials.of(com.superessence.cuttinx.core.tutorial.TutoSpace.TWITCH).first() }.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(CxIcons.Play, null, Modifier.size(14.dp), tint = TwitchBlue); Spacer(Modifier.width(6.dp))
+                Text("Tutos vidéo : créer le pack, l'installer dans OBS", color = TwitchBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
             when (tab) {
                 0 -> ThemePicker(vm, cfg)
                 1 -> ColorsEditor(vm, cfg)
@@ -248,7 +252,7 @@ private fun TextsEditor(vm: StudioViewModel, cfg: OverlayConfig, target: Target,
             cfg.panels.forEachIndexed { i, p ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(p, { v -> vm.update { it.copy(panels = it.panels.mapIndexed { j, x -> if (j == i) v else x }) } }, Modifier.weight(1f), singleLine = true, label = { Text("Panneau ${i + 1}") })
-                    TextButton({ vm.update { it.copy(panels = it.panels.filterIndexed { j, _ -> j != i }) } }) { Text("✕", color = TwitchBlue) }
+                    IconButton({ vm.update { it.copy(panels = it.panels.filterIndexed { j, _ -> j != i }) } }) { Icon(CxIcons.Close, "Retirer", tint = TwitchBlue) }
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

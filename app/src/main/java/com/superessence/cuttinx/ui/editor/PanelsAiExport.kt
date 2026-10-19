@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -237,7 +238,7 @@ private fun AutoEditSection(vm: EditorViewModel, p: Project, back: () -> Unit) {
     ValueSlider("Durée visée", seconds, 5f..180f, { seconds = it }, unit = " s", decimals = 0, step = 5f)
     SectionTitle("Musique")
     val audios = p.media.filter { it.type == MediaType.AUDIO }
-    ChoiceChips(listOf<String?>(null) + audios.map { it.id } + Synth.musicList.map { "builtin:" + it.id }, music, { id -> when { id == null -> "Aucune"; id.startsWith("builtin:") -> "♪ " + Synth.musicList.first { it.id == id.removePrefix("builtin:") }.name; else -> audios.first { it.id == id }.displayName } }, { music = it })
+    ChoiceChips(listOf<String?>(null) + audios.map { it.id } + Synth.musicList.map { "builtin:" + it.id }, music, { id -> when { id == null -> "Aucune"; id.startsWith("builtin:") -> "Musique : " + Synth.musicList.first { it.id == id.removePrefix("builtin:") }.name; else -> audios.first { it.id == id }.displayName } }, { music = it })
     OutlinedTextField(title, { title = it }, Modifier.fillMaxWidth(), label = { Text("Titre d'intro (facultatif)") }, singleLine = true)
     ChoiceChips(listOf(AspectPreset.PORTRAIT_9_16, AspectPreset.LANDSCAPE_16_9, AspectPreset.SQUARE_1_1, AspectPreset.PORTRAIT_4_5), aspect, { it.label }, { aspect = it })
     AccentButton("Analyser et proposer", {
@@ -270,10 +271,10 @@ fun ExportPanel(vm: EditorViewModel, p: Project) {
         }
         is ExportState.Done -> {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Cx.Ok.copy(alpha = 0.15f)).padding(12.dp)) {
-                Text("✓ Vidéo enregistrée", fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) { Icon(com.superessence.cuttinx.icons.CxIcons.Check, null, tint = LocalCx.current.accent); Spacer(Modifier.width(6.dp)); Text("Vidéo enregistrée", fontWeight = FontWeight.Bold) }
                 Text("${e.width}×${e.height} (mesuré sur le fichier) • ${e.videoMime} • ${Time.format(e.durationUs, false)} • %.1f Mo • rendu en ${Time.format(e.elapsedMs * 1000, false)}".format(e.sizeBytes / 1e6), style = MaterialTheme.typography.bodySmall)
                 Text(e.displayPath, style = MaterialTheme.typography.labelSmall, color = LocalCx.current.dim)
-                e.warnings.forEach { Text("⚠ $it", style = MaterialTheme.typography.bodySmall) }
+                e.warnings.forEach { WarnLine(it) }
                 Row {
                     TextButton({ runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(e.uri, "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) } }) { Text("Lire") }
                     TextButton({ ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("video/mp4").putExtra(Intent.EXTRA_STREAM, e.uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Partager")) }) { Text("Partager") }
@@ -303,9 +304,15 @@ fun ExportPanel(vm: EditorViewModel, p: Project) {
     Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(12.dp)).background(LocalCx.current.panel2).padding(10.dp)) {
         Text("Sera produit : ${r.width}×${r.height}, ${r.frameRate} i/s, ${r.videoCodec.label} ${r.videoBitrate / 1_000_000} Mb/s, AAC ${r.audioBitrate / 1000} kb/s, MP4", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
         Text("Durée ${Time.format(p.durationUs, false)} • taille estimée ≈ %.0f Mo".format(r.estimatedBytes / 1e6), style = MaterialTheme.typography.bodySmall, color = LocalCx.current.dim)
-        r.warnings.forEach { Text("⚠ $it", style = MaterialTheme.typography.bodySmall) }
+        r.warnings.forEach { WarnLine(it) }
         Text("Aucun filigrane, aucune limite de durée.", style = MaterialTheme.typography.labelSmall, color = LocalCx.current.accent)
     }
     Spacer(Modifier.height(8.dp))
     AccentButton("Exporter la vidéo", { vm.startExport(s) }, Modifier.fillMaxWidth(), icon = Icons.Default.Upload, enabled = p.durationUs > 0)
+}
+
+@Composable
+private fun WarnLine(text: String) = Row(verticalAlignment = Alignment.Top) {
+    Icon(com.superessence.cuttinx.icons.CxIcons.Warning, null, Modifier.size(16.dp), tint = Color(0xFFFFB020)); Spacer(Modifier.width(6.dp))
+    Text(text, style = MaterialTheme.typography.bodySmall)
 }

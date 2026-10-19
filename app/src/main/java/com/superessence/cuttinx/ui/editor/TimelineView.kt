@@ -283,9 +283,9 @@ fun TimelineView(
                 val h = rowH(t)
                 val col = trackColor(t)
                 drawRoundRect(col.copy(alpha = 0.35f), Offset(4f, y + 2), Size(headerW - 8, h - 4), CornerRadius(8.dp.toPx()))
-                val name = when (t.kind) { TrackKind.VIDEO -> if (t.id == project.tracks.firstOrNull { it.kind == TrackKind.VIDEO }?.id) "▶ Princ." else "▣ Vidéo"; TrackKind.AUDIO -> "♪ " + t.name.take(5); TrackKind.TEXT -> "T Texte"; TrackKind.SUBTITLE -> "≡ S-T"; TrackKind.EFFECT -> "✦ Effets" }
+                val name = when (t.kind) { TrackKind.VIDEO -> if (t.id == project.tracks.firstOrNull { it.kind == TrackKind.VIDEO }?.id) "Principale" else "Vidéo"; TrackKind.AUDIO -> "Son " + t.name.take(5); TrackKind.TEXT -> "Texte"; TrackKind.SUBTITLE -> "Sous-titres"; TrackKind.EFFECT -> "Effets" }
                 nc.drawText(name, 8.dp.toPx(), y + h / 2, smallPaint.apply { color = android.graphics.Color.WHITE })
-                val flags = (if (t.locked) "🔒" else "") + (if (t.hidden) "◌" else "") + (if (t.muted) "🔇" else "")
+                val flags = listOfNotNull("VERR.".takeIf { t.locked }, "MASQUÉ".takeIf { t.hidden }, "MUET".takeIf { t.muted }).joinToString(" · ")
                 if (flags.isNotEmpty()) nc.drawText(flags, 8.dp.toPx(), y + h / 2 + smallPaint.textSize * 1.3f, smallPaint)
                 smallPaint.color = 0xFF9A9AA6.toInt()
                 y += h + gap
@@ -467,10 +467,10 @@ private fun drawClip(ds: DrawScope, c: Clip, t: Track, p: Project, r: Rect, medi
         val badges = buildString {
             if (c.speedCurve.isNotEmpty()) append("⟿ ") else if (c.speed != 1.0) append("%.2gx ".format(c.speed))
             if (c.effects.isNotEmpty() && c.kind != ClipKind.ADJUSTMENT) append("✦${c.effects.size} ")
-            if (c.audio.muted) append("🔇 ")
+            if (c.audio.muted) append("muet · ")
             if (c.chromaKey.enabled) append("◐ ")
             if (c.mask.shape != MaskShape.NONE) append("◍ ")
-            if (asset?.missing == true) append("⚠ manquant ")
+            if (asset?.missing == true) append("MANQUANT · ")
         }
         val txt = badges + name
         val maxW = r.width - 8.dp.toPx()

@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop.ui
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -120,19 +121,19 @@ fun BrandStudio(state: AppState) {
                 Column(Modifier.padding(vertical = 4.dp)) {
                     Text(p.name, fontWeight = FontWeight.Bold)
                     Hint(p.description)
-                    Text(p.ideas.joinToString("  ·  ") { "💡 $it" }, fontSize = 13.sp)
+                    p.ideas.forEach { IconLine(CxIcons.Idea, it, Color(0xFFFF4FA3)) }
                 }
             }
             Title("HASHTAGS")
             CopyLine(kit.hashtags.joinToString(" "), kit.hashtags.joinToString(" "))
             Title("TON À ADOPTER")
-            kit.toneDo.forEach { Text("✅ $it", fontSize = 13.sp) }
-            kit.toneDont.forEach { Text("⛔ $it", fontSize = 13.sp) }
+            kit.toneDo.forEach { IconLine(CxIcons.Do, it, Color(0xFF2FB67C)) }
+            kit.toneDont.forEach { IconLine(CxIcons.Dont, it, Color(0xFFFF5A5A)) }
             Title("MOODBOARD")
             Text(kit.moodboard.joinToString("  ·  "), fontSize = 13.sp)
             Title("LOGO & RYTHME")
             Text(kit.logoIdea, fontSize = 13.sp)
-            Text("📅 ${kit.postingRhythm}", fontSize = 13.sp)
+            IconLine(CxIcons.Calendar, kit.postingRhythm, Color(0xFFFF4FA3))
         }
     }
 }
@@ -155,8 +156,17 @@ fun markdown(k: BrandKit): String = buildString {
     appendLine(); appendLine("## Bios"); k.bios.forEach { (p, b) -> appendLine("### $p"); appendLine(b); appendLine() }
     appendLine("## Piliers de contenu"); k.pillars.forEach { appendLine("- **${it.name}** : ${it.description} (${it.ideas.joinToString(", ")})") }
     appendLine(); appendLine("## Hashtags"); appendLine(k.hashtags.joinToString(" "))
-    appendLine(); appendLine("## Ton"); k.toneDo.forEach { appendLine("- ✅ $it") }; k.toneDont.forEach { appendLine("- ⛔ $it") }
+    appendLine(); appendLine("## Ton"); k.toneDo.forEach { appendLine("- À faire : $it") }; k.toneDont.forEach { appendLine("- À éviter : $it") }
     appendLine(); appendLine("## Moodboard"); appendLine(k.moodboard.joinToString(", "))
     appendLine(); appendLine("## Logo"); appendLine(k.logoIdea)
     appendLine(); appendLine("## Rythme de publication"); appendLine(k.postingRhythm)
+}
+
+@Composable
+private fun IconLine(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tint: Color) {
+    Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.Top) {
+        Icon(icon, null, Modifier.padding(top = 1.dp).size(16.dp), tint = tint)
+        Spacer(Modifier.width(8.dp))
+        Text(text, fontSize = 13.sp)
+    }
 }

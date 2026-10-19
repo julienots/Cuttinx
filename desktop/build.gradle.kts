@@ -10,7 +10,7 @@ java { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaV
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 // The PC app reuses the fonts bundled with the Android app (same licences, see docs/LICENSES.md).
-sourceSets { main { resources { srcDir(file("../app/src/main/assets")) } } }
+sourceSets { main { resources { srcDir(file("../app/src/main/assets")) }; kotlin.srcDir("../ui-shared/kotlin") } }
 
 // FFmpeg (decoding / encoding of the video editor) with the native libraries of the build machine:
 // the Windows installer is built on Windows and embeds the Windows libraries.

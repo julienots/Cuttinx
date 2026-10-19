@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.ui.help
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -67,7 +68,9 @@ fun FilmGallery(space: TutoSpace? = null, onPlay: (Film) -> Unit) {
             Column(Modifier.width(210.dp).clip(RoundedCornerShape(12.dp)).background(LocalCx.current.panel2).clickable { onPlay(f) }) {
                 Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Color.Black), contentAlignment = Alignment.Center) {
                     thumbs[f.id]?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
-                    Text("▶", Modifier.clip(RoundedCornerShape(50)).background(spaceColor(f.space)).padding(horizontal = 14.dp, vertical = 6.dp), color = if (f.space == TutoSpace.EDITOR) Color.Black else Color.White, fontWeight = FontWeight.Black)
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(50)).background(spaceColor(f.space)), contentAlignment = Alignment.Center) {
+                        Icon(CxIcons.Play, "Lire", Modifier.size(20.dp), tint = if (f.space == TutoSpace.EDITOR) Color.Black else Color.White)
+                    }
                     Text(mmss(f.duration), Modifier.align(Alignment.BottomEnd).padding(6.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xCC000000)).padding(horizontal = 5.dp), color = Color.White, fontSize = 10.sp)
                 }
                 Text(f.title, Modifier.padding(start = 8.dp, end = 8.dp, top = 6.dp), fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 2, lineHeight = 15.sp)
@@ -115,9 +118,10 @@ fun FilmPlayerDialog(start: Film, onDismiss: () -> Unit) {
                 image?.let { Image(it, film.title, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton({ time = 0.0; playing = true }) { Text("⏮", color = Color.White, fontSize = 18.sp) }
+                IconButton({ time = 0.0; playing = true }) { Icon(CxIcons.Replay, "Revoir", tint = Color.White) }
                 Button({ if (time >= film.duration) time = 0.0; playing = !playing }, colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = if (film.space == TutoSpace.EDITOR) Color.Black else Color.White)) {
-                    Text(if (playing) "⏸ Pause" else "▶ Lecture", fontWeight = FontWeight.Bold)
+                    Icon(if (playing) CxIcons.Pause else CxIcons.Play, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
+                    Text(if (playing) "Pause" else "Lecture", fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.width(8.dp))
                 Text("${mmss(time)} / ${mmss(film.duration)}", color = Color.White, fontSize = 12.sp)

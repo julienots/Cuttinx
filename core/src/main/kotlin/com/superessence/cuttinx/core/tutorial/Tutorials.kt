@@ -148,10 +148,11 @@ object L {
     const val KF_X = 1000f; const val UNDO_X = 1050f; const val REDO_X = 1095f; const val TOP_Y = 28f
     const val EXPORT_X = 1192f
     // tool bar buttons (centre x)
-    val tools = listOf("✂ Couper", "🗑 Supprimer", "⧉ Dupliquer", "▶ Lecture")
+    val tools = listOf("Couper", "Supprimer", "Dupliquer", "Lecture")
+    val toolIcons = listOf("Split", "Delete", "Duplicate", "Play")
     fun toolX(i: Int) = 360f + i * 150f
     // left library: tabs column + items
-    val tabs = listOf("📁", "T", "✨", "⇄", "🎬", "🎵", "💥", "🎙", "⚡")
+    val tabs = listOf("Media", "Text", "Effects", "Transitions", "Animation", "Music", "Sfx", "Voice", "Pro")
     val tabNames = listOf("Médias", "Textes", "Effets", "Transitions", "Animations", "Musique", "Bruitages", "Voix", "Outils pro")
     fun tabY(i: Int) = 84f + i * 35f
     fun itemY(i: Int) = 104f + i * 40f
@@ -200,7 +201,7 @@ object Tutorials {
             move(0.0, 640f, 300f)
             say(0.8, 5.0, "Sélectionne le plan qui ARRIVE (le deuxième).")
             tap(2.6, L.x(8f), L.rowY[0] + 25); at(2.6) { selected = "b"; panel = "Ville la nuit.mp4" }
-            say(5.0, 9.5, "Onglet ⇄ Transitions, puis choisis « Cœur ».")
+            say(5.0, 9.5, "Onglet Transitions, puis choisis « Cœur ».")
             tap(5.8, 41f, L.tabY(3)); at(5.8) { lib(this, 3, listOf("Fondu", "Cœur", "Étoile", "Whip", "Glitch", "Zoom", "Toile d'araignée")) }
             tap(7.6, L.ITEM_X, L.itemY(1)); at(7.6) { leftHi = 1; clips.first { it.id == "b" }.transition = "Cœur"; toast = "Transition « Cœur » ajoutée" }
             say(9.5, 15.0, "Lis la coupe : la transition se joue en direct dans l'aperçu.")
@@ -209,36 +210,36 @@ object Tutorials {
             at(14.0) { playing = false }
             say(15.0, 18.0, "« Partout » applique la même transition à toutes les coupes.")
         },
-        Film("keyframes", "Animer avec les images clés ◇+", TutoSpace.EDITOR, "Faire zoomer, bouger ou tourner un plan exactement quand tu veux.", 22.0) {
+        Film("keyframes", "Animer avec les images clés", TutoSpace.EDITOR, "Faire zoomer, bouger ou tourner un plan exactement quand tu veux.", 22.0) {
             setup { editor(this); selected = "a"; panel = "Coucher de soleil.mp4"; sliders += MSlider("Échelle", 0.3f, "100 %"); sliders += MSlider("Position X", 0.5f, "50 %") }
             move(0.0, 640f, 300f)
-            say(0.8, 5.5, "Place la tête de lecture au début du mouvement, puis touche ◇+ en haut.")
+            say(0.8, 5.5, "Place la tête de lecture au début du mouvement, puis touche le bouton image clé (losange +) en haut.")
             tap(2.4, L.x(0.8f), L.RULER_Y + 10); at(2.4) { playhead = 0.8f }
-            tap(4.2, L.KF_X, L.TOP_Y); at(4.2) { pressed = "kf"; clips.first { it.id == "a" }.keyframes += 0.8f; toast = "Image clé ajoutée ◆" }
+            tap(4.2, L.KF_X, L.TOP_Y); at(4.2) { pressed = "kf"; clips.first { it.id == "a" }.keyframes += 0.8f; toast = "Image clé ajoutée" }
             at(4.6) { pressed = null }
             say(5.5, 11.0, "Avance la tête de lecture, puis change la taille : une 2e image clé se crée toute seule.")
             tap(6.2, L.x(0.8f), L.RULER_Y + 10); drag(6.3, 7.8, L.x(4.5f), L.RULER_Y + 10); anim(6.3, 7.8) { p -> playhead = 0.8f + 3.7f * p }
             tap(8.8, L.INS_X + 0.3f * L.INS_W, L.sliderY(0) + 26); drag(8.9, 10.4, L.INS_X + 0.65f * L.INS_W, L.sliderY(0) + 26)
             anim(8.9, 10.4) { p -> sliders[0].value = 0.3f + 0.35f * p; sliders[0].display = "${(100 + 80 * p).toInt()} %"; zoom = 1f + 0.8f * p }
             at(10.4) { clips.first { it.id == "a" }.keyframes += 4.5f }
-            say(11.0, 17.5, "Lis : le plan zoome tout seul entre les deux ◆. Comme sur CapCut, mais en mieux.")
+            say(11.0, 17.5, "Lis : le plan zoome tout seul entre les deux losanges. Comme sur CapCut, mais en mieux.")
             tap(12.0, L.toolX(3), L.TOOL_Y); at(12.0) { playing = true; playhead = 0f; zoom = 1f; sliders[0].value = 0.3f; sliders[0].display = "100 %" }
             anim(12.1, 16.6) { p -> playhead = 5.5f * p; val k = ((playhead - 0.8f) / 3.7f).coerceIn(0f, 1f); zoom = 1f + 0.8f * FilmScript.ease(k); sliders[0].value = 0.3f + 0.35f * k; sliders[0].display = "${(100 + 80 * k).toInt()} %" }
             at(16.6) { playing = false }
-            say(17.5, 22.0, "Re-touche ◇ sur une image clé pour la supprimer. Marche aussi avec position, rotation et opacité.")
+            say(17.5, 22.0, "Re-touche le losange sur une image clé pour la supprimer. Marche aussi avec position, rotation et opacité.")
         },
         Film("slowzoom", "Zoom lent (effet Ken Burns)", TutoSpace.EDITOR, "Le zoom doux des vidéos YouTube et TikTok, sans images clés.", 16.0) {
             setup { editor(this); selected = "a"; panel = "Coucher de soleil.mp4" }
             move(0.0, 640f, 300f)
-            say(0.8, 5.0, "Sélectionne un plan puis ouvre l'onglet 🎬 Animations.")
+            say(0.8, 5.0, "Sélectionne un plan puis ouvre l'onglet Animations.")
             tap(2.8, 41f, L.tabY(4)); at(2.8) { lib(this, 4, listOf("Zoom lent avant", "Zoom lent arrière", "Panoramique →", "Pulsation", "Rebond", "Secousse")) }
             say(5.0, 8.0, "« Zoom lent avant » : c'est tout.")
-            tap(6.0, L.ITEM_X, L.itemY(0)); at(6.0) { leftHi = 0; clips.first { it.id == "a" }.badge = "🎬"; toast = "Zoom lent ajouté" }
+            tap(6.0, L.ITEM_X, L.itemY(0)); at(6.0) { leftHi = 0; clips.first { it.id == "a" }.badge = "Animation"; toast = "Zoom lent ajouté" }
             say(8.0, 13.5, "Le plan avance doucement pendant toute sa durée.")
             at(8.4) { playing = true }
             anim(8.4, 13.4) { p -> playhead = 5.5f * p; zoom = 1f + 0.25f * p; panX = -0.04f * p }
             at(13.4) { playing = false }
-            say(13.5, 16.0, "Outils pro ⚡ > « Zoom lent sur tout le montage » le fait sur tous les plans.")
+            say(13.5, 16.0, "Outils pro > « Zoom lent sur tout le montage » le fait sur tous les plans.")
         },
         Film("speed", "Ralenti et accéléré", TutoSpace.EDITOR, "Un ralenti stylé ou un passage en accéléré, la voix garde son ton.", 17.0) {
             setup { editor(this); selected = "b"; panel = "Ville la nuit.mp4"; sliders += MSlider("Vitesse", 0.25f, "×1,00"); toggles["Garder la hauteur de la voix"] = true; look = 1; playhead = 6.5f }
@@ -262,7 +263,7 @@ object Tutorials {
             tap(4.2, L.ITEM_X, L.itemY(0)); at(4.2) { leftHi = 0; clips += MClip("t", 2, 0.5f, 3.5f, 0xFFFF8A3D, "TITRE CHOC", 3); selected = "t"; text = "TITRE CHOC"; panel = "Texte" ; sliders += MSlider("Taille", 0.45f, "72"); toggles["MAJUSCULES"] = true }
             say(5.0, 10.0, "Écris ton texte dans le panneau de droite.")
             tap(6.0, L.INS_X + 140f, 300f)
-            type(6.4, 8.8, "ATTENDS LA FIN 😱") { s -> text = s.ifEmpty { " " }; clips.first { it.id == "t" }.label = s }
+            type(6.4, 8.8, "ATTENDS LA FIN !") { s -> text = s.ifEmpty { " " }; clips.first { it.id == "t" }.label = s }
             say(10.0, 15.5, "Choisis l'animation d'entrée « Pop » et regarde-le arriver.")
             tap(11.2, L.INS_X + 60f, 380f); at(11.2) { toast = "Animation « Pop »" }
             at(12.0) { playhead = 0f; playing = true }
@@ -289,10 +290,10 @@ object Tutorials {
         Film("music", "Musique, bruitages et volume", TutoSpace.EDITOR, "Ajouter une musique libre de droits et un whoosh pile sur la coupe.", 19.0) {
             setup { clips += MClip("a", 0, 0f, 6f, sunset, "Coucher de soleil.mp4", 0); clips += MClip("b", 0, 6f, 5f, city, "Ville la nuit.mp4", 1) }
             move(0.0, 640f, 300f)
-            say(0.8, 5.0, "Onglet 🎵 Musique : musiques originales, libres de droits.")
+            say(0.8, 5.0, "Onglet Musique : musiques originales, libres de droits.")
             tap(2.4, 41f, L.tabY(5)); at(2.4) { lib(this, 5, listOf("Après-midi lo-fi", "Énergie pop", "Horizon épique", "Groove funk", "Pulsation tech")) }
             tap(4.0, L.ITEM_X, L.itemY(1)); at(4.0) { leftHi = 1; clips += MClip("m", 3, 0f, 11f, 0xFF2FB67C, "Énergie pop", 0); toast = "Musique ajoutée" }
-            say(5.0, 10.5, "Mets la tête de lecture sur la coupe, puis 💥 Bruitages > « Whoosh ».")
+            say(5.0, 10.5, "Mets la tête de lecture sur la coupe, puis Bruitages > « Whoosh ».")
             tap(6.0, L.x(5.6f), L.RULER_Y + 10); at(6.0) { playhead = 5.6f }
             tap(7.6, 41f, L.tabY(6)); at(7.6) { lib(this, 6, listOf("Whoosh", "Bass drop", "Ba dum tss", "Disque rayé", "Pop", "Applaudissements")) }
             tap(9.0, L.ITEM_X, L.itemY(0)); at(9.0) { leftHi = 0; clips += MClip("s", 2, 5.6f, 0.9f, 0xFFE0507A, "Whoosh", 0) }
@@ -309,9 +310,9 @@ object Tutorials {
             move(0.0, 640f, 300f)
             say(0.8, 4.5, "Sélectionne le clip avec ta voix : on voit le bruit entre les phrases.")
             tap(2.4, L.x(5f), L.rowY[3] + 22); at(2.4) { selected = "v"; panel = "Ma voix.m4a" }
-            say(4.5, 9.5, "Onglet 🎙 Voix > « Réduire le bruit de fond ».")
-            tap(5.4, 41f, L.tabY(7)); at(5.4) { lib(this, 7, listOf("🔇 Réduire le bruit de fond", "🎙 Voix studio", "Hélium", "Robot", "Monstre", "Radio", "Fantôme")) }
-            tap(7.2, L.ITEM_X, L.itemY(0)); at(7.2) { leftHi = 0; clips.first { it.id == "v" }.badge = "🎙" }
+            say(4.5, 9.5, "Onglet Voix > « Réduire le bruit de fond ».")
+            tap(5.4, 41f, L.tabY(7)); at(5.4) { lib(this, 7, listOf("Réduire le bruit de fond", "Voix studio", "Hélium", "Robot", "Monstre", "Radio", "Fantôme")) }
+            tap(7.2, L.ITEM_X, L.itemY(0)); at(7.2) { leftHi = 0; clips.first { it.id == "v" }.badge = "Voice" }
             anim(7.3, 8.8) { p -> noise = 1f - 0.9f * p }
             say(9.5, 14.0, "Pour s'amuser : « Hélium », « Robot », « Monstre »… en direct, sans abîmer l'original.")
             tap(11.0, L.ITEM_X, L.itemY(2)); at(11.0) { leftHi = 2; toast = "Effet « Hélium » ajouté" }
@@ -328,7 +329,7 @@ object Tutorials {
             say(8.5, 13.5, "Lance l'export : effets, textes et sons sont rendus image par image.")
             tap(9.2, 640f, 420f); at(9.2) { progress = 0f }
             anim(9.3, 12.6) { p -> progress = p }
-            at(12.7) { dialog = null; progress = -1f; toast = "Vidéo exportée ✅" }
+            at(12.7) { dialog = null; progress = -1f; toast = "Vidéo exportée" }
             say(13.5, 15.0, "Elle est dans ta galerie (téléphone) ou le dossier choisi (PC).")
         },
         Film("obs-pack", "Créer ton pack d'overlays Twitch", TutoSpace.TWITCH, "Thème, couleurs, textes : tout ton habillage de live en 2 minutes.", 20.0) {
@@ -346,7 +347,7 @@ object Tutorials {
             say(14.5, 20.0, "« Exporter le pack OBS » : scènes animées, cadres, alertes, transitions, panneaux.")
             tap(15.6, 1150f, 576f); at(15.6) { progress = 0f }
             anim(15.7, 18.6) { p -> progress = p }
-            at(18.7) { progress = -1f; toast = "Pack OBS prêt ✅" }
+            at(18.7) { progress = -1f; toast = "Pack OBS prêt" }
         },
         Film("obs-install", "Installer les scènes et la transition dans OBS", TutoSpace.TWITCH, "Source Navigateur pour les scènes animées, Stinger pour la transition.", 22.0) {
             setup { screen = Screen.OBS; scene = 0 }
@@ -375,7 +376,7 @@ object Tutorials {
             tap(6.4, 240f, 520f); anim(6.6, 8.2) { p -> brandShown = p }
             say(9.0, 13.0, "Palette lisible, polices, slogans, bios TikTok / Insta / YouTube / Twitch.")
             say(13.0, 16.0, "« Utiliser pour mes overlays Twitch » : tes couleurs partout en un clic.")
-            tap(14.2, 900f, 640f); at(14.2) { toast = "Couleurs appliquées aux overlays ✅" }
+            tap(14.2, 900f, 640f); at(14.2) { toast = "Couleurs appliquées aux overlays" }
         },
     )
 

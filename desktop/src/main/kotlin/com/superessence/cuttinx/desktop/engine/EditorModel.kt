@@ -97,7 +97,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         val p = imp.project.copy(media = imp.project.media.map { a -> imp.mediaFiles[a.id]?.let { a.copy(uri = it.absolutePath, missing = false) } ?: a })
         store.save(p); refreshProjects(); open(p)
         val missing = p.media.count { PcMedia.fileOf(it) == null }
-        message.value = if (missing > 0) "Projet importé ✅ $missing média(s) à relier (clic sur le média ⚠)" else "Projet importé ✅"
+        message.value = if (missing > 0) "Projet importé : $missing média(s) à relier (clic sur le média signalé)" else "Projet importé"
     }.onFailure { message.value = "Import impossible : ${it.message}" }
 
     /** Saves a .cuttinx archive with the media inside (to continue on another device). */
@@ -180,7 +180,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         val values = mapOf(Prop.POS_X to t.posX, Prop.POS_Y to t.posY, Prop.ROTATION to t.rotation, Prop.OPACITY to t.opacity,
             Prop.SCALE to com.superessence.cuttinx.core.anim.KeyframeEvaluator.evaluate(c.keyframes[Prop.SCALE], rel, 1.0))
         if (edit("Image clé") { p -> quickProps.fold(p) { acc, prop -> TimelineEditor.setKeyframe(acc, c.id, prop, rel, values[prop] ?: 0.0) } })
-            message.value = "Image clé ajoutée ◆ — avance la tête de lecture puis bouge / zoome le clip"
+            message.value = "Image clé ajoutée — avance la tête de lecture puis bouge / zoome le clip"
     }
 
     /** Sets a property: writes a keyframe at the playhead when the property is animated, otherwise the base value. */
@@ -256,7 +256,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
             np
         }
         message.value = when {
-            bad.isEmpty() -> "${ok.size} média(s) importé(s) ✅"
+            bad.isEmpty() -> "${ok.size} média(s) importé(s)"
             else -> "Non importé : " + bad.joinToString(", ")
         }
     }
@@ -297,7 +297,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         message.value = "Préparation de « ${e.name} »…"
         val a = resourceAsset("music", id, e.name, "Musiques") { Synth.music(id) }
         edit("Musique ${e.name}") { p -> place(TimelineEditor.addMedia(p, a), TrackKind.AUDIO, TimelineEditor.clipFromAsset(a, playhead), AudioRole.MUSIC) }
-        message.value = "Musique ajoutée ✅"
+        message.value = "Musique ajoutée"
     }
 
     fun addText(t: TitleTemplate, subtitle: Boolean = false) {
@@ -355,7 +355,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
             "autotrans" -> if (main != null) edit("Transitions automatiques") { ProTools.autoTransitions(it, main.id) }
             "progress" -> edit("Barre de progression") { ProTools.progressBar(it) }
             "watermark" -> edit("Pseudo en filigrane") { ProTools.handleWatermark(it, arg.ifBlank { "@moncompte" }) }
-            "hook" -> edit("Titre d'accroche") { ProTools.hookTitle(it, arg.ifBlank { "ATTENDS LA FIN 😱" }) }
+            "hook" -> edit("Titre d'accroche") { ProTools.hookTitle(it, arg.ifBlank { "ATTENDS LA FIN !" }) }
             "captions" -> edit("Style sous-titres créateur") { ProTools.creatorCaptions(it) }
         }
     }
@@ -374,7 +374,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         Thread({
             runCatching {
                 PcExporter(text).export(p, target, shortSide, fps, cancelExport) { f -> export.value = ExportProgress(f, "Export ${(f * 100).toInt()} %") }
-            }.onSuccess { r -> message.value = "Vidéo exportée ✅ ${r.file.name}"; onDone(r.file) }
+            }.onSuccess { r -> message.value = "Vidéo exportée : ${r.file.name}"; onDone(r.file) }
                 .onFailure { message.value = if (it is InterruptedException) "Export annulé" else "Export impossible : ${it.message}" }
             export.value = null
         }, "cuttinx-export").apply { isDaemon = true; start() }

@@ -28,12 +28,12 @@ private val chapters = listOf(
         "« Exporter la vidéo » en haut à droite : 720p à 4K, 24 à 60 i/s, MP4 (H.264 + AAC) prêt pour TikTok, YouTube et Instagram.",
     )),
     Chapter("Éditeur vidéo : effets, sons et montage pro", listOf(
-        "✨ Effets : clique un effet avec un clip sélectionné ; sans sélection il devient un calque d'effets sur tout ce qui est dessous. Réglages en direct à droite.",
-        "⇄ Transitions : sélectionne le clip qui arrive puis choisis la transition, ou « Partout » pour toutes les coupes (cœur, étoile, whip, glitch, zoom…).",
-        "🎬 Animations : entrée, sortie et boucle (zoom lent avant / arrière, panoramique, pulsation…) pour chaque clip.",
-        "🎵 Musique et 💥 Bruitages : sons originaux libres de droits (whoosh, bass drop, ba dum tss, jingles…). ▶ pour écouter avant d'ajouter.",
-        "🎙 Voix : réduire le bruit de fond, voix studio, et 18 effets de voix (hélium, monstre, robot, radio, fantôme…).",
-        "⚡ Outils pro : zoom lent sur tout le montage, transitions et animations automatiques, barre de progression, titre d'accroche, pseudo en filigrane.",
+        "Effets : clique un effet avec un clip sélectionné ; sans sélection il devient un calque d'effets sur tout ce qui est dessous. Réglages en direct à droite.",
+        "Transitions : sélectionne le clip qui arrive puis choisis la transition, ou « Partout » pour toutes les coupes (cœur, étoile, whip, glitch, zoom…).",
+        "Animations : entrée, sortie et boucle (zoom lent avant / arrière, panoramique, pulsation…) pour chaque clip.",
+        "Musique et Bruitages : sons originaux libres de droits (whoosh, bass drop, ba dum tss, jingles…). Le bouton lecture permet d'écouter avant d'ajouter.",
+        "Voix : réduire le bruit de fond, voix studio, et 18 effets de voix (hélium, monstre, robot, radio, fantôme…).",
+        "Outils pro : zoom lent sur tout le montage, transitions et animations automatiques, barre de progression, titre d'accroche, pseudo en filigrane.",
         "Projet commencé sur le téléphone ? Sur Android : menu du projet > « Exporter le projet (.cuttinx) » avec les médias, puis ici « Importer un projet » (ou glisse le fichier sur la fenêtre) : tu continues le montage sur PC.",
     )),
     Chapter("Twitch Editor : démarrer en 3 minutes", listOf(

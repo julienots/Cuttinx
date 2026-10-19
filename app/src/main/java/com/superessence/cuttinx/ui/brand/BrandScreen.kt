@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.ui.brand
 
+import com.superessence.cuttinx.icons.CxIcons
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -75,7 +76,10 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
     if (tuto) com.superessence.cuttinx.ui.help.FilmPlayerDialog(com.superessence.cuttinx.core.tutorial.Tutorials["brand"]!!) { tuto = false }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) {
         msg?.let { m -> Text(m, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(IdPink.copy(alpha = 0.18f)).clickable { vm.message.value = null }.padding(10.dp), fontSize = 13.sp) }
-        Text("▶ Tuto vidéo : créer ton identité", Modifier.clip(RoundedCornerShape(50)).background(IdPink.copy(alpha = 0.15f)).clickable { tuto = true }.padding(horizontal = 12.dp, vertical = 6.dp), color = IdPink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Row(Modifier.clip(RoundedCornerShape(50)).background(IdPink.copy(alpha = 0.15f)).clickable { tuto = true }.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(CxIcons.Play, null, Modifier.size(14.dp), tint = IdPink); Spacer(Modifier.width(6.dp))
+            Text("Tuto vidéo : créer ton identité", color = IdPink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
         if (showForm || kit == null) {
             Text("Crée ton univers de créateur", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text("Couleurs, polices, slogans, bios, idées de contenus et ton : une image cohérente sur TikTok, Instagram, YouTube et Twitch.", color = LocalCx.current.dim, fontSize = 13.sp)
@@ -141,18 +145,18 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
         k.pillars.forEach { p ->
             Text(p.name, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
             Text(p.description, color = LocalCx.current.dim, fontSize = 12.sp)
-            p.ideas.forEach { Text("💡 $it", fontSize = 13.sp) }
+            p.ideas.forEach { IconLine(CxIcons.Idea, it, IdPink) }
         }
         Label("HASHTAGS")
         val tags = k.hashtags.joinToString(" ")
         Text(tags, Modifier.clickable { copy(ctx, tags); vm.message.value = "Hashtags copiés" }, fontSize = 13.sp)
         Label("TON À ADOPTER")
-        k.toneDo.forEach { Text("✅ $it", fontSize = 13.sp) }
-        k.toneDont.forEach { Text("⛔ $it", fontSize = 13.sp) }
+        k.toneDo.forEach { IconLine(CxIcons.Do, it, Color(0xFF2FB67C)) }
+        k.toneDont.forEach { IconLine(CxIcons.Dont, it, Color(0xFFFF5A5A)) }
         Label("MOODBOARD, LOGO, RYTHME")
         Text(k.moodboard.joinToString(" · "), fontSize = 13.sp)
         Text(k.logoIdea, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-        Text("📅 ${k.postingRhythm}", fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+        IconLine(CxIcons.Calendar, k.postingRhythm, IdPink)
         Spacer(Modifier.height(14.dp))
         Button({ vm.useBrand(k); openTwitch() }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3D8BFF), contentColor = Color.White)) {
             Text("Utiliser pour mes overlays Twitch (${OverlayThemes[k.overlayThemeId].name})")
@@ -177,7 +181,17 @@ fun guideText(k: BrandKit): String = buildString {
     k.bios.forEach { (p, b) -> appendLine("BIO $p"); appendLine(b); appendLine() }
     appendLine("IDÉES DE CONTENU"); k.pillars.forEach { appendLine("• ${it.name} : ${it.ideas.joinToString(", ")}") }; appendLine()
     appendLine("HASHTAGS : ${k.hashtags.joinToString(" ")}"); appendLine()
-    appendLine("TON"); k.toneDo.forEach { appendLine("✅ $it") }; k.toneDont.forEach { appendLine("⛔ $it") }; appendLine()
+    appendLine("TON"); k.toneDo.forEach { appendLine("+ $it") }; k.toneDont.forEach { appendLine("- À éviter : $it") }; appendLine()
     appendLine("LOGO : ${k.logoIdea}")
     appendLine("RYTHME : ${k.postingRhythm}")
+}
+
+/** A line of text led by a small icon (ideas, do / don't, rhythm). */
+@Composable
+private fun IconLine(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tint: Color) {
+    Row(Modifier.padding(vertical = 2.dp), verticalAlignment = Alignment.Top) {
+        Icon(icon, null, Modifier.padding(top = 1.dp).size(16.dp), tint = tint)
+        Spacer(Modifier.width(8.dp))
+        Text(text, fontSize = 13.sp)
+    }
 }

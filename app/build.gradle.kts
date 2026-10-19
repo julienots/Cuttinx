@@ -6,6 +6,8 @@ plugins {
 }
 
 android {
+    // icon set shared with the PC app
+    sourceSets["main"].java.srcDir("../ui-shared/kotlin")
     namespace = "com.superessence.cuttinx"
     compileSdk = 36
 

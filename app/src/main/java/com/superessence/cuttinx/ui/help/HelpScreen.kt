@@ -66,7 +66,7 @@ fun HelpScreen(onBack: () -> Unit, startTutorial: () -> Unit) {
                     Button({ tutorial = true }, Modifier.weight(1f)) { Text("Tutoriel pas à pas") }
                     OutlinedButton(startTutorial, Modifier.weight(1f)) { Text("Projet d'exemple") }
                 }
-                SectionTitle("🎬 Tutos vidéo (${com.superessence.cuttinx.core.tutorial.Tutorials.all.size})")
+                SectionTitle("Tutos vidéo (${com.superessence.cuttinx.core.tutorial.Tutorials.all.size})")
                 Text("Des petits films qui montrent chaque outil en vrai, étape par étape.", style = MaterialTheme.typography.bodySmall, color = cx.dim)
                 Spacer(Modifier.height(6.dp))
                 FilmGallery { film = it }

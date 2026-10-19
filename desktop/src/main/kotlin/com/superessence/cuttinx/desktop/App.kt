@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,8 +36,8 @@ object Cx {
 }
 
 /** The three spaces of CUTTINX PRO (same as the Android home screen) + the guide. */
-enum class Section(val label: String, val icon: String, val color: Color) {
-    EDITOR("Éditeur", "🎬", Color(0xFFFFCC1F)), TWITCH("Twitch Editor", "📺", Color(0xFF3D8BFF)), BRAND("ID Influenceur", "✨", Color(0xFFFF4FA3)), GUIDE("Guide", "📖", Color(0xFF9AA0AC)),
+enum class Section(val label: String, val icon: () -> androidx.compose.ui.graphics.vector.ImageVector, val color: Color) {
+    EDITOR("Éditeur", { CxIcons.Editor }, Color(0xFFFFCC1F)), TWITCH("Twitch Editor", { CxIcons.Twitch }, Color(0xFF3D8BFF)), BRAND("ID Influenceur", { CxIcons.Identity }, Color(0xFFFF4FA3)), GUIDE("Guide", { CxIcons.Help }, Color(0xFF9AA0AC)),
 }
 
 /** Slanted card echoing the big « / » separators. */
@@ -60,7 +61,8 @@ private fun SpacesBar(selected: Section, onSelect: (Section) -> Unit, modifier: 
             val bg = if (sel) androidx.compose.ui.graphics.Brush.linearGradient(listOf(s.color, s.color.copy(alpha = 0.6f))) else androidx.compose.ui.graphics.SolidColor(Cx.Panel2)
             Box(Modifier.weight(weight).fillMaxHeight().clip(SlantShape).background(bg).clickable { onSelect(s) }, contentAlignment = Alignment.Center) {
                 Row(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }, verticalAlignment = Alignment.CenterVertically) {
-                    Text(s.icon, Modifier.graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f }, fontSize = 26.sp)
+                    Icon(s.icon(), null, Modifier.size(28.dp).graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f },
+                        tint = if (sel) (if (s == Section.EDITOR) Color.Black else Color.White) else Color.White)
                     Spacer(Modifier.width(10.dp))
                     Text(s.label, fontWeight = FontWeight.Black, fontSize = if (sel) 20.sp else 15.sp, maxLines = 1,
                         color = if (sel) (if (s == Section.EDITOR) Color.Black else Color.White) else Color.White)
@@ -146,7 +148,9 @@ fun App(state: AppState = remember { AppState() }) {
                 Spacer(Modifier.width(28.dp))
                 SpacesBar(state.section, { state.section = it }, Modifier.weight(1f))
                 Spacer(Modifier.width(16.dp))
-                Text("? Guide & tutos", Modifier.clip(RoundedCornerShape(12.dp)).background(if (state.section == Section.GUIDE) Cx.Panel2 else Color.Transparent).clickable { state.section = Section.GUIDE }.padding(horizontal = 12.dp, vertical = 8.dp), color = Cx.Dim)
+                Row(Modifier.clip(RoundedCornerShape(12.dp)).background(if (state.section == Section.GUIDE) Cx.Panel2 else Color.Transparent).clickable { state.section = Section.GUIDE }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(CxIcons.Help, null, Modifier.size(18.dp), tint = Cx.Dim); Spacer(Modifier.width(6.dp)); Text("Guide & tutos", color = Cx.Dim)
+                }
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 val accent = state.section.color.takeIf { state.section != Section.GUIDE } ?: Cx.Yellow

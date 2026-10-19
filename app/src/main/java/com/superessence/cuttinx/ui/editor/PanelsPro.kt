@@ -79,5 +79,5 @@ fun ProToolsPanel(vm: EditorViewModel, p: Project, sel: Clip?) {
     Tool("Format & export pro", "9:16, 1:1, 4:5, 16:9 • jusqu'à 4K 60 i/s • HEVC / AV1 • sans filigrane") { vm.panel.value = Panel.EXPORT }
 
     if (handleDialog) TextInputDialog("Votre @compte", "@", { handleDialog = false }) { h -> vm.edit("Filigrane") { ProTools.handleWatermark(it, h) }; handleDialog = false }
-    if (hookDialog) TextInputDialog("Texte d'accroche", "Attends la fin 😱", { hookDialog = false }) { t -> vm.edit("Accroche") { ProTools.hookTitle(it, t) }; hookDialog = false }
+    if (hookDialog) TextInputDialog("Texte d'accroche", "Attends la fin !", { hookDialog = false }) { t -> vm.edit("Accroche") { ProTools.hookTitle(it, t) }; hookDialog = false }
 }

@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop.editor
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,7 +61,7 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
     var renaming by remember { mutableStateOf(false) }
     var name by remember(p?.id) { mutableStateOf(p?.name ?: "") }
     Row(Modifier.fillMaxWidth().background(Cx.Panel).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        TextButton({ m.close() }) { Text("← Projets") }
+        TextButton({ m.close() }) { Icon(CxIcons.Back, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Projets") }
         if (renaming) {
             OutlinedTextField(name, { name = it }, Modifier.width(260.dp), singleLine = true)
             TextButton({ m.rename(name); renaming = false }) { Text("OK") }
@@ -69,7 +70,7 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
         Spacer(Modifier.width(16.dp))
         var formatMenu by remember { mutableStateOf(false) }
         Box {
-            TextButton({ formatMenu = true }) { Text("Format ▾") }
+            TextButton({ formatMenu = true }) { Text("Format"); Icon(CxIcons.ChevronDown, null, Modifier.size(16.dp)) }
             DropdownMenu(formatMenu, { formatMenu = false }) {
                 listOf(AspectPreset.PORTRAIT_9_16, AspectPreset.LANDSCAPE_16_9, AspectPreset.SQUARE_1_1, AspectPreset.PORTRAIT_4_5, AspectPreset.CINEMA_21_9).forEach { a ->
                     DropdownMenuItem({ Text(a.label) }, { m.changeFormat(a); formatMenu = false })
@@ -81,14 +82,14 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
         val sel by m.selection.collectAsState()
         m.player.position.collectAsState().value
         val kfOn = sel.isNotEmpty() && m.anyKeyframeAtPlayhead()
-        TextButton({ m.toggleQuickKeyframe() }, enabled = sel.isNotEmpty()) {
-            Text(if (kfOn) "◆−" else "◇+", fontSize = 18.sp, fontWeight = FontWeight.Black, color = if (kfOn) LocalAccent.current else if (sel.isNotEmpty()) Color.White else Cx.Dim)
+        IconButton({ m.toggleQuickKeyframe() }, enabled = sel.isNotEmpty()) {
+            Icon(if (kfOn) CxIcons.KeyframeRemove else CxIcons.KeyframeAdd, if (kfOn) "Retirer l'image clé" else "Ajouter une image clé", tint = if (kfOn) LocalAccent.current else if (sel.isNotEmpty()) Color.White else Cx.Dim)
         }
-        TextButton({ m.undo() }, enabled = canUndo) { Text("↶ Annuler") }
-        TextButton({ m.redo() }, enabled = canRedo) { Text("↷ Rétablir") }
+        TextButton({ m.undo() }, enabled = canUndo) { Icon(CxIcons.Undo, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Annuler") }
+        TextButton({ m.redo() }, enabled = canRedo) { Icon(CxIcons.Redo, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Rétablir") }
         var more by remember { mutableStateOf(false) }
         Box {
-            TextButton({ more = true }) { Text("⋮") }
+            IconButton({ more = true }) { Icon(CxIcons.More, "Plus") }
             DropdownMenu(more, { more = false }) {
                 DropdownMenuItem({ Text("Enregistrer le projet pour un autre appareil (.cuttinx)") }, {
                     more = false
@@ -98,7 +99,7 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
             }
         }
         Spacer(Modifier.width(8.dp))
-        Button(onExport) { Text("Exporter la vidéo", fontWeight = FontWeight.Bold) }
+        Button(onExport) { Icon(CxIcons.Download, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Exporter la vidéo", fontWeight = FontWeight.Bold) }
     }
 }
 
@@ -144,11 +145,11 @@ private fun Transport(m: EditorModel) {
     val frameUs = 1_000_000L / fps
     Row(Modifier.fillMaxWidth().background(Cx.Panel).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
         Text(timecode(pos, true, fps), Modifier.width(110.dp), fontWeight = FontWeight.Bold, color = LocalAccent.current)
-        TextButton({ m.player.seek(0) }) { Text("⏮") }
-        TextButton({ m.player.seek(pos - frameUs) }) { Text("◀ 1") }
-        Button({ m.player.toggle() }, Modifier.width(110.dp)) { Text(if (playing) "⏸ Pause" else "▶ Lecture", fontWeight = FontWeight.Bold) }
-        TextButton({ m.player.seek(pos + frameUs) }) { Text("1 ▶") }
-        TextButton({ m.player.seek(p?.durationUs ?: 0) }) { Text("⏭") }
+        IconButton({ m.player.seek(0) }) { Icon(CxIcons.SkipStart, "Début") }
+        IconButton({ m.player.seek(pos - frameUs) }) { Icon(CxIcons.Prev, "Image précédente") }
+        Button({ m.player.toggle() }, Modifier.width(120.dp)) { Icon(if (playing) CxIcons.Pause else CxIcons.Play, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(if (playing) "Pause" else "Lecture", fontWeight = FontWeight.Bold) }
+        IconButton({ m.player.seek(pos + frameUs) }) { Icon(CxIcons.Next, "Image suivante") }
+        IconButton({ m.player.seek(p?.durationUs ?: 0) }) { Icon(CxIcons.SkipEnd, "Fin") }
         Text(timecode(p?.durationUs ?: 0, true, fps), Modifier.width(110.dp), color = Cx.Dim)
         Spacer(Modifier.width(18.dp))
         var q by remember { mutableStateOf(m.player.previewSide) }
@@ -204,7 +205,7 @@ private fun ExportDialog(m: EditorModel, onClose: () -> Unit) {
                 lastFile?.let { f ->
                     Spacer(Modifier.height(10.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("✅ ${f.name}", Modifier.weight(1f), color = LocalAccent.current)
+                        Icon(CxIcons.Check, null, tint = LocalAccent.current); Spacer(Modifier.width(6.dp)); Text(f.name, Modifier.weight(1f), color = LocalAccent.current)
                         TextButton({ openFolder(f.parentFile) }) { Text("Ouvrir le dossier") }
                     }
                 }

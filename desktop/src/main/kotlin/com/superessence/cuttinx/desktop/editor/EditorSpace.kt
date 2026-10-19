@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop.editor
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -94,7 +95,7 @@ private fun ProjectsScreen(m: EditorModel) {
             if (projects.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🎬", fontSize = 56.sp)
+                        Icon(CxIcons.Editor, null, Modifier.size(64.dp), tint = LocalAccent.current)
                         Text("Aucun projet pour l'instant", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Hint("Crée ton premier montage à gauche, ou importe un projet commencé sur ton téléphone.")
                     }
@@ -107,7 +108,7 @@ private fun ProjectsScreen(m: EditorModel) {
                         Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Cx.Panel2).clickable { m.open(s.id) }.padding(14.dp)) {
                             Box(Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF0B0C0F)), contentAlignment = Alignment.Center) {
                                 val ar = s.width.toFloat() / s.height.coerceAtLeast(1)
-                                Box(Modifier.fillMaxHeight(0.8f).aspectRatio(ar.coerceIn(0.3f, 3f)).clip(RoundedCornerShape(4.dp)).background(Cx.Line), contentAlignment = Alignment.Center) { Text("▶", color = Cx.Dim) }
+                                Box(Modifier.fillMaxHeight(0.8f).aspectRatio(ar.coerceIn(0.3f, 3f)).clip(RoundedCornerShape(4.dp)).background(Cx.Line), contentAlignment = Alignment.Center) { Icon(CxIcons.Play, null, Modifier.size(20.dp), tint = Cx.Dim) }
                             }
                             Spacer(Modifier.height(8.dp))
                             Text(s.name, fontWeight = FontWeight.Bold, maxLines = 1)

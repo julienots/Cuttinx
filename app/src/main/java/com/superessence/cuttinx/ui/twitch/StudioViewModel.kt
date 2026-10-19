@@ -77,7 +77,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 }
-            }.onSuccess { message.value = "Pack OBS enregistré ✅ Copie-le sur ton PC et ouvre LISEZ-MOI.txt" }
+            }.onSuccess { message.value = "Pack OBS enregistré. Copie-le sur ton PC et ouvre LISEZ-MOI.txt" }
                 .onFailure { message.value = "Export impossible : ${it.message}" }
             tmp.deleteRecursively()
             progress.value = null
@@ -90,7 +90,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             val cfg = config.value.copy(width = 1920, height = 1080)
             val png = ObsExporter(raster, renderer).renderPng(cfg) { g -> renderer.drawScene(g, theme, cfg, scene, 0.0) }
             getApplication<Application>().contentResolver.openOutputStream(target)!!.use { it.write(png) }
-        }.onSuccess { message.value = "Image enregistrée ✅" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
+        }.onSuccess { message.value = "Image enregistrée" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
     }
 
     /** Saves one Twitch profile panel (640×200, i.e. 320×100 for high-density screens). */
@@ -103,7 +103,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         runCatching {
             val fr = raster.frame(w, h); fr.gfx.clear(0); draw(fr.gfx)
             getApplication<Application>().contentResolver.openOutputStream(target)!!.use { it.write(fr.png()) }
-        }.onSuccess { message.value = "Image enregistrée ✅" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
+        }.onSuccess { message.value = "Image enregistrée" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
     }
 
     /** Resets the style overrides (font, frame, motifs, badge, colours) to the theme's. */
@@ -115,6 +115,6 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         runCatching {
             val fr = raster.frame(1600, 1000); board.draw(fr.gfx, k)
             getApplication<Application>().contentResolver.openOutputStream(target)!!.use { it.write(fr.png()) }
-        }.onSuccess { message.value = "Planche d'identité enregistrée ✅" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
+        }.onSuccess { message.value = "Planche d'identité enregistrée" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
     }
 }

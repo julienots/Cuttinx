@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop.editor
 
+import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -102,7 +103,7 @@ private fun TransformPanel(m: EditorModel, c: Clip) {
     // values at the playhead: when a property has keyframes, moving the slider edits / adds the keyframe there
     m.player.position.collectAsState().value
     val animated = c.keyframes.isNotEmpty()
-    if (animated) Hint("◆ Clip animé : les réglages créent des images clés à la tête de lecture.")
+    if (animated) Hint("Clip animé : les réglages créent des images clés à la tête de lecture.")
     Prop("Position horizontale", m.valueAt(Prop.POS_X, t.posX).toFloat(), -0.5f..1.5f, { "%.0f %%".format(it * 100) }, 0.5f) { v -> m.setAnimated(Prop.POS_X, v.toDouble()) { cl, x -> cl.copy(transform = cl.transform.copy(posX = x)) } }
     Prop("Position verticale", m.valueAt(Prop.POS_Y, t.posY).toFloat(), -0.5f..1.5f, { "%.0f %%".format(it * 100) }, 0.5f) { v -> m.setAnimated(Prop.POS_Y, v.toDouble()) { cl, x -> cl.copy(transform = cl.transform.copy(posY = x)) } }
     val k = m.valueAt(Prop.SCALE, 1.0)
@@ -119,7 +120,7 @@ private fun TransformPanel(m: EditorModel, c: Clip) {
             Switch(t.fill, { f -> m.updateClip("Remplir") { it.copy(transform = it.transform.copy(fill = f)) } })
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OutlinedButton({ m.updateClip("Miroir") { it.copy(transform = it.transform.copy(flipH = !it.transform.flipH)) } }) { Text("⇋ Miroir", fontSize = 12.sp) }
+            OutlinedButton({ m.updateClip("Miroir") { it.copy(transform = it.transform.copy(flipH = !it.transform.flipH)) } }) { Icon(CxIcons.Mirror, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Miroir", fontSize = 12.sp) }
             OutlinedButton({ m.updateClip("Réinitialiser") { it.copy(transform = Transform(fill = it.transform.fill)) } }) { Text("Réinitialiser", fontSize = 12.sp) }
         }
         Title("FUSION")
@@ -203,7 +204,7 @@ private fun AudioPanel(m: EditorModel, c: Clip) {
             val def = EffectRegistry[fx.effectId]
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(def?.name ?: fx.effectId, Modifier.weight(1f), fontSize = 13.sp)
-                TextButton({ m.updateClip("Retirer ${def?.name}") { it.copy(audio = it.audio.copy(effects = it.audio.effects.filterNot { e -> e.id == fx.id })) } }) { Text("✕") }
+                TextButton({ m.updateClip("Retirer ${def?.name}") { it.copy(audio = it.audio.copy(effects = it.audio.effects.filterNot { e -> e.id == fx.id })) } }) { Icon(CxIcons.Close, "Retirer", Modifier.size(16.dp)) }
             }
             def?.params?.forEach { pd -> ParamControl(pd, fx.params[pd.key] ?: pd.default) { v -> m.updateClip(pd.label, "ap_${fx.id}_${pd.key}") { it.copy(audio = it.audio.copy(effects = it.audio.effects.map { e -> if (e.id == fx.id) e.copy(params = e.params + (pd.key to v)) else e })) } } }
         }
@@ -223,7 +224,7 @@ private fun ParamControl(pd: ParamDef, value: Double, onChange: (Double) -> Unit
 
 @Composable
 private fun EffectsPanel(m: EditorModel, c: Clip) {
-    if (c.effects.isEmpty()) { Title("EFFETS"); Hint("Ajoute des effets depuis l'onglet ✨ Effets à gauche."); return }
+    if (c.effects.isEmpty()) { Title("EFFETS"); Hint("Ajoute des effets depuis l'onglet Effets à gauche."); return }
     Title("EFFETS (${c.effects.size})")
     c.effects.forEach { fx ->
         val def = EffectRegistry[fx.effectId]
@@ -231,7 +232,7 @@ private fun EffectsPanel(m: EditorModel, c: Clip) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(def?.name ?: fx.effectId, Modifier.weight(1f), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Switch(fx.enabled, { e -> m.updateClip("Effet") { it.copy(effects = it.effects.map { x -> if (x.id == fx.id) x.copy(enabled = e) else x }) } })
-                TextButton({ m.updateClip("Retirer ${def?.name}") { it.copy(effects = it.effects.filterNot { x -> x.id == fx.id }) } }) { Text("✕") }
+                TextButton({ m.updateClip("Retirer ${def?.name}") { it.copy(effects = it.effects.filterNot { x -> x.id == fx.id }) } }) { Icon(CxIcons.Close, "Retirer", Modifier.size(16.dp)) }
             }
             def?.params?.forEach { pd ->
                 ParamControl(pd, fx.params[pd.key] ?: pd.default) { v -> m.updateClip(pd.label, "fx_${fx.id}_${pd.key}") { it.copy(effects = it.effects.map { x -> if (x.id == fx.id) x.copy(params = x.params + (pd.key to v)) else x }) } }
@@ -246,15 +247,15 @@ private fun MotionPanel(m: EditorModel, c: Clip) {
     if (mo.isIdentity) return
     Title("ANIMATIONS")
     if (mo.animIn != MotionPreset.NONE) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("Entrée : ${mo.animIn.label}", Modifier.weight(1f), fontSize = 13.sp); TextButton({ m.setMotion { it.copy(animIn = MotionPreset.NONE) } }) { Text("✕") } }
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("Entrée : ${mo.animIn.label}", Modifier.weight(1f), fontSize = 13.sp); TextButton({ m.setMotion { it.copy(animIn = MotionPreset.NONE) } }) { Icon(CxIcons.Close, "Retirer", Modifier.size(16.dp)) } }
         Prop("Durée d'entrée", mo.inUs / 1e6f, 0.1f..3f, { "%.1f s".format(it) }) { v -> m.updateClip("Durée", "mi_${c.id}") { it.copy(motion = it.motion.copy(inUs = (v * 1e6).toLong())) } }
     }
     if (mo.animOut != MotionPreset.NONE) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("Sortie : ${mo.animOut.label}", Modifier.weight(1f), fontSize = 13.sp); TextButton({ m.setMotion { it.copy(animOut = MotionPreset.NONE) } }) { Text("✕") } }
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("Sortie : ${mo.animOut.label}", Modifier.weight(1f), fontSize = 13.sp); TextButton({ m.setMotion { it.copy(animOut = MotionPreset.NONE) } }) { Icon(CxIcons.Close, "Retirer", Modifier.size(16.dp)) } }
         Prop("Durée de sortie", mo.outUs / 1e6f, 0.1f..3f, { "%.1f s".format(it) }) { v -> m.updateClip("Durée", "mo_${c.id}") { it.copy(motion = it.motion.copy(outUs = (v * 1e6).toLong())) } }
     }
     if (mo.loop != LoopMotion.NONE) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("Boucle : ${mo.loop.label}", Modifier.weight(1f), fontSize = 13.sp); TextButton({ m.setMotion { it.copy(loop = LoopMotion.NONE) } }) { Text("✕") } }
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("Boucle : ${mo.loop.label}", Modifier.weight(1f), fontSize = 13.sp); TextButton({ m.setMotion { it.copy(loop = LoopMotion.NONE) } }) { Icon(CxIcons.Close, "Retirer", Modifier.size(16.dp)) } }
         Prop("Vitesse", mo.loopSpeed.toFloat(), 0.1f..4f, { "×%.1f".format(it) }, 1f) { v -> m.updateClip("Vitesse d'animation", "ls_${c.id}") { it.copy(motion = it.motion.copy(loopSpeed = v.toDouble())) } }
         Prop("Intensité", mo.loopAmount.toFloat(), 0.1f..3f, { "×%.1f".format(it) }, 1f) { v -> m.updateClip("Intensité", "la_${c.id}") { it.copy(motion = it.motion.copy(loopAmount = v.toDouble())) } }
     }
