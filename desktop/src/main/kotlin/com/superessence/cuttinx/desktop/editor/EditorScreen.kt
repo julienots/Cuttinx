@@ -7,6 +7,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -87,6 +89,9 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
         }
         TextButton({ m.undo() }, enabled = canUndo) { Icon(CxIcons.Undo, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Annuler") }
         TextButton({ m.redo() }, enabled = canRedo) { Icon(CxIcons.Redo, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Rétablir") }
+        var keys by remember { mutableStateOf(false) }
+        IconButton({ keys = true }) { Icon(CxIcons.Keyboard, "Raccourcis clavier") }
+        if (keys) ShortcutsDialog { keys = false }
         var more by remember { mutableStateOf(false) }
         Box {
             IconButton({ more = true }) { Icon(CxIcons.More, "Plus") }
@@ -212,4 +217,42 @@ private fun ExportDialog(m: EditorModel, onClose: () -> Unit) {
             }
         }
     }
+}
+
+private val shortcuts = listOf(
+    "Espace" to "Lecture / pause",
+    "← / →" to "Image précédente / suivante (Maj : 1 seconde)",
+    "↑ / ↓" to "Coupe précédente / suivante",
+    "Début / Fin" to "Aller au début / à la fin",
+    "Tab / Maj + Tab" to "Sélectionner le clip suivant / précédent",
+    "Ctrl + clic" to "Ajouter un clip à la sélection",
+    "Ctrl + A" to "Tout sélectionner",
+    "S" to "Couper à la tête de lecture",
+    "Suppr" to "Supprimer (Maj : supprimer et resserrer)",
+    "Ctrl + D" to "Dupliquer",
+    "M" to "Marqueur",
+    "Ctrl + Z / Ctrl + Y" to "Annuler / rétablir",
+    "Molette" to "Défiler dans le temps (Maj : dans les pistes)",
+    "Ctrl + molette" to "Zoomer / dézoomer la timeline sous la souris",
+    "Clic molette ou clic droit glissé" to "Se déplacer dans la timeline",
+    "Ctrl + + / Ctrl + - / Ctrl + 0" to "Zoom + / zoom - / tout voir",
+    "Échap" to "Désélectionner, puis revenir aux projets",
+    "Ctrl + N" to "Nouveau projet",
+    "Ctrl + 1 / 2 / 3" to "Éditeur / Twitch Editor / ID Influenceur",
+    "Ctrl + Tab" to "Espace suivant",
+    "F1" to "Guide & tutos",
+)
+
+@Composable
+private fun ShortcutsDialog(onClose: () -> Unit) {
+    AlertDialog(onClose, confirmButton = { TextButton(onClose) { Text("Fermer") } }, title = { Text("Raccourcis clavier") }, text = {
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            shortcuts.forEach { (k, v) ->
+                Row(Modifier.padding(vertical = 3.dp)) {
+                    Text(k, Modifier.width(230.dp), fontWeight = FontWeight.Bold, color = LocalAccent.current, fontSize = 13.sp)
+                    Text(v, fontSize = 13.sp)
+                }
+            }
+        }
+    })
 }

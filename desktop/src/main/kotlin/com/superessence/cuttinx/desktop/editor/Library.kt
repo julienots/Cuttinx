@@ -181,6 +181,11 @@ private fun TransitionsTab(m: EditorModel) {
 @Composable
 private fun MotionTab(m: EditorModel) {
     Hint("Animations d'entrée, de sortie et en boucle du clip sélectionné (zoom lent, rebond, glitch…).")
+    val sel by m.selection.collectAsState()
+    m.player.position.collectAsState().value
+    val target = (sel.firstOrNull() ?: m.clipUnderPlayhead())?.let { id -> m.current?.allClips?.firstOrNull { it.id == id } }
+    Text(if (target == null) "Aucun clip : sélectionne un élément dans la timeline" else "S'applique à : " + (target.text?.text?.lines()?.firstOrNull() ?: target.name.ifBlank { m.current?.asset(target.assetId)?.displayName ?: "clip" }),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (target == null) Color(0x33FF5A5A) else LocalAccent.current.copy(alpha = 0.18f)).padding(8.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold)
     LazyColumn {
         item { Title("EN BOUCLE (PENDANT TOUT LE CLIP)") }
         items(LoopMotion.entries.filter { it != LoopMotion.NONE }) { l -> Item(l.label) { m.setMotion { it.copy(loop = l) } } }

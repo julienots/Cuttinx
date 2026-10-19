@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -93,6 +94,27 @@ fun BrandStudio(state: AppState) {
                     f.writeText(markdown(kit))
                 }) { Text("Guide texte (.md)") }
             }
+            Title("TES VISUELS PRÊTS À PUBLIER (clic = enregistrer en grand)")
+            fun save(name: String, w: Int, h: Int, draw: (com.superessence.cuttinx.core.gfx.Gfx) -> Unit) {
+                val f = chooseFile("Enregistrer l'image", "$name-${kit.brief.name.lowercase().replace(' ', '-')}.png") ?: return
+                val fr = state.raster.frame(w, h); fr.gfx.clear(0); draw(fr.gfx); f.writeBytes(fr.png())
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Visual("Photo de profil", 140.dp, 140.dp, { save("photo-profil", 800, 800) { board.drawAvatar(it, kit, 800f) } }) { g, w -> board.drawAvatar(g, kit, w) }
+                Visual("Bannière YouTube", 256.dp, 144.dp, { save("banniere-youtube", 2560, 1440) { board.drawYoutubeBanner(it, kit) } }) { g, w -> g.scale(w / 2560f, w / 2560f); board.drawYoutubeBanner(g, kit) }
+                Visual("Miniature vidéo", 256.dp, 144.dp, { save("miniature", 1280, 720) { board.drawThumbnail(it, kit) } }) { g, w -> g.scale(w / 1280f, w / 1280f); board.drawThumbnail(g, kit) }
+                kit.highlights.forEachIndexed { i, hl ->
+                    Visual("Story : $hl", 110.dp, 110.dp, { save("story-une-${i + 1}", 1080, 1080) { board.drawHighlight(it, kit, i, 1080f) } }) { g, w -> board.drawHighlight(g, kit, i, w) }
+                }
+            }
+            if (kit.handles.isNotEmpty()) {
+                Title("PSEUDOS À ESSAYER (clic = copier)")
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { kit.handles.forEach { h -> Chip(h, false) { copyToClipboard(h) } } }
+            }
+            if (kit.weekPlan.isNotEmpty()) {
+                Title("TA SEMAINE TYPE")
+                kit.weekPlan.forEach { IconLine(CxIcons.Calendar, it, Color(0xFFFF4FA3)) }
+            }
             Title("PALETTE")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 kit.palette.forEach { c ->
@@ -137,6 +159,19 @@ fun BrandStudio(state: AppState) {
         }
     }
 }
+
+@Composable
+private fun Visual(label: String, w: androidx.compose.ui.unit.Dp, h: androidx.compose.ui.unit.Dp, onSave: () -> Unit, draw: (com.superessence.cuttinx.core.gfx.Gfx, Float) -> Unit) {
+    val state = LocalFonts.current
+    Column(Modifier.width(w).clip(RoundedCornerShape(10.dp)).background(Cx.Panel2).clickable(onClick = onSave).padding(6.dp)) {
+        Canvas(Modifier.size(w - 12.dp, h - 12.dp * h.value / w.value)) { drawIntoCanvas { draw(SkiaGfx(it.nativeCanvas, state), size.width) } }
+        Text(label, fontSize = 11.sp, maxLines = 1)
+        Text("Enregistrer", color = Color(0xFFFF4FA3), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+/** Fonts used by the identity previews. */
+private val LocalFonts = androidx.compose.runtime.staticCompositionLocalOf { com.superessence.cuttinx.desktop.render.Fonts() }
 
 @Composable
 private fun CopyLine(display: String, value: String) {

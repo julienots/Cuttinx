@@ -99,10 +99,21 @@ class AppState {
 
     /** Keyboard shortcuts of the editor (only when no text field is using the key). */
     fun onKey(e: androidx.compose.ui.input.key.KeyEvent): Boolean {
-        if (section != Section.EDITOR || e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return false
-        val m = editor
-        if (m.current == null) return false
+        com.superessence.cuttinx.desktop.editor.ctrlHeld = e.isCtrlPressed || e.isMetaPressed
+        if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return false
         val ctrl = e.isCtrlPressed || e.isMetaPressed
+        // navigation between the spaces, from anywhere
+        when {
+            ctrl && e.key == Key.One -> { section = Section.EDITOR; return true }
+            ctrl && e.key == Key.Two -> { section = Section.TWITCH; return true }
+            ctrl && e.key == Key.Three -> { section = Section.BRAND; return true }
+            e.key == Key.F1 -> { section = Section.GUIDE; return true }
+            ctrl && e.key == Key.Tab -> { section = Section.entries[(section.ordinal + if (e.isShiftPressed) Section.entries.size - 1 else 1) % Section.entries.size]; return true }
+        }
+        if (section != Section.EDITOR) return false
+        val m = editor
+        if (ctrl && e.key == Key.N) { if (m.current != null) m.close(); return true }
+        if (m.current == null) return false
         val fps = m.current?.format?.frameRate ?: 30
         when {
             e.key == Key.Spacebar -> m.player.toggle()
@@ -117,7 +128,15 @@ class AppState {
             e.key == Key.MoveHome -> m.player.seek(0)
             e.key == Key.MoveEnd -> m.player.seek(m.current?.durationUs ?: 0)
             e.key == Key.M && !ctrl -> m.addMarker()
-            e.key == Key.Escape -> m.select(null)
+            e.key == Key.Escape -> if (m.selection.value.isEmpty()) m.close() else m.select(null)
+            e.key == Key.DirectionUp -> m.jumpEdit(false)
+            e.key == Key.DirectionDown -> m.jumpEdit(true)
+            e.key == Key.Tab -> m.selectNext(e.isShiftPressed)
+            ctrl && e.key == Key.A -> m.selectAll()
+            ctrl && (e.key == Key.Equals || e.key == Key.Plus || e.key == Key.NumPadAdd) -> m.zoomBy(1.25f)
+            ctrl && (e.key == Key.Minus || e.key == Key.NumPadSubtract) -> m.zoomBy(0.8f)
+            ctrl && e.key == Key.Zero -> m.fitRequest.value++
+            ctrl && e.key == Key.W -> m.close()
             else -> return false
         }
         return true

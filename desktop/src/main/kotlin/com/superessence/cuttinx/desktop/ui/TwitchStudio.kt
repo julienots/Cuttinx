@@ -35,6 +35,7 @@ import com.superessence.cuttinx.core.overlay.export.ObsExporter
 import com.superessence.cuttinx.core.overlay.export.PackOptions
 import com.superessence.cuttinx.core.overlay.render.OverlayRenderer
 import com.superessence.cuttinx.desktop.render.SkiaGfx
+import com.superessence.cuttinx.twitch.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,21 +48,24 @@ private sealed interface Target {
     data class Stinger(val style: StingerStyle) : Target
     data class Panel(val index: Int) : Target
     data object Banner : Target
+    data class Asset(val asset: TwitchAsset) : Target
 }
 
 /** Families of editable elements. */
-private enum class Family(val label: String) { SCENES("Scènes"), FRAMES("Cadres & widgets"), ALERTS("Alertes"), PROFILE("Profil Twitch"), STINGERS("Transitions") }
+private enum class Family(val label: String) { SCENES("Scènes"), FRAMES("Cadres & widgets"), ALERTS("Alertes"), PROFILE("Profil & emotes"), STINGERS("Transitions") }
 
 private fun familyOf(t: Target) = when (t) {
     is Target.Scene -> when { t.kind.fullBackground -> Family.SCENES; t.kind.isAlert -> Family.ALERTS; else -> Family.FRAMES }
     is Target.Stinger -> Family.STINGERS
-    is Target.Panel, Target.Banner -> Family.PROFILE
+    is Target.Panel, Target.Banner, is Target.Asset -> Family.PROFILE
 }
 
 @Composable
 fun TwitchStudio(state: AppState) {
     var target by remember { mutableStateOf<Target>(Target.Scene(SceneKind.STARTING)) }
     var minutes by remember { mutableStateOf(5) }
+    var zone by remember { mutableStateOf<ZoneKind?>(null) }
+    var tab by remember { mutableStateOf(0) }
     Row(Modifier.fillMaxSize()) {
         ThemeGallery(state, Modifier.width(330.dp).fillMaxHeight())
         Column(Modifier.weight(1f).fillMaxHeight().padding(16.dp)) {
@@ -73,13 +77,14 @@ fun TwitchStudio(state: AppState) {
                 Hint("${state.config.width}×${state.config.height} · fond transparent pour OBS")
             }
             Spacer(Modifier.height(10.dp))
-            Preview(state, target, minutes, Modifier.fillMaxWidth().weight(1f))
+            Preview(state, target, minutes, zone.takeIf { tab == 4 }, { zone = it; if (it != null) tab = 4 }, Modifier.fillMaxWidth().weight(1f))
+            Hint("Astuce : fais glisser un élément (caméra, chat, logo, titre…) sur l'aperçu pour le déplacer.")
             Spacer(Modifier.height(10.dp))
             val fam = familyOf(target)
             Chips(Family.entries.toList(), fam, { it.label }, { f ->
                 target = when (f) {
                     Family.SCENES -> Target.Scene(SceneKind.STARTING); Family.FRAMES -> Target.Scene(SceneKind.GAMEPLAY); Family.ALERTS -> Target.Scene(SceneKind.ALERT)
-                    Family.PROFILE -> Target.Panel(0); Family.STINGERS -> Target.Stinger(state.theme.stinger)
+                    Family.PROFILE -> Target.Asset(TwitchAsset.AVATAR); Family.STINGERS -> Target.Stinger(state.theme.stinger)
                 }
             })
             Spacer(Modifier.height(8.dp))
@@ -87,11 +92,13 @@ fun TwitchStudio(state: AppState) {
                 Family.SCENES -> Chips(SceneKind.entries.filter { it.fullBackground }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
                 Family.FRAMES -> Chips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
                 Family.ALERTS -> Chips(SceneKind.entries.filter { it.isAlert }, (target as? Target.Scene)?.kind, { it.label }, { target = Target.Scene(it) })
-                Family.PROFILE -> Chips(state.config.panels.indices.map { Target.Panel(it) } + Target.Banner, target, { if (it is Target.Panel) "Panneau « ${state.config.panels.getOrNull(it.index) ?: ""} »" else "Bannière de profil" }, { target = it })
+                Family.PROFILE -> Chips(TwitchAsset.entries.map { Target.Asset(it) } + state.config.panels.indices.map { Target.Panel(it) } + Target.Banner, target, {
+                    when (it) { is Target.Asset -> it.asset.label; is Target.Panel -> "Panneau « ${state.config.panels.getOrNull(it.index) ?: ""} »"; else -> "Bannière de profil" }
+                }, { target = it })
                 Family.STINGERS -> Chips(StingerStyle.entries.toList(), (target as? Target.Stinger)?.style, { it.label + if (it == state.theme.stinger) " (du thème)" else "" }, { target = Target.Stinger(it) })
             }
         }
-        Settings(state, target, minutes, { minutes = it }, Modifier.width(360.dp).fillMaxHeight())
+        Settings(state, target, minutes, { minutes = it }, tab, { tab = it }, zone, { zone = it }, Modifier.width(380.dp).fillMaxHeight())
     }
 }
 
@@ -140,7 +147,7 @@ private fun ThemeGallery(state: AppState, modifier: Modifier) {
 // ---------------------------------------------------------------------- live preview
 
 @Composable
-private fun Preview(state: AppState, target: Target, minutes: Int, modifier: Modifier) {
+private fun Preview(state: AppState, target: Target, minutes: Int, zone: ZoneKind?, onZone: (ZoneKind?) -> Unit, modifier: Modifier) {
     var time by remember { mutableStateOf(0.0) }
     LaunchedEffect(target) {
         val start = withFrameNanos { it }
@@ -149,7 +156,9 @@ private fun Preview(state: AppState, target: Target, minutes: Int, modifier: Mod
     val cfg = state.config
     val theme = state.theme
     Box(modifier, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.aspectRatio(cfg.width / cfg.height.toFloat()).fillMaxSize().clip(RoundedCornerShape(10.dp))) {
+        val cfgNow by rememberUpdatedState(cfg)
+        Canvas(Modifier.aspectRatio(cfg.width / cfg.height.toFloat()).fillMaxSize().clip(RoundedCornerShape(10.dp))
+            .zoneDrag({ cfgNow }, (target as? Target.Scene)?.kind, onZone) { c -> state.config = c }) {
             drawIntoCanvas { canvas ->
                 val nc = canvas.nativeCanvas
                 val c = SkiaGfx(nc, state.fonts)
@@ -168,7 +177,12 @@ private fun Preview(state: AppState, target: Target, minutes: Int, modifier: Mod
                     is Target.Scene -> {
                         val left = (minutes * 60 - time.toInt()).coerceAtLeast(0)
                         state.renderer.drawScene(c, theme, cfg, target.kind, time, OverlayRenderer.Layer.ALL, countdown = "%02d:%02d".format(left / 60, left % 60))
+                        if (zone != null) {
+                            val (lc, ox) = twitchLayoutOf(cfg, target.kind)
+                            OverlayLayout.zone(target.kind, lc, zone)?.let { z -> c.rect(z.x + ox, z.y, z.w, z.h, com.superessence.cuttinx.core.gfx.Paint(0xFF3D8BFF.toInt(), stroke = true, strokeWidth = 5f)) }
+                        }
                     }
+                    is Target.Asset -> target.asset.draw(c, state.renderer, theme, cfg, cfg.width.toFloat(), cfg.height.toFloat())
                     is Target.Stinger -> state.renderer.drawStinger(c, theme, cfg, target.style, (time % 2.2).coerceAtMost(OverlayAnim.STINGER_SEC))
                     is Target.Panel -> {
                         val k = cfg.width * 0.6f / 320f
@@ -190,7 +204,7 @@ private fun Preview(state: AppState, target: Target, minutes: Int, modifier: Mod
 // ---------------------------------------------------------------------- settings & export
 
 @Composable
-private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: (Int) -> Unit, modifier: Modifier) {
+private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: (Int) -> Unit, tab: Int, setTab: (Int) -> Unit, zone: ZoneKind?, setZone: (ZoneKind) -> Unit, modifier: Modifier) {
     val cfg = state.config
     val scope = rememberCoroutineScope()
     var progress by remember { mutableStateOf<Float?>(null) }
@@ -202,15 +216,21 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
     var fps by remember { mutableStateOf(24) }
     fun set(f: (OverlayConfig) -> OverlayConfig) { state.config = f(state.config) }
 
-    var tab by remember { mutableStateOf(0) }
-    Column(modifier.background(Cx.Panel).verticalScroll(rememberScrollState()).padding(14.dp)) {
+    Column(modifier.background(Cx.Panel)) {
+    Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp)) {
         Text("Personnaliser", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        Chips(listOf(0, 1, 2, 3), tab, { listOf("Textes", "Couleurs", "Style", "Exporter")[it] }, { tab = it })
-        if (tab == 1) { ColorsTab(state); return@Column }
-        if (tab == 2) { StyleTab(state); return@Column }
-        if (tab == 0) {
+        // tabs stay visible, only the content below scrolls
+        Chips(listOf(0, 1, 2, 3, 4, 5), tab, { listOf("IA", "Textes", "Couleurs", "Style & logo", "Position", "Exporter")[it] }, { setTab(it) })
+    }
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(14.dp)) {
+        if (tab == 0) { AiPanel(cfg, { c -> state.config = c }) { c, m -> AiThumb(state, c, m) }; return@Column }
+        if (tab == 2) { ColorsTab(state); return@Column }
+        if (tab == 3) { StyleTab(state); return@Column }
+        if (tab == 4) { PositionPanel(cfg, (target as? Target.Scene)?.kind, zone, setZone) { c -> state.config = c }; return@Column }
+        if (tab == 1) {
         ElementTexts(state, target)
+        if (target is Target.Asset && target.asset == TwitchAsset.EMOTES) EmotesEditor(cfg) { c -> state.config = c }
         Title("MA CHAÎNE (PARTOUT)")
         OutlinedTextField(cfg.channel, { v -> set { it.copy(channel = v) } }, Modifier.fillMaxWidth(), label = { Text("Nom de la chaîne") }, singleLine = true)
         OutlinedTextField(cfg.tagline, { v -> set { it.copy(tagline = v) } }, Modifier.fillMaxWidth(), label = { Text("Phrase d'accroche") }, singleLine = true)
@@ -222,7 +242,7 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
         }
 
         Title("EXPORT POUR OBS")
-        Hint("Le pack contient toutes les scènes animées (HTML + PNG animé), les cadres jeu / discussion / caméra / chat, la barre d'objectif, 4 alertes (follow, abonnement, raid, don), les panneaux et bannières du profil Twitch, les transitions choisies et un guide d'installation OBS.")
+        Hint("Le pack contient toutes les scènes animées (HTML + PNG animé), les cadres (jeu, discussion, duo, caméra plein écran, chat, live vertical), le bandeau défilant, le pop-up réseaux, la barre d'objectif, 4 alertes, la photo de profil, les badges d'abonné, les emotes, les points de chaîne, les panneaux et bannières, les transitions choisies et un guide OBS.")
         Spacer(Modifier.height(6.dp))
         Text("Transitions incluses :", fontSize = 13.sp)
         StingerStyle.entries.chunked(2).forEach { row ->
@@ -253,7 +273,7 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
         }, Modifier.fillMaxWidth(), enabled = progress == null) { Text("Exporter le pack OBS complet") }
         OutlinedButton({
             val s = (target as? Target.Scene)?.kind ?: SceneKind.GAMEPLAY
-            val name = when (target) { is Target.Panel -> "panneau-${state.config.panels.getOrNull(target.index) ?: ""}"; Target.Banner -> "banniere-profil"; else -> s.label }
+            val name = when (target) { is Target.Panel -> "panneau-${state.config.panels.getOrNull(target.index) ?: ""}"; Target.Banner -> "banniere-profil"; is Target.Asset -> target.asset.file; else -> s.label }
             val file = chooseFile("Enregistrer l'image", "${ObsExporter(state.raster).slug(name)}.png") ?: return@OutlinedButton
             scope.launch(Dispatchers.Default) {
                 runCatching {
@@ -261,6 +281,7 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
                     val bytes = when (target) {
                         is Target.Panel -> state.raster.frame(640, 200).let { fr -> fr.gfx.clear(0); fr.gfx.scale(2f, 2f); state.renderer.drawPanel(fr.gfx, state.theme, state.config, state.config.panels.getOrNull(target.index) ?: ""); fr.png() }
                         Target.Banner -> state.raster.frame(1200, 480).let { fr -> state.renderer.drawBanner(fr.gfx, state.theme, state.config); fr.png() }
+                        is Target.Asset -> { val sz = when (target.asset) { TwitchAsset.AVATAR -> 800; TwitchAsset.BADGES -> 72; else -> 112 }; state.raster.frame(sz, sz).let { fr -> target.asset.drawSingle(fr.gfx, state.renderer, state.theme, state.config, sz.toFloat()); fr.png() } }
                         else -> ex.renderPng(state.config) { c -> state.renderer.drawScene(c, state.theme, state.config, s, 0.0) }
                     }
                     file.writeBytes(bytes)
@@ -278,6 +299,32 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
             Row(verticalAlignment = Alignment.CenterVertically) { Icon(CxIcons.Check, null, Modifier.size(16.dp), tint = Color(0xFF3D8BFF)); Spacer(Modifier.width(6.dp)); Text("Exporté dans ${f.absolutePath}", fontSize = 12.sp) }
             TextButton({ openFolder(f) }) { Text("Ouvrir le dossier") }
         }
+    }
+    }
+}
+
+/** Still preview of an assistant proposal. */
+@Composable
+private fun AiThumb(state: AppState, cfg: OverlayConfig, modifier: Modifier) {
+    val img = remember(cfg) {
+        val s = Surface.makeRasterN32Premul(480, 270)
+        state.renderer.drawScene(SkiaGfx(s.canvas, state.fonts), OverlayThemes[cfg.themeId], cfg.copy(width = 480, height = 270), SceneKind.STARTING, 1.0)
+        s.makeImageSnapshot().toComposeImageBitmap()
+    }
+    Image(img, null, modifier, contentScale = ContentScale.FillBounds)
+}
+
+/** Picks a logo file, shrinks it to 512 px and stores it as PNG (transparency kept). */
+private fun importLogo(state: AppState) {
+    val f = com.superessence.cuttinx.desktop.editor.openFiles("Choisir mon logo", listOf("png", "jpg", "jpeg", "webp"), multiple = false).firstOrNull() ?: return
+    runCatching {
+        val src = org.jetbrains.skia.Image.makeFromEncoded(f.readBytes())
+        val k = minOf(1f, 512f / maxOf(src.width, src.height))
+        val w = (src.width * k).toInt().coerceAtLeast(1); val h = (src.height * k).toInt().coerceAtLeast(1)
+        val s = Surface.makeRasterN32Premul(w, h)
+        s.canvas.drawImageRect(src, org.jetbrains.skia.Rect.makeWH(w.toFloat(), h.toFloat()))
+        val png = s.makeImageSnapshot().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)!!.bytes
+        state.config = state.config.copy(logo = encodeLogo(png))
     }
 }
 
@@ -345,6 +392,7 @@ private fun StyleTab(state: AppState) {
     val cfg = state.config
     val th = state.theme
     fun set(f: (OverlayConfig) -> OverlayConfig) { state.config = f(state.config) }
+    LogoPanel(cfg, { importLogo(state) }) { c -> state.config = c }
     Title("POLICE DES TITRES")
     Chips(TitleFont.entries.toList(), cfg.font ?: th.font, { OverlayLabels.font(it) }, { f -> set { it.copy(font = f) } })
     Text("Taille des titres : ${(cfg.textScale * 100).toInt()} %", fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))

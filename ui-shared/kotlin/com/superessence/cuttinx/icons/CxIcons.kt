@@ -25,6 +25,11 @@ object CxIcons {
         return b.build()
     }
 
+    val ZoomIn by lazy { build(IconSet.ZoomIn) }
+    val ZoomOut by lazy { build(IconSet.ZoomOut) }
+    val Fit by lazy { build(IconSet.Fit) }
+    val Move by lazy { build(IconSet.Move) }
+    val Keyboard by lazy { build(IconSet.Keyboard) }
     val Editor by lazy { build(IconSet.Editor) }
     val Twitch by lazy { build(IconSet.Twitch) }
     val Identity by lazy { build(IconSet.Identity) }

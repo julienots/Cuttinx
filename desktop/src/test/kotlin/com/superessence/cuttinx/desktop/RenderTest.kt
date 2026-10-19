@@ -68,7 +68,10 @@ class RenderTest {
         val files = out.walkTopDown().filter { it.isFile }.map { it.relativeTo(out).path.replace('\\', '/') }.toSet()
         assertTrue("LISEZ-MOI.txt" in files)
         assertTrue(files.any { it.startsWith("scenes/") && it.endsWith("scene.html") })
-        assertEquals(6, files.count { it.startsWith("cadres/") })
+        // every layout (game, chatting, duo, full camera, vertical…) without the animated widgets
+        assertEquals(9, files.count { it.startsWith("cadres/") })
+        assertTrue(files.any { it.startsWith("widgets/") })
+        assertTrue(files.any { it.startsWith("twitch-profil/badges-abonnes/") } && files.any { "emotes/" in it } && files.any { "points-de-chaine" in it })
         assertTrue("transitions/toile-d-araignee.png" in files && "transitions/tempete-de-sakura.png" in files)
         for (a in listOf("nouveau-follow", "nouvel-abonne", "raid", "don")) assertTrue(a, "alertes/$a.png" in files)
         assertEquals(6, files.count { it.startsWith("twitch-profil/panneaux/") })
@@ -78,6 +81,26 @@ class RenderTest {
         val html = File(out, files.first { it.endsWith("scene.html") && "commencer" in it }).readText()
         assertTrue("setInterval" in html && "fond.png" in html && "animation.png" in html)
         dir.deleteRecursively()
+    }
+
+    @Test fun customLogoIsDrawnOnScenesAndProfile() {
+        // a 64×64 opaque red logo
+        val sf = org.jetbrains.skia.Surface.makeRasterN32Premul(64, 64); sf.canvas.clear(0xFFFF0000.toInt())
+        val png = sf.makeImageSnapshot().encodeToData(org.jetbrains.skia.EncodedImageFormat.PNG)!!.bytes
+        val cfg = small.copy(logo = java.util.Base64.getEncoder().encodeToString(png))
+        val t = OverlayThemes["armor"]
+        for (sc in listOf(SceneKind.STARTING, SceneKind.GAMEPLAY, SceneKind.DUO, SceneKind.FULLCAM, SceneKind.QNA)) {
+            val z = OverlayLayout.zone(sc, cfg, ZoneKind.LOGO)!!
+            val fr = raster.frame(cfg.width, cfg.height); fr.gfx.clear(0); r.drawScene(fr.gfx, t, cfg, sc, 1.0)
+            val img = org.jetbrains.skia.Image.makeFromEncoded(fr.png())
+            val bmp = org.jetbrains.skia.Bitmap.makeFromImage(img)
+            val px = bmp.getColor((z.x + z.w / 2).toInt(), (z.y + z.h / 2).toInt())
+            assertEquals(sc.name, 0xFFFF0000.toInt(), px)
+        }
+        val fr = raster.frame(200, 200); fr.gfx.clear(0); r.drawAvatar(fr.gfx, t, cfg, 200f)
+        assertEquals(0xFFFF0000.toInt(), org.jetbrains.skia.Bitmap.makeFromImage(org.jetbrains.skia.Image.makeFromEncoded(fr.png())).getColor(100, 100))
+        // no logo: no zone
+        assertNull(OverlayLayout.zone(SceneKind.STARTING, small, ZoneKind.LOGO))
     }
 
     @Test fun everyStyleChoiceRenders() {

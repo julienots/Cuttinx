@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.superessence.cuttinx.core.overlay.*
 import com.superessence.cuttinx.core.overlay.render.OverlayRenderer
 import com.superessence.cuttinx.ui.theme.LocalCx
+import com.superessence.cuttinx.twitch.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -44,16 +45,19 @@ private sealed interface Target {
     data class Stinger(val style: StingerStyle) : Target
     data class Panel(val index: Int) : Target
     data object Banner : Target
+    data class Asset(val asset: TwitchAsset) : Target
 }
 
 /** Families of elements the streamer can edit, shown as a first row of chips. */
-private enum class Family(val label: String) { SCENES("Scènes"), FRAMES("Cadres & widgets"), ALERTS("Alertes"), PROFILE("Profil Twitch"), STINGERS("Transitions") }
+private enum class Family(val label: String) { SCENES("Scènes"), FRAMES("Cadres & widgets"), ALERTS("Alertes"), PROFILE("Profil & emotes"), STINGERS("Transitions") }
 
 private fun familyOf(t: Target) = when (t) {
     is Target.Scene -> when { t.kind.fullBackground -> Family.SCENES; t.kind.isAlert -> Family.ALERTS; else -> Family.FRAMES }
     is Target.Stinger -> Family.STINGERS
-    is Target.Panel, Target.Banner -> Family.PROFILE
+    is Target.Panel, Target.Banner, is Target.Asset -> Family.PROFILE
 }
+
+private val tabs = listOf("IA", "Thème", "Couleurs", "Style & logo", "Textes", "Position", "Exporter")
 
 @Composable
 private fun <T> BlueChips(options: List<T>, selected: (T) -> Boolean, label: (T) -> String, onClick: (T) -> Unit) {
@@ -78,62 +82,105 @@ fun TwitchScreen(vm: StudioViewModel) {
     var target by remember { mutableStateOf<Target>(Target.Scene(SceneKind.STARTING)) }
     var tab by remember { mutableIntStateOf(0) }
     var minutes by remember { mutableIntStateOf(5) }
+    var zone by remember { mutableStateOf<ZoneKind?>(null) }
     var tuto by remember { mutableStateOf<com.superessence.cuttinx.core.tutorial.Film?>(null) }
     tuto?.let { f -> com.superessence.cuttinx.ui.help.FilmPlayerDialog(f) { tuto = null } }
-    Column(Modifier.fillMaxSize()) {
-        // live preview (rendered by the same engine as the PC version and the exports)
-        val ratio = when (target) { is Target.Panel -> 320f / 100f; Target.Banner -> 1200f / 480f; else -> 16f / 9f }
-        OverlayPreview(vm, cfg, target, minutes, Modifier.fillMaxWidth().padding(horizontal = 14.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(14.dp)), ratio)
-        Column(Modifier.padding(horizontal = 14.dp)) {
+    val cfgNow by rememberUpdatedState(cfg)
+    val scene = (target as? Target.Scene)?.kind
+
+    // the preview + element pickers, and the editing tabs: side by side on tablets, stacked on phones
+    val previewPart: @Composable (Modifier, Modifier) -> Unit = { mod, previewMod ->
+        Column(mod) {
+            val ratio = when (target) { is Target.Panel -> 320f / 100f; Target.Banner -> 1200f / 480f; else -> 16f / 9f }
+            OverlayPreview(vm, cfg, target, minutes, zone.takeIf { tab == 5 }, previewMod.clip(RoundedCornerShape(14.dp))
+                .zoneDrag({ cfgNow }, scene, { zone = it; if (it != null) tab = 5 }) { c -> vm.update { c } }, ratio)
             Spacer(Modifier.height(8.dp))
             val fam = familyOf(target)
             BlueChips(Family.entries.toList(), { it == fam }, { it.label }, { f ->
+                zone = null
                 target = when (f) {
                     Family.SCENES -> Target.Scene(SceneKind.STARTING)
                     Family.FRAMES -> Target.Scene(SceneKind.GAMEPLAY)
                     Family.ALERTS -> Target.Scene(SceneKind.ALERT)
-                    Family.PROFILE -> Target.Panel(0)
+                    Family.PROFILE -> Target.Asset(TwitchAsset.AVATAR)
                     Family.STINGERS -> Target.Stinger(vm.theme.stinger)
                 }
             })
             Spacer(Modifier.height(6.dp))
             when (fam) {
-                Family.SCENES -> BlueChips(SceneKind.entries.filter { it.fullBackground }, { target == Target.Scene(it) }, { it.label }, { target = Target.Scene(it) })
-                Family.FRAMES -> BlueChips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, { target == Target.Scene(it) }, { it.label }, { target = Target.Scene(it) })
+                Family.SCENES -> BlueChips(SceneKind.entries.filter { it.fullBackground }, { target == Target.Scene(it) }, { it.label }, { zone = null; target = Target.Scene(it) })
+                Family.FRAMES -> BlueChips(SceneKind.entries.filter { !it.fullBackground && !it.isAlert }, { target == Target.Scene(it) }, { it.label }, { zone = null; target = Target.Scene(it) })
                 Family.ALERTS -> BlueChips(SceneKind.entries.filter { it.isAlert }, { target == Target.Scene(it) }, { it.label }, { target = Target.Scene(it) })
-                Family.PROFILE -> BlueChips(cfg.panels.indices.map { Target.Panel(it) } + Target.Banner, { target == it }, { if (it is Target.Panel) "Panneau « ${cfg.panels.getOrNull(it.index) ?: ""} »" else "Bannière de profil" }, { target = it })
+                Family.PROFILE -> BlueChips(TwitchAsset.entries.map { Target.Asset(it) } + cfg.panels.indices.map { Target.Panel(it) } + Target.Banner, { target == it }, {
+                    when (it) { is Target.Asset -> it.asset.label; is Target.Panel -> "Panneau « ${cfg.panels.getOrNull(it.index) ?: ""} »"; else -> "Bannière de profil" }
+                }, { target = it })
                 Family.STINGERS -> BlueChips(StingerStyle.entries.toList(), { target == Target.Stinger(it) }, { it.label + if (it == vm.theme.stinger) " (du thème)" else "" }, { target = Target.Stinger(it) })
             }
-            Spacer(Modifier.height(6.dp))
+        }
+    }
+    val editPart: @Composable (Modifier) -> Unit = { mod ->
+        Column(mod) {
+            // the tab row never scrolls away: only the content below it scrolls
             ScrollableTabRow(tab, containerColor = Color.Transparent, contentColor = TwitchBlue, edgePadding = 0.dp) {
-                listOf("Thème", "Couleurs", "Style", "Textes", "Exporter").forEachIndexed { i, t -> Tab(tab == i, { tab = i }, text = { Text(t) }) }
+                tabs.forEachIndexed { i, t -> Tab(tab == i, { tab = i }, text = { Text(t) }) }
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
+                msg?.let { m -> Text(m, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(TwitchBlue.copy(alpha = 0.18f)).clickable { vm.message.value = null }.padding(10.dp), fontSize = 13.sp) }
+                Row(Modifier.clip(RoundedCornerShape(50)).background(TwitchBlue.copy(alpha = 0.15f)).clickable { tuto = com.superessence.cuttinx.core.tutorial.Tutorials.of(com.superessence.cuttinx.core.tutorial.TutoSpace.TWITCH).first() }.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(CxIcons.Play, null, Modifier.size(14.dp), tint = TwitchBlue); Spacer(Modifier.width(6.dp))
+                    Text("Tutos vidéo : créer le pack, l'installer dans OBS", color = TwitchBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                when (tab) {
+                    0 -> AiPanel(cfg, { c -> vm.update { c }; vm.message.value = "Style appliqué à toutes les scènes, cadres, alertes et assets" }) { c, m -> StaticPreview(vm, c, m) }
+                    1 -> ThemePicker(vm, cfg)
+                    2 -> ColorsEditor(vm, cfg)
+                    3 -> StyleEditor(vm, cfg)
+                    4 -> TextsEditor(vm, cfg, target, minutes) { minutes = it }
+                    5 -> PositionPanel(cfg, scene, zone, { zone = it }) { c -> vm.update { c } }
+                    else -> ExportPanel(vm, target, minutes, progress)
+                }
+                Spacer(Modifier.height(24.dp))
             }
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) {
-            msg?.let { m -> Text(m, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(TwitchBlue.copy(alpha = 0.18f)).clickable { vm.message.value = null }.padding(10.dp), fontSize = 13.sp) }
-            Row(Modifier.clip(RoundedCornerShape(50)).background(TwitchBlue.copy(alpha = 0.15f)).clickable { tuto = com.superessence.cuttinx.core.tutorial.Tutorials.of(com.superessence.cuttinx.core.tutorial.TutoSpace.TWITCH).first() }.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(CxIcons.Play, null, Modifier.size(14.dp), tint = TwitchBlue); Spacer(Modifier.width(6.dp))
-                Text("Tutos vidéo : créer le pack, l'installer dans OBS", color = TwitchBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (maxWidth >= 720.dp) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                previewPart(Modifier.weight(1.15f).fillMaxHeight().verticalScroll(rememberScrollState()), Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+                editPart(Modifier.weight(1f).fillMaxHeight())
             }
-            when (tab) {
-                0 -> ThemePicker(vm, cfg)
-                1 -> ColorsEditor(vm, cfg)
-                2 -> StyleEditor(vm, cfg)
-                3 -> TextsEditor(vm, cfg, target, minutes) { minutes = it }
-                else -> ExportPanel(vm, target, minutes, progress)
+        } else {
+            val maxPreview = maxHeight * 0.34f
+            Column(Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+                previewPart(Modifier.fillMaxWidth(), Modifier.fillMaxWidth().heightIn(max = maxPreview).aspectRatio(16f / 9f, matchHeightConstraintsFirst = true).align(Alignment.CenterHorizontally))
+                editPart(Modifier.weight(1f).fillMaxWidth())
             }
-            Spacer(Modifier.height(24.dp))
         }
     }
 }
 
 // ---------------------------------------------------------------------- preview
 
+/** Small still preview (assistant proposals). */
 @Composable
-private fun OverlayPreview(vm: StudioViewModel, cfg: OverlayConfig, target: Target, minutes: Int, modifier: Modifier, ratio: Float = 16f / 9f) {
+private fun StaticPreview(vm: StudioViewModel, cfg: OverlayConfig, modifier: Modifier) {
+    var image by remember(cfg) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(cfg) {
+        image = withContext(Dispatchers.Default) {
+            val f = vm.raster.frame(384, 216)
+            vm.renderer.drawScene(f.gfx, OverlayThemes[cfg.themeId], cfg.copy(width = 384, height = 216), SceneKind.STARTING, 1.0)
+            f.bitmap.asImageBitmap()
+        }
+    }
+    Box(modifier.background(Color(0xFF111216))) { image?.let { Image(it, null, Modifier.matchParentSize(), contentScale = ContentScale.FillBounds) } }
+}
+
+@Composable
+private fun OverlayPreview(vm: StudioViewModel, cfg: OverlayConfig, target: Target, minutes: Int, zone: ZoneKind?, modifier: Modifier, ratio: Float = 16f / 9f) {
     var image by remember { mutableStateOf<ImageBitmap?>(null) }
     val w = 768; val h = 432
-    LaunchedEffect(cfg, target, minutes) {
+    LaunchedEffect(cfg, target, minutes, zone) {
         // two software bitmaps rendered alternately in the background (blurs and glows included)
         val frames = listOf(vm.raster.frame(w, h), vm.raster.frame(w, h))
         val pc = cfg.copy(width = w, height = h)
@@ -148,6 +195,11 @@ private fun OverlayPreview(vm: StudioViewModel, cfg: OverlayConfig, target: Targ
                     is Target.Scene -> {
                         val left = (minutes * 60 - t.toInt()).coerceAtLeast(0)
                         vm.renderer.drawScene(g, vm.theme, pc, target.kind, t, OverlayRenderer.Layer.ALL, countdown = "%02d:%02d".format(left / 60, left % 60))
+                        // element being moved: outlined
+                        if (zone != null) {
+                            val (lc, ox) = twitchLayoutOf(pc, target.kind)
+                            OverlayLayout.zone(target.kind, lc, zone)?.let { z -> g.rect(z.x + ox, z.y, z.w, z.h, com.superessence.cuttinx.core.gfx.Paint(0xFF3D8BFF.toInt(), stroke = true, strokeWidth = 3f)) }
+                        }
                     }
                     is Target.Stinger -> vm.renderer.drawStinger(g, vm.theme, pc, target.style, (t % 2.2).coerceAtMost(OverlayAnim.STINGER_SEC))
                     is Target.Panel -> {
@@ -163,12 +215,13 @@ private fun OverlayPreview(vm: StudioViewModel, cfg: OverlayConfig, target: Targ
                         vm.renderer.drawBanner(g, vm.theme, cfg)
                         g.restore()
                     }
+                    is Target.Asset -> target.asset.draw(g, vm.renderer, vm.theme, cfg, w.toFloat(), h.toFloat())
                 }
             }
             image = f.bitmap.asImageBitmap()
             i++
             // static elements: no need to redraw 60 times per second
-            delay(if (target is Target.Panel || target is Target.Banner) 400 else 16)
+            delay(if (target is Target.Panel || target is Target.Banner || target is Target.Asset) 400 else 16)
         }
     }
     val transparent = when (target) { is Target.Stinger -> true; is Target.Scene -> !target.kind.fullBackground; else -> true }
@@ -247,6 +300,10 @@ private fun TextsEditor(vm: StudioViewModel, cfg: OverlayConfig, target: Target,
                 Slider(minutes.toFloat(), { setMinutes(it.toInt().coerceIn(1, 30)) }, valueRange = 1f..30f, steps = 28, colors = SliderDefaults.colors(thumbColor = TwitchBlue, activeTrackColor = TwitchBlue))
             }
         }
+        is Target.Asset -> {
+            if (target.asset == TwitchAsset.EMOTES) EmotesEditor(cfg) { c -> vm.update { c } }
+            if (target.asset == TwitchAsset.AVATAR || target.asset == TwitchAsset.POINTS) Text("Importe ton logo dans l'onglet « Style & logo » pour le mettre sur ta photo de profil.", color = LocalCx.current.dim, fontSize = 12.sp)
+        }
         is Target.Panel, Target.Banner -> {
             Label("PANNEAUX DU PROFIL (320×100)")
             cfg.panels.forEachIndexed { i, p ->
@@ -299,6 +356,8 @@ private fun ColorsEditor(vm: StudioViewModel, cfg: OverlayConfig) {
 @Composable
 private fun StyleEditor(vm: StudioViewModel, cfg: OverlayConfig) {
     val th = vm.theme
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) vm.importLogo(uri) }
+    LogoPanel(cfg, { pick.launch("image/*") }) { c -> vm.update { c } }
     Label("POLICE DES TITRES")
     BlueChips(TitleFont.entries.toList(), { it == (cfg.font ?: th.font) }, { OverlayLabels.font(it) }, { f -> vm.update { it.copy(font = f) } })
     Text("Taille des titres : ${(cfg.textScale * 100).toInt()} %", fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
@@ -336,11 +395,12 @@ private fun ExportPanel(vm: StudioViewModel, target: Target, minutes: Int, progr
         if (uri != null) when (target) {
             is Target.Panel -> vm.exportPanel(uri, cfg.panels.getOrNull(target.index) ?: "")
             Target.Banner -> vm.exportBanner(uri)
+            is Target.Asset -> vm.exportAsset(uri, target.asset)
             else -> vm.exportScene(uri, scene)
         }
     }
-    val elementName = when (target) { is Target.Panel -> "Panneau ${cfg.panels.getOrNull(target.index) ?: ""}"; Target.Banner -> "Bannière de profil"; else -> scene.label }
-    Text("Le pack contient les scènes animées (HTML + PNG animés), les cadres jeu / discussion / caméra / chat, la barre d'objectif, 4 alertes (follow, abonnement, raid, don), les panneaux et bannières du profil Twitch, les transitions choisies et un guide OBS. Copie-le sur ton PC (ou utilise l'appli PC CUTTINX PRO).", color = LocalCx.current.dim, fontSize = 12.sp)
+    val elementName = when (target) { is Target.Panel -> "Panneau ${cfg.panels.getOrNull(target.index) ?: ""}"; Target.Banner -> "Bannière de profil"; is Target.Asset -> target.asset.label; else -> scene.label }
+    Text("Le pack contient les ${SceneKind.entries.count { it.fullBackground }} scènes animées (HTML + PNG animés), les cadres (jeu, discussion, duo, caméra, chat, live vertical), le bandeau défilant, le pop-up réseaux, la barre d'objectif, 4 alertes, la photo de profil, les badges d'abonné, les emotes, les points de chaîne, les panneaux et bannières, les transitions choisies et un guide OBS. Copie-le sur ton PC (ou utilise l'appli PC CUTTINX PRO).", color = LocalCx.current.dim, fontSize = 12.sp)
     Label("TRANSITIONS INCLUSES")
     BlueChips(StingerStyle.entries.toList(), { it in stingers || it == vm.theme.stinger }, { it.label }, { st -> if (st != vm.theme.stinger) stingers = if (st in stingers) stingers - st else stingers + st })
     Label("QUALITÉ")

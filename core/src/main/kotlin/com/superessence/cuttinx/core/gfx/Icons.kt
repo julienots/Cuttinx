@@ -72,6 +72,11 @@ object IconSet {
     val VolumeOff = def("VolumeOff", "M11 5L6 9H3v6h3l5 4z", "M16 9l5 6", "M21 9l-5 6")
 
     // ---- pro tools & audio
+    val ZoomIn = def("ZoomIn", circle(11f, 11f, 7f), "M21 21l-5-5", "M11 8v6", "M8 11h6")
+    val ZoomOut = def("ZoomOut", circle(11f, 11f, 7f), "M21 21l-5-5", "M8 11h6")
+    val Fit = def("Fit", "M4 9V4h5", "M20 9V4h-5", "M4 15v5h5", "M20 15v5h-5", "M9 12h6")
+    val Move = def("Move", "M12 3v18", "M3 12h18", "M9 6l3-3 3 3", "M9 18l3 3 3-3", "M6 9l-3 3 3 3", "M18 9l3 3-3 3")
+    val Keyboard = def("Keyboard", "M3 6h18v12H3z", "M7 10h.01", "M11 10h.01", "M15 10h.01", "M8 14h8")
     val ZoomSlow = def("ZoomSlow", circle(11f, 11f, 7f), "M21 21l-5-5", "M11 8v6", "M8 11h6")
     val Progress = def("Progress", "M3 10h18v4H3z", "M3 10h10v4H3z", filled = setOf(1))
     val Captions = def("Captions", "M3 5h18v14H3z", "M7 12h3", "M13 12h4", "M7 15h6", "M15 15h2")
@@ -91,7 +96,7 @@ object IconSet {
     val Rocket = def("Rocket", "M5 15c-1.5 1.3-2 4-2 6 2 0 4.7-.5 6-2", "M9 15l-3-3c1.5-4 5-9 13-9 0 8-5 11.5-9 13z", circle(14.5f, 9.5f, 1.5f))
 
     /** All icons by name. */
-    val all: Map<String, IconDef> by lazy { listOf(Editor, Twitch, Identity, Help, Media, Text, Music, Sfx, Effects, Transitions, Animation, Voice, Pro, Image, Video, Upload, Download, Play, Pause, SkipStart, SkipEnd, Prev, Next, Replay, Split, Delete, RippleDelete, Duplicate, Marker, Undo, Redo, KeyframeAdd, KeyframeRemove, Mirror, Add, Close, Check, Warning, Back, ChevronDown, More, Search, Relink, Lock, Unlock, Eye, EyeOff, Volume, VolumeOff, ZoomSlow, Progress, Captions, Hook, Watermark, NoiseOff, Studio, Background, Idea, Do, Dont, Calendar, Star, Rocket).associateBy { it.name } }
+    val all: Map<String, IconDef> by lazy { listOf(Editor, Twitch, Identity, Help, Media, Text, Music, Sfx, Effects, Transitions, Animation, Voice, Pro, Image, Video, Upload, Download, Play, Pause, SkipStart, SkipEnd, Prev, Next, Replay, Split, Delete, RippleDelete, Duplicate, Marker, Undo, Redo, KeyframeAdd, KeyframeRemove, Mirror, Add, Close, Check, Warning, Back, ChevronDown, More, Search, Relink, Lock, Unlock, Eye, EyeOff, Volume, VolumeOff, ZoomSlow, ZoomIn, ZoomOut, Fit, Move, Keyboard, Progress, Captions, Hook, Watermark, NoiseOff, Studio, Background, Idea, Do, Dont, Calendar, Star, Rocket).associateBy { it.name } }
 }
 
 /** Draws [icon] in a [size]-pixel square at ([x], [y]). */

@@ -106,6 +106,34 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         }.onSuccess { message.value = "Image enregistrée" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
     }
 
+    /** Saves one profile / chat asset at the size Twitch asks for. */
+    fun exportAsset(target: Uri, a: com.superessence.cuttinx.twitch.TwitchAsset) {
+        val s = when (a) { com.superessence.cuttinx.twitch.TwitchAsset.AVATAR -> 800; com.superessence.cuttinx.twitch.TwitchAsset.BADGES -> 72; else -> 112 }
+        saveImage(target, s, s) { g -> a.drawSingle(g, renderer, theme, config.value, s.toFloat()) }
+    }
+
+    /** Imports the streamer's logo (resized to 512 px max, PNG to keep the transparency). */
+    fun importLogo(uri: Uri) = viewModelScope.launch(Dispatchers.Default) {
+        runCatching {
+            val src = getApplication<Application>().contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it) } ?: error("image illisible")
+            val k = minOf(1f, 512f / maxOf(src.width, src.height))
+            val bmp = if (k < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * k).toInt().coerceAtLeast(1), (src.height * k).toInt().coerceAtLeast(1), true) else src
+            val out = java.io.ByteArrayOutputStream(); bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            update { it.copy(logo = com.superessence.cuttinx.twitch.encodeLogo(out.toByteArray())) }
+        }.onSuccess { message.value = "Logo ajouté : scènes, cadres, photo de profil, panneaux et bannière" }.onFailure { message.value = "Logo impossible à lire : ${it.message}" }
+    }
+
+    /** Saves one identity visual (profile picture, YouTube banner, thumbnail, story highlight). */
+    fun exportBrandVisual(target: Uri, v: BrandVisual, index: Int) {
+        val k = brandKit.value ?: return
+        when (v) {
+            BrandVisual.AVATAR -> saveImage(target, 800, 800) { board.drawAvatar(it, k, 800f) }
+            BrandVisual.YOUTUBE -> saveImage(target, 2560, 1440) { board.drawYoutubeBanner(it, k) }
+            BrandVisual.THUMBNAIL -> saveImage(target, 1280, 720) { board.drawThumbnail(it, k) }
+            BrandVisual.HIGHLIGHT -> saveImage(target, 1080, 1080) { board.drawHighlight(it, k, index, 1080f) }
+        }
+    }
+
     /** Resets the style overrides (font, frame, motifs, badge, colours) to the theme's. */
     fun resetStyle() = update { it.copy(font = null, frame = null, motifs = null, badge = null, palette = null, textScale = 1f, cameraShape = CameraShape.THEME) }
 
@@ -118,3 +146,6 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
         }.onSuccess { message.value = "Planche d'identité enregistrée" }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
     }
 }
+
+/** Identity visuals that can be exported as images. */
+enum class BrandVisual(val file: String) { AVATAR("photo-profil"), YOUTUBE("banniere-youtube"), THUMBNAIL("miniature"), HIGHLIGHT("story-une") }

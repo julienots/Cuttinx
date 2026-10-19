@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+
 package com.superessence.cuttinx.desktop.editor
 
 import com.superessence.cuttinx.icons.CxIcons
@@ -23,6 +25,17 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.isTertiaryPressed
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.isCtrlPressed
+import androidx.compose.ui.input.pointer.isMetaPressed
+import androidx.compose.ui.input.pointer.isAltPressed
+import androidx.compose.ui.input.pointer.isShiftPressed
+import androidx.compose.foundation.gestures.scrollBy
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,6 +49,9 @@ import com.superessence.cuttinx.desktop.ui.LocalAccent
 import kotlin.math.roundToInt
 
 private val HeaderW = 150.dp
+
+/** Ctrl held (multi-selection with Ctrl + click), tracked by the window key handler. */
+var ctrlHeld = false
 private val RulerH = 26.dp
 
 private fun rowHeight(t: Track): Dp = when (t.kind) { TrackKind.VIDEO -> 58.dp; TrackKind.AUDIO -> 44.dp; else -> 36.dp }
@@ -59,7 +75,9 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
     val pos by m.player.position.collectAsState()
     val sel by m.selection.collectAsState()
     val pr = p ?: return
-    var pps by remember { mutableStateOf(70f) } // dp per second
+    val pps by m.zoom.collectAsState() // dp per second
+    val scope = rememberCoroutineScope()
+    val fit by m.fitRequest.collectAsState()
     val hs = rememberScrollState()
     val vs = rememberScrollState()
     val tracks = displayOrder(pr)
@@ -67,6 +85,21 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
     val contentW = (totalSec * pps).dp
     val density = LocalDensity.current
     val accent = LocalAccent.current
+
+    // zoom around a point of the view (mouse wheel), keeping the time under the cursor in place
+    fun zoomAt(factor: Float, cursorPx: Float) {
+        val old = pps
+        m.zoomBy(factor)
+        val k = m.zoom.value / old
+        scope.launch { withFrameNanos { }; hs.scrollTo(((hs.value + cursorPx) * k - cursorPx).roundToInt().coerceAtLeast(0)) }
+    }
+    LaunchedEffect(fit) {
+        if (fit > 0) {
+            val view = hs.viewportSize / density.density
+            if (view > 0) m.zoom.value = (view / ((pr.durationUs / 1e6).coerceAtLeast(1.0) + 1).toFloat()).coerceIn(4f, 600f)
+            withFrameNanos { }; hs.scrollTo(0)
+        }
+    }
 
     // keep the playhead visible while playing
     val playing by m.player.playing.collectAsState()
@@ -96,10 +129,44 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
                 }
             }
             Spacer(Modifier.weight(1f))
-            Text("Zoom", color = Cx.Dim, fontSize = 12.sp)
-            Slider(pps, { pps = it }, Modifier.width(180.dp), valueRange = 8f..400f)
+            Text("Molette : défiler · Ctrl + molette : zoom · clic molette / droit glissé : déplacer", color = Cx.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+            Spacer(Modifier.width(8.dp))
+            Tool(CxIcons.ZoomOut, "") { m.zoomBy(0.8f) }
+            Slider(pps, { m.zoom.value = it }, Modifier.width(140.dp), valueRange = 4f..600f)
+            Tool(CxIcons.ZoomIn, "") { m.zoomBy(1.25f) }
+            Tool(CxIcons.Fit, "Tout voir") { m.fitRequest.value++ }
         }
-        Row(Modifier.fillMaxSize().verticalScroll(vs)) {
+        Box(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxSize()
+            // mouse: wheel = scroll in time, Shift + wheel = tracks, Ctrl / Alt + wheel = zoom around the cursor
+            .onPointerEvent(PointerEventType.Scroll, PointerEventPass.Initial) { ev ->
+                val ch = ev.changes.firstOrNull() ?: return@onPointerEvent
+                val d = ch.scrollDelta
+                val mods = ev.keyboardModifiers
+                val cursor = ch.position.x - with(density) { HeaderW.toPx() }
+                when {
+                    mods.isCtrlPressed || mods.isMetaPressed || mods.isAltPressed -> zoomAt(if (d.y < 0) 1.15f else 1 / 1.15f, cursor.coerceAtLeast(0f))
+                    mods.isShiftPressed -> scope.launch { vs.scrollBy(d.y * 60f) }
+                    else -> scope.launch { hs.scrollBy((if (d.x != 0f) d.x else d.y) * 80f) }
+                }
+                ch.consume()
+            }
+            // middle / right button drag = move along the timeline
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    var last: Offset? = null
+                    while (true) {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                        val pan = ev.buttons.isTertiaryPressed || ev.buttons.isSecondaryPressed
+                        val ch = ev.changes.firstOrNull() ?: continue
+                        if (pan) {
+                            last?.let { l -> val dx = ch.position.x - l.x; val dy = ch.position.y - l.y; scope.launch { hs.scrollBy(-dx); vs.scrollBy(-dy) } }
+                            last = ch.position; ch.consume()
+                        } else last = null
+                    }
+                }
+            }
+            .verticalScroll(vs)) {
             // track headers
             Column(Modifier.width(HeaderW)) {
                 Box(Modifier.height(RulerH).fillMaxWidth().background(Cx.Panel))
@@ -121,6 +188,9 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
                 Box(Modifier.offset(x = (pos / 1e6 * pps).dp - 1.dp).width(2.dp).height(totalH).background(accent))
                 Box(Modifier.offset(x = (pos / 1e6 * pps).dp - 6.dp).size(12.dp).clip(RoundedCornerShape(0.dp, 0.dp, 6.dp, 6.dp)).background(accent))
             }
+        }
+        androidx.compose.foundation.HorizontalScrollbar(androidx.compose.foundation.rememberScrollbarAdapter(hs), Modifier.align(Alignment.BottomStart).padding(start = HeaderW).fillMaxWidth().height(10.dp))
+        androidx.compose.foundation.VerticalScrollbar(androidx.compose.foundation.rememberScrollbarAdapter(vs), Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(10.dp))
         }
     }
 }
@@ -186,17 +256,20 @@ private fun ClipBox(m: EditorModel, p: Project, t: Track, tracks: List<Track>, c
     val start = (c.startUs / 1e6 * pps).toFloat()
     val width = (c.durationUs / 1e6 * pps).toFloat()
     val color = clipColor(t, c)
+    val accent = LocalAccent.current
+    val dimmed = !selected && m.selection.collectAsState().value.isNotEmpty()
     val rowH = with(density) { rowHeight(t).toPx() }
     fun toUs(dp: Float) = (dp / pps * 1e6).toLong()
     Box(Modifier
         .offset(x = (start + dx + trimL).dp, y = dy.dp)
-        .width((width - trimL + trimR).coerceAtLeast(4f).dp)
+        .width((width - trimL + trimR).coerceAtLeast(10f).dp)
         .fillMaxHeight()
-        .padding(vertical = 3.dp)
+        .padding(vertical = if (selected) 1.dp else 3.dp)
         .clip(RoundedCornerShape(6.dp))
-        .background(if (c.enabled) color.copy(alpha = 0.85f) else color.copy(alpha = 0.35f))
-        .border(if (selected) 2.dp else 0.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(6.dp))
-        .pointerInput(c.id) { detectTapGestures(onTap = { m.select(c.id) }, onDoubleTap = { m.select(c.id); m.player.seek(c.startUs) }) }
+        .background(when { !c.enabled -> color.copy(alpha = 0.35f); selected -> color; dimmed -> color.copy(alpha = 0.55f); else -> color.copy(alpha = 0.85f) })
+        .border(if (selected) 3.dp else 0.dp, if (selected) accent else Color.Transparent, RoundedCornerShape(6.dp))
+        // selected as soon as the button is pressed (no need to aim for a clean click)
+        .pointerInput(c.id) { detectTapGestures(onPress = { m.select(c.id, add = ctrlHeld) }, onDoubleTap = { m.select(c.id); m.player.seek(c.startUs) }) }
         .pointerInput(c.id, c.startUs, pps) {
             detectDragGestures(
                 onDragStart = { if (c.id !in m.selection.value) m.select(c.id) },
@@ -217,6 +290,7 @@ private fun ClipBox(m: EditorModel, p: Project, t: Track, tracks: List<Track>, c
             ) { ch, d -> ch.consume(); dx += d.x / density.density; dy += d.y / density.density }
         }
     ) {
+        if (selected) Box(Modifier.align(Alignment.TopStart).fillMaxWidth().height(3.dp).background(accent))
         Column(Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) {
             val label = c.text?.text?.lines()?.firstOrNull() ?: c.name.ifBlank { p.asset(c.assetId)?.displayName ?: "" }
             Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -242,13 +316,13 @@ private fun ClipBox(m: EditorModel, p: Project, t: Track, tracks: List<Track>, c
         // trim handles
         Box(Modifier.align(Alignment.CenterStart).width(7.dp).fillMaxHeight().background(Color.White.copy(alpha = if (selected) 0.5f else 0.15f))
             .pointerInput(c.id, c.startUs, pps) {
-                detectDragGestures(onDragEnd = { if (trimL != 0f) m.trimStart(c.id, c.startUs + toUs(trimL)); trimL = 0f }, onDragCancel = { trimL = 0f }) { ch, d ->
+                detectDragGestures(onDragStart = { m.select(c.id) }, onDragEnd = { if (trimL != 0f) m.trimStart(c.id, c.startUs + toUs(trimL)); trimL = 0f }, onDragCancel = { trimL = 0f }) { ch, d ->
                     ch.consume(); trimL = (trimL + d.x / density.density).coerceAtMost(width - 6f)
                 }
             })
         Box(Modifier.align(Alignment.CenterEnd).width(7.dp).fillMaxHeight().background(Color.White.copy(alpha = if (selected) 0.5f else 0.15f))
             .pointerInput(c.id, c.startUs, c.durationUs, pps) {
-                detectDragGestures(onDragEnd = { if (trimR != 0f) m.trimEnd(c.id, c.endUs + toUs(trimR)); trimR = 0f }, onDragCancel = { trimR = 0f }) { ch, d ->
+                detectDragGestures(onDragStart = { m.select(c.id) }, onDragEnd = { if (trimR != 0f) m.trimEnd(c.id, c.endUs + toUs(trimR)); trimR = 0f }, onDragCancel = { trimR = 0f }) { ch, d ->
                     ch.consume(); trimR = (trimR + d.x / density.density).coerceAtLeast(-(width - 6f))
                 }
             })

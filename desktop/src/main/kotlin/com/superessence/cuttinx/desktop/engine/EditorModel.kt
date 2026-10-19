@@ -153,9 +153,48 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
     }
 
     fun updateClip(label: String, key: String? = null, f: (Clip) -> Clip) {
-        val id = selection.value.firstOrNull() ?: return
+        val id = selection.value.firstOrNull() ?: clipUnderPlayhead()?.also { select(it) } ?: run {
+            message.value = "Sélectionne d'abord un élément dans la timeline (ou place la tête de lecture sur un clip)"; return
+        }
         edit(label, key) { TimelineEditor.updateClip(it, id, f) }
     }
+
+    /** Topmost visible clip at the playhead (used when the user applies something without selecting). */
+    fun clipUnderPlayhead(): String? {
+        val p = current ?: return null
+        val t = playhead
+        return com.superessence.cuttinx.core.render.FrameEvaluator.visualLayers(p, t).lastOrNull()?.clip?.id
+            ?: p.allClips.firstOrNull { t >= it.startUs && t < it.endUs }?.id
+    }
+
+    // ------------------------------------------------------------------ timeline navigation
+
+    /** Timeline zoom in dp per second (shared by the toolbar, the mouse wheel and the shortcuts). */
+    val zoom = MutableStateFlow(70f)
+    fun zoomBy(f: Float) { zoom.value = (zoom.value * f).coerceIn(4f, 600f) }
+    /** Incremented to ask the timeline to fit the whole montage in view. */
+    val fitRequest = MutableStateFlow(0)
+
+    /** Jumps the playhead to the previous / next cut (clip edges and markers). */
+    fun jumpEdit(forward: Boolean) {
+        val p = current ?: return
+        val t = playhead
+        val pts = (p.allClips.flatMap { listOf(it.startUs, it.endUs) } + p.markers.map { it.timeUs } + 0L).distinct().sorted()
+        val target = if (forward) pts.firstOrNull { it > t + 1000 } else pts.lastOrNull { it < t - 1000 }
+        if (target != null) player.seek(target)
+    }
+
+    /** Selects the next / previous clip in time order (Tab navigation). */
+    fun selectNext(back: Boolean = false) {
+        val p = current ?: return
+        val clips = p.allClips.sortedWith(compareBy({ it.startUs }, { it.id }))
+        if (clips.isEmpty()) return
+        val i = clips.indexOfFirst { it.id in selection.value }
+        val n = if (i < 0) (if (back) clips.lastIndex else 0) else (i + if (back) -1 else 1).mod(clips.size)
+        select(clips[n].id); player.seek(clips[n].startUs)
+    }
+
+    fun selectAll() { current?.let { p -> selection.value = p.allClips.map { it.id }.toSet() } }
 
     // ------------------------------------------------------------------ keyframes
 

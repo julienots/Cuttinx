@@ -31,6 +31,7 @@ import com.superessence.cuttinx.core.brand.*
 import com.superessence.cuttinx.core.overlay.OverlayThemes
 import com.superessence.cuttinx.ui.theme.LocalCx
 import com.superessence.cuttinx.ui.twitch.StudioViewModel
+import com.superessence.cuttinx.ui.twitch.BrandVisual
 
 /** Accent of the identity space. */
 val IdPink = Color(0xFFFF4FA3)
@@ -74,7 +75,8 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
 
     var tuto by remember { mutableStateOf(false) }
     if (tuto) com.superessence.cuttinx.ui.help.FilmPlayerDialog(com.superessence.cuttinx.core.tutorial.Tutorials["brand"]!!) { tuto = false }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) {
+    // centred readable column on tablets
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 920.dp).padding(horizontal = 14.dp, vertical = 8.dp)) {
         msg?.let { m -> Text(m, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(IdPink.copy(alpha = 0.18f)).clickable { vm.message.value = null }.padding(10.dp), fontSize = 13.sp) }
         Row(Modifier.clip(RoundedCornerShape(50)).background(IdPink.copy(alpha = 0.15f)).clickable { tuto = true }.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(CxIcons.Play, null, Modifier.size(14.dp), tint = IdPink); Spacer(Modifier.width(6.dp))
@@ -119,6 +121,32 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
             Button({ seed++; generate() }, colors = ButtonDefaults.buttonColors(containerColor = IdPink, contentColor = Color.White)) { Text("Autre proposition") }
             OutlinedButton({ showForm = true }) { Text("Modifier mes réponses") }
         }
+        Label("TES VISUELS PRÊTS À PUBLIER")
+        val visuals = remember(k) {
+            fun render(w: Int, h: Int, draw: (com.superessence.cuttinx.core.gfx.Gfx) -> Unit) = vm.raster.frame(w, h).also { it.gfx.clear(0); draw(it.gfx) }.bitmap.asImageBitmap()
+            listOf(
+                Triple("Photo de profil", BrandVisual.AVATAR, render(240, 240) { vm.board.drawAvatar(it, k, 240f) }),
+                Triple("Bannière YouTube", BrandVisual.YOUTUBE, render(480, 270) { g -> g.scale(480f / 2560f, 480f / 2560f); vm.board.drawYoutubeBanner(g, k) }),
+                Triple("Miniature vidéo", BrandVisual.THUMBNAIL, render(480, 270) { g -> g.scale(480f / 1280f, 480f / 1280f); vm.board.drawThumbnail(g, k) }),
+            ) + k.highlights.indices.map { i -> Triple("Story à la une : ${k.highlights[i]}", BrandVisual.HIGHLIGHT, render(160, 160) { vm.board.drawHighlight(it, k, i, 160f) }) }
+        }
+        var exportVisual by remember { mutableStateOf<Pair<BrandVisual, Int>?>(null) }
+        val visualLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri -> val v = exportVisual; if (uri != null && v != null) vm.exportBrandVisual(uri, v.first, v.second) }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            visuals.forEachIndexed { idx, (label, kind, img) ->
+                val hi = if (kind == BrandVisual.HIGHLIGHT) idx - 3 else 0
+                Column(Modifier.width(if (img.width > img.height) 200.dp else 110.dp).clip(RoundedCornerShape(10.dp)).background(LocalCx.current.panel2)
+                    .clickable { exportVisual = kind to hi; visualLauncher.launch("${kind.file}-${k.brief.name}.png") }.padding(6.dp)) {
+                    Image(img, label, Modifier.fillMaxWidth().aspectRatio(img.width / img.height.toFloat()).clip(RoundedCornerShape(if (kind == BrandVisual.AVATAR || kind == BrandVisual.HIGHLIGHT) 100.dp else 6.dp)))
+                    Text(label, fontSize = 10.sp, maxLines = 2, lineHeight = 12.sp)
+                    Text("Enregistrer", color = IdPink, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        if (k.handles.isNotEmpty()) {
+            Label("PSEUDOS DISPONIBLES À ESSAYER (touche pour copier)")
+            PinkChips(k.handles, { false }, { it }, { h -> copy(ctx, h); vm.message.value = "$h copié" })
+        }
         Label("PALETTE (touche pour copier)")
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             k.palette.forEach { c ->
@@ -146,6 +174,14 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
             Text(p.name, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
             Text(p.description, color = LocalCx.current.dim, fontSize = 12.sp)
             p.ideas.forEach { IconLine(CxIcons.Idea, it, IdPink) }
+        }
+        if (k.weekPlan.isNotEmpty()) {
+            Label("TA SEMAINE TYPE")
+            k.weekPlan.forEach { IconLine(CxIcons.Calendar, it, IdPink) }
+        }
+        if (k.highlights.isNotEmpty()) {
+            Label("STORIES À LA UNE")
+            Text(k.highlights.joinToString(" · "), fontSize = 13.sp)
         }
         Label("HASHTAGS")
         val tags = k.hashtags.joinToString(" ")

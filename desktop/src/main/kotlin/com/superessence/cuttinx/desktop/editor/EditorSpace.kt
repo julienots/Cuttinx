@@ -4,6 +4,9 @@ import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.key.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -62,11 +65,13 @@ private fun ProjectsScreen(m: EditorModel) {
     var fps by remember { mutableStateOf(30) }
     LaunchedEffect(Unit) { m.refreshProjects() }
     Row(Modifier.fillMaxSize()) {
-        Column(Modifier.width(380.dp).fillMaxHeight().background(Cx.Panel).padding(20.dp)) {
+        Column(Modifier.width(380.dp).fillMaxHeight().background(Cx.Panel)) {
+        // the create button stays visible whatever the window height; the options scroll above it
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp)) {
             Text("Nouveau montage", fontSize = 22.sp, fontWeight = FontWeight.Black)
             Hint("Montage vidéo pro : découpe, effets, transitions, textes animés, musique, bruitages, voix, export MP4.")
             Spacer(Modifier.height(14.dp))
-            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Nom du projet") })
+            OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().onPreviewKeyEvent { e -> if (e.key == Key.Enter && e.type == KeyEventType.KeyDown) { m.create(name, aspect, fps); name = ""; true } else false }, singleLine = true, label = { Text("Nom du projet") })
             Title("FORMAT")
             formats.forEach { (a, label, ratio) ->
                 val sel = a == aspect
@@ -82,15 +87,20 @@ private fun ProjectsScreen(m: EditorModel) {
             }
             Title("IMAGES PAR SECONDE")
             Chips(listOf(24, 25, 30, 50, 60), fps, { "$it i/s" }, { fps = it })
-            Spacer(Modifier.height(18.dp))
-            Button({ m.create(name, aspect, fps); name = "" }, Modifier.fillMaxWidth().height(48.dp)) { Text("Créer le projet", fontWeight = FontWeight.Bold) }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton({ openFiles("Importer un projet CUTTINX", listOf("cuttinx", "zip"), multiple = false).firstOrNull()?.let { m.importArchive(it) } }, Modifier.fillMaxWidth()) { Text("Importer un projet (.cuttinx du téléphone)") }
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(12.dp))
             Hint("Tes projets sont enregistrés automatiquement dans ${m.home.absolutePath}")
         }
+        Column(Modifier.fillMaxWidth().background(Cx.Panel2).padding(16.dp)) {
+            Button({ m.create(name, aspect, fps); name = "" }, Modifier.fillMaxWidth().height(52.dp)) { Icon(CxIcons.Add, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Créer le projet", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton({ openFiles("Importer un projet CUTTINX", listOf("cuttinx", "zip"), multiple = false).firstOrNull()?.let { m.importArchive(it) } }, Modifier.fillMaxWidth()) { Text("Importer un projet (.cuttinx du téléphone)") }
+        }
+        }
         Column(Modifier.weight(1f).fillMaxHeight().padding(20.dp)) {
-            Text("Mes projets", fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Mes projets", Modifier.weight(1f), fontSize = 22.sp, fontWeight = FontWeight.Black)
+                Button({ m.create(name, aspect, fps); name = "" }) { Icon(CxIcons.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Nouveau projet", fontWeight = FontWeight.Bold) }
+            }
             Spacer(Modifier.height(12.dp))
             if (projects.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
