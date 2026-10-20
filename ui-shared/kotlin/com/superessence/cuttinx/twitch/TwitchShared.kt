@@ -162,9 +162,10 @@ private fun itemIcon(t: ItemType) = when (t) { ItemType.IMAGE -> CxIcons.Image; 
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (Sel?) -> Unit, onChange: (OverlayConfig, String?) -> Unit, onPickImages: (replaceId: String?) -> Unit,
+fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (Sel?) -> Unit, onChange: (OverlayConfig, String?) -> Unit,
                   /** true = a single canvas (Studio Créateur): no built-in elements, no "other scenes". */
-                  canvasOnly: Boolean = false) {
+                  canvasOnly: Boolean = false,
+                  onPickImages: (replaceId: String?) -> Unit) {
     if (scene == null) {
         Text("Choisis une scène, un cadre ou une alerte au-dessus pour y ajouter des images, des textes et des stickers.", fontSize = 12.sp)
         return

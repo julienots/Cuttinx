@@ -257,7 +257,7 @@ private fun Editor(state: CreatorState, d: CreatorDesign, kit: BrandKit?, previe
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
                 state.message?.let { m -> Text(m, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(CreatorAccent.copy(alpha = 0.18f)).clickable { state.message = null }.padding(10.dp), fontSize = 13.sp) }
                 when (tab) {
-                    0 -> ElementsPanel(d.asConfig(), scene, state.sel, { state.sel = it }, { c, k -> state.setConfig(c, k) }, pickPictures, canvasOnly = true)
+                    0 -> ElementsPanel(d.asConfig(), scene, state.sel, { state.sel = it }, { c, k -> state.setConfig(c, k) }, canvasOnly = true, onPickImages = pickPictures)
                     1 -> BackgroundTab(state, d, pickBackground)
                     2 -> ColorsTab(state, d, kit)
                     3 -> TemplatesTab(state, d, kit, preview)
