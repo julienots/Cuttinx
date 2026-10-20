@@ -179,7 +179,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 val cfg = if (hd) config.value.copy(width = 1920, height = 1080) else config.value.copy(width = 1280, height = 720)
                 val dir = ObsExporter(raster, renderer).exportPack(theme, cfg, tmp, PackOptions(stingers = stingers, fps = fps, countdownMinutes = minutes)) { p, l -> progress.value = PackProgress(p * 0.95f, l) }
-                progress.value = PackProgress(0.96f, "Compression du pack…")
+                progress.value = PackProgress(0.96f, "Compression du pack (HTML, GIF et PNG animés)…")
                 getApplication<Application>().contentResolver.openOutputStream(target)!!.use { out ->
                     ZipOutputStream(out.buffered()).use { zip ->
                         dir.walkTopDown().filter { it.isFile }.forEach { f ->
@@ -194,6 +194,66 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             tmp.deleteRecursively()
             progress.value = null
         }
+    }
+
+    /**
+     * Exports one element animated, as a .zip for OBS / Streamlabs: HTML (browser source), animated
+     * GIF (Image source, Streamlabs alert box) and animated PNG. A still element gives its PNG.
+     */
+    fun exportElement(target: Uri, scene: SceneKind?, stinger: StingerStyle?, hd: Boolean, fps: Int, minutes: Int) {
+        if (progress.value != null) return
+        progress.value = PackProgress(0f, "Préparation…")
+        viewModelScope.launch(Dispatchers.Default) {
+            val tmp = File(getApplication<Application>().cacheDir, "element").also { it.deleteRecursively(); it.mkdirs() }
+            runCatching {
+                val cfg = if (hd) config.value.copy(width = 1920, height = 1080) else config.value.copy(width = 1280, height = 720)
+                val dir = ObsExporter(raster, renderer).exportElement(theme, cfg, tmp, scene, stinger, PackOptions(fps = fps, countdownMinutes = minutes)) { p, l -> progress.value = PackProgress(p * 0.95f, l) }
+                zip(dir, target)
+            }.onSuccess { message.value = "Élément animé enregistré (.html, .gif, PNG animé). Ouvre le .gif pour voir l'animation." }
+                .onFailure { message.value = "Export impossible : ${it.message}" }
+            tmp.deleteRecursively()
+            progress.value = null
+        }
+    }
+
+    /** Saves the element as an animated GIF (plays in the gallery, OBS « Image », Streamlabs alert box). */
+    fun exportGif(target: Uri, scene: SceneKind?, stinger: StingerStyle?) {
+        if (progress.value != null) return
+        progress.value = PackProgress(0.1f, "GIF animé…")
+        viewModelScope.launch(Dispatchers.Default) {
+            val tmp = File(getApplication<Application>().cacheDir, "anim.gif")
+            runCatching {
+                val cfg = config.value.copy(width = 1280, height = 720)
+                val th = cfg.styled(theme)
+                val ex = ObsExporter(raster, renderer)
+                when {
+                    stinger != null -> ex.renderGif(cfg, tmp, OverlayAnim.STINGER_SEC, 20) { g, t -> renderer.drawStinger(g, th, cfg, stinger, t) }
+                    scene != null -> ex.renderGif(cfg, tmp, OverlayAnim.LOOP_SEC, 15) { g, t -> renderer.drawScene(g, th, cfg, scene, t) }
+                    else -> error("choisis une scène, une alerte ou une transition")
+                }
+                getApplication<Application>().contentResolver.openOutputStream(target)!!.use { out -> tmp.inputStream().use { it.copyTo(out) } }
+            }.onSuccess { message.value = "GIF animé enregistré" }.onFailure { message.value = "Export impossible : ${it.message}" }
+            tmp.delete()
+            progress.value = null
+        }
+    }
+
+    private fun zip(dir: File, target: Uri) {
+        getApplication<Application>().contentResolver.openOutputStream(target)!!.use { out ->
+            ZipOutputStream(out.buffered()).use { zip ->
+                dir.walkTopDown().filter { it.isFile }.forEach { f ->
+                    zip.putNextEntry(ZipEntry(dir.name + "/" + f.relativeTo(dir).path.replace('\\', '/')))
+                    f.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
+            }
+        }
+    }
+
+    /** Photo as the background of one animated scene. */
+    fun importSceneBackground(uri: Uri, scene: SceneKind) = pickPictures(listOf(uri)) { pics ->
+        val p = pics.first()
+        update { c -> c.copy(backgrounds = c.backgrounds + (scene to c.backgroundOf(scene).copy(kind = SceneBgKind.IMAGE, image = p.b64, imageAspect = p.height.toFloat() / p.width))) }
     }
 
     /** Saves one scene as a PNG. */

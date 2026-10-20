@@ -54,7 +54,7 @@ object OverlayLayout {
         return cfg.copy(zoneMoves = cfg.zoneMoves + (k to m))
     }
 
-    private fun mirrored(cfg: OverlayConfig, scene: SceneKind, kind: ZoneKind) = !cfg.cameraRight && kind != ZoneKind.TITLE && scene != SceneKind.VERTICAL
+    private fun mirrored(cfg: OverlayConfig, scene: SceneKind, kind: ZoneKind) = !cfg.cameraRight && !scene.fullBackground && kind != ZoneKind.TITLE && scene != SceneKind.VERTICAL
 
     /** Shows / hides a built-in element on one scene. */
     fun setHidden(cfg: OverlayConfig, scene: SceneKind, kind: ZoneKind, hidden: Boolean) =
@@ -126,6 +126,8 @@ object OverlayLayout {
             Zone(ZoneKind.TITLE, 260f, 330f, 1400f, 260f),
             Zone(ZoneKind.INFO, 460f, 620f, 1000f, 120f),
             Zone(ZoneKind.SOCIALS, 360f, 900f, 1200f, 90f),
+            Zone(ZoneKind.BADGE, 60f, 56f, 260f, 46f),
+            Zone(ZoneKind.CHANNEL, 1200f, 50f, 660f, 60f),
         )
     }
 }

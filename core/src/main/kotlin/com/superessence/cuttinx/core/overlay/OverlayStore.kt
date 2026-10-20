@@ -24,7 +24,8 @@ class OverlayStore(private val dir: File) {
             runCatching { json.decodeFromString(OverlayConfig.serializer(), f.readText()) }.getOrNull()
         } ?: return null
         fun pic(ref: String?): String? = if (ref != null && ref.startsWith(REF)) runCatching { File(pics, ref.removePrefix(REF)).readText() }.getOrNull() else ref
-        return cfg.copy(logo = pic(cfg.logo), items = cfg.items.map { it.copy(data = pic(it.data) ?: "") })
+        return cfg.copy(logo = pic(cfg.logo), items = cfg.items.map { it.copy(data = pic(it.data) ?: "") },
+            backgrounds = cfg.backgrounds.mapValues { (_, b) -> b.copy(image = pic(b.image) ?: "") })
     }
 
     /** Writes [cfg]; throws when the disk refuses (the caller tells the user). */
@@ -39,7 +40,8 @@ class OverlayStore(private val dir: File) {
             if (!f.isFile || f.length() != b64.length.toLong()) write(f, b64)
             return REF + name
         }
-        val slim = cfg.copy(logo = ref(cfg.logo), items = cfg.items.map { it.copy(data = ref(it.data) ?: "") })
+        val slim = cfg.copy(logo = ref(cfg.logo), items = cfg.items.map { it.copy(data = ref(it.data) ?: "") },
+            backgrounds = cfg.backgrounds.mapValues { (_, b) -> b.copy(image = ref(b.image) ?: "") })
         val text = json.encodeToString(OverlayConfig.serializer(), slim)
         if (file.isFile) runCatching { Files.copy(file.toPath(), File(dir, "overlay.json.bak").toPath(), StandardCopyOption.REPLACE_EXISTING) }
         write(file, text)

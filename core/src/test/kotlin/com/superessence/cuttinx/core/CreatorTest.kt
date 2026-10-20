@@ -45,3 +45,25 @@ class CreatorTest {
         } finally { dir.deleteRecursively() }
     }
 }
+
+class GifTest {
+    @Test fun animatedGifIsReadable() {
+        val w = 64; val h = 40; val n = 12
+        val out = java.io.ByteArrayOutputStream()
+        val gif = com.superessence.cuttinx.core.overlay.export.GifWriter(out, w, h, 20)
+        fun frame(i: Int) = IntArray(w * h) { p -> val x = p % w; val y = p / w; if (x < i * 4) 0 else (0xFF shl 24) or ((x * 4) shl 16) or ((y * 6) shl 8) or (i * 20) }
+        gif.palette(listOf(frame(0), frame(6)))
+        for (i in 0 until n) gif.addFrame(frame(i))
+        gif.finish()
+        val reader = javax.imageio.ImageIO.getImageReadersByFormatName("gif").next()
+        reader.input = javax.imageio.ImageIO.createImageInputStream(java.io.ByteArrayInputStream(out.toByteArray()))
+        assertEquals(n, reader.getNumImages(true))
+        val last = reader.read(n - 1)
+        assertEquals(w, last.width)
+        // transparent where the frame is transparent, coloured elsewhere
+        assertEquals(0, last.getRGB(2, 2) ushr 24)
+        val c = last.getRGB(60, 30)
+        assertEquals(255, c ushr 24)
+        assertTrue(kotlin.math.abs(60 * 4 - ((c shr 16) and 255)) <= 20)
+    }
+}

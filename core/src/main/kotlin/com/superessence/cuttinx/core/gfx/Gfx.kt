@@ -37,6 +37,8 @@ interface Frame {
     val width: Int
     val height: Int
     fun png(): ByteArray
+    /** Pixels as non-premultiplied 0xAARRGGBB, row by row (animated GIF / video exports). */
+    fun argb(): IntArray
 }
 
 /** Platform services: offscreen surfaces and bundled font files. */

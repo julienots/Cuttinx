@@ -109,6 +109,11 @@ fun TwitchScreen(vm: StudioViewModel) {
         if (uri != null && id != null) vm.importImages(listOf(uri), scene, id) { sel = Sel.Item(it) }
     }
 
+    val bgPic = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val sc = scene
+        if (uri != null && sc != null) vm.importSceneBackground(uri, sc)
+    }
+
     // the preview + element pickers, and the editing tabs: side by side on tablets, stacked on phones
     val previewPart: @Composable (Modifier, Modifier) -> Unit = { mod, previewMod ->
         Column(mod) {
@@ -178,7 +183,7 @@ fun TwitchScreen(vm: StudioViewModel) {
                     2 -> ColorsEditor(vm, cfg)
                     3 -> StyleEditor(vm, cfg)
                     4 -> TextsEditor(vm, cfg, target, minutes) { minutes = it }
-                    TAB_ELEMENTS -> ElementsPanel(cfg, scene, sel, { sel = it }, { c, k -> vm.set(c, k) }) { rid ->
+                    TAB_ELEMENTS -> ElementsPanel(cfg, scene, sel, { sel = it }, { c, k -> vm.set(c, k) }, onPickBackground = { bgPic.launch("image/*") }) { rid ->
                         if (rid == null) addPics.launch("image/*") else { replaceId = rid; replacePic.launch("image/*") }
                     }
                     else -> ExportPanel(vm, target, minutes, progress)
@@ -456,8 +461,17 @@ private fun ExportPanel(vm: StudioViewModel, target: Target, minutes: Int, progr
     Spacer(Modifier.height(6.dp))
     BlueChips(listOf(24, 30), { it == fps }, { "$it i/s" }, { fps = it })
     Spacer(Modifier.height(12.dp))
-    Button({ pack.launch("CuttinxPRO_${cfg.channel}_${vm.theme.id}.zip") }, Modifier.fillMaxWidth(), enabled = progress == null, colors = ButtonDefaults.buttonColors(containerColor = TwitchBlue, contentColor = Color.White)) { Text("Exporter le pack OBS (.zip)") }
-    OutlinedButton({ png.launch("$elementName.png") }, Modifier.fillMaxWidth()) { Text("Enregistrer « $elementName » en PNG") }
+    Button({ pack.launch("CuttinxPRO_${cfg.channel}_${vm.theme.id}.zip") }, Modifier.fillMaxWidth(), enabled = progress == null, colors = ButtonDefaults.buttonColors(containerColor = TwitchBlue, contentColor = Color.White)) { Text("Exporter le pack OBS / Streamlabs animé (.zip)") }
+    val animatedTarget = target is Target.Scene || target is Target.Stinger
+    val sceneOf = (target as? Target.Scene)?.kind; val stingerOf = (target as? Target.Stinger)?.style
+    val elementZip = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> if (uri != null) vm.exportElement(uri, sceneOf, stingerOf, hd, fps, minutes) }
+    val gif = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/gif")) { uri -> if (uri != null) vm.exportGif(uri, sceneOf, stingerOf) }
+    if (animatedTarget) {
+        Button({ elementZip.launch("$elementName (animé).zip") }, Modifier.fillMaxWidth(), enabled = progress == null, colors = ButtonDefaults.buttonColors(containerColor = TwitchBlue, contentColor = Color.White)) { Text("Exporter « $elementName » animé (.zip)") }
+        OutlinedButton({ gif.launch("$elementName.gif") }, Modifier.fillMaxWidth(), enabled = progress == null) { Text("Enregistrer « $elementName » en GIF animé") }
+        Text("Animé dans OBS et Streamlabs : .html (source Navigateur), .gif (source Image, Alert Box Streamlabs), PNG animé (source Média). Les vidéos WebM transparentes se font avec l'appli PC.", color = LocalCx.current.dim, fontSize = 11.sp)
+    }
+    OutlinedButton({ png.launch("$elementName.png") }, Modifier.fillMaxWidth()) { Text("Enregistrer « $elementName » en PNG (image fixe)") }
     progress?.let {
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator({ it.fraction }, Modifier.fillMaxWidth(), color = TwitchBlue)

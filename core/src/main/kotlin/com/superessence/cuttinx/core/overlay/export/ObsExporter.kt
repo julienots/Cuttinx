@@ -17,7 +17,16 @@ data class PackOptions(
     val countdownMinutes: Int = 5,
     /** Twitch profile panels and banners (profile + offline). */
     val profile: Boolean = true,
+    /** Animated GIF copies (play everywhere: file explorer, phone, OBS « Image », Streamlabs alert box). */
+    val gif: Boolean = true,
+    /** Transparent video writer (PC: WebM VP9 with alpha), null when the platform has none. */
+    val video: VideoSink? = null,
 )
+
+/** Writes the frames (non-premultiplied ARGB) as a transparent video file. */
+fun interface VideoSink {
+    fun write(file: File, width: Int, height: Int, fps: Int, frames: Sequence<IntArray>)
+}
 
 /**
  * Exports ready-to-use OBS files:
@@ -53,6 +62,103 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
         }
     }
 
+    /** Renders an animation as an animated GIF, at most [maxWidth] wide (light, plays everywhere). */
+    fun renderGif(cfg: OverlayConfig, file: File, seconds: Double, fps: Int, maxWidth: Int = 960, draw: (Gfx, Double) -> Unit) {
+        val k = minOf(1f, maxWidth.toFloat() / cfg.width)
+        val w = (cfg.width * k).toInt().coerceAtLeast(1); val h = (cfg.height * k).toInt().coerceAtLeast(1)
+        val n = OverlayAnim.frameCount(seconds, fps)
+        val f = raster.frame(w, h)
+        fun frame(i: Int): IntArray { f.gfx.clear(0); f.gfx.save(); f.gfx.scale(k, k); draw(f.gfx, i.toDouble() / fps); f.gfx.restore(); return f.argb() }
+        file.parentFile?.mkdirs()
+        file.outputStream().buffered().use { out ->
+            val gif = GifWriter(out, w, h, fps)
+            gif.palette((0 until 6).map { frame(it * n / 6) })
+            for (i in 0 until n) gif.addFrame(frame(i))
+            gif.finish()
+        }
+    }
+
+    /** Frames of an animation for a [VideoSink], rendered one by one. */
+    fun frames(cfg: OverlayConfig, seconds: Double, fps: Int, draw: (Gfx, Double) -> Unit): Sequence<IntArray> = sequence {
+        val f = raster.frame(cfg.width, cfg.height)
+        for (i in 0 until OverlayAnim.frameCount(seconds, fps)) { f.gfx.clear(0); draw(f.gfx, i.toDouble() / fps); yield(f.argb()) }
+    }
+
+    /**
+     * Every animated format of one element, side by side in [dir]: `base.png` (animated PNG),
+     * `base.html` (OBS / Streamlabs browser source), `base.gif` and `base.webm` (transparent video, PC).
+     */
+    fun exportAnimation(cfg: OverlayConfig, dir: File, base: String, seconds: Double, opt: PackOptions, onFrame: (Int, Int) -> Unit = { _, _ -> }, draw: (Gfx, Double) -> Unit) {
+        dir.mkdirs()
+        renderApng(cfg, File(dir, "$base.png"), seconds, opt.fps, onFrame, draw)
+        File(dir, "$base.html").writeText(animatedHtml(cfg, "$base.png"))
+        if (opt.gif) renderGif(cfg, File(dir, "$base.gif"), seconds, minOf(opt.fps, 20), draw = draw)
+        opt.video?.let { v -> runCatching { v.write(File(dir, "$base.webm"), cfg.width, cfg.height, opt.fps, frames(cfg, seconds, opt.fps, draw)) } }
+    }
+
+    /** Browser source page that plays an animated PNG in a loop, transparent around it. */
+    fun animatedHtml(cfg: OverlayConfig, file: String) = """<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Cuttinx PRO</title>
+<style>html, body { margin: 0; width: ${cfg.width}px; height: ${cfg.height}px; overflow: hidden; background: transparent; }
+img { position: absolute; left: 0; top: 0; width: ${cfg.width}px; height: ${cfg.height}px; }</style></head>
+<body><img src="$file" alt=""></body></html>
+"""
+
+    /**
+     * Exports one element on its own, animated when it moves: a scene, a frame, a widget, an
+     * alert or a transition. Returns the folder.
+     */
+    fun exportElement(theme0: OverlayTheme, cfg: OverlayConfig, root: File, scene: SceneKind?, stinger: StingerStyle?, opt: PackOptions, progress: (Float, String) -> Unit = { _, _ -> }): File {
+        val theme = cfg.styled(theme0)
+        val name = slug(scene?.label ?: stinger?.label ?: "element")
+        val dir = File(root, "CuttinxPRO_$name").also { it.mkdirs() }
+        val onFrame: (Int, Int) -> Unit = { a, b -> progress(a / b.toFloat() * 0.9f, "Image $a / $b") }
+        when {
+            stinger != null -> exportAnimation(cfg, dir, name, OverlayAnim.STINGER_SEC, opt.copy(fps = 30), onFrame) { c, t -> renderer.drawStinger(c, theme, cfg, stinger, t) }
+            scene != null && scene.fullBackground -> {
+                exportAnimation(cfg, dir, name, OverlayAnim.LOOP_SEC, opt, onFrame) { c, t -> renderer.drawScene(c, theme, cfg, scene, t) }
+                // the live countdown version for the starting scene
+                File(dir, "fond.png").writeBytes(renderPng(cfg) { c -> renderer.drawScene(c, theme, cfg, scene, 0.0, OverlayRenderer.Layer.STATIC, countdown = null) })
+                renderApng(cfg, File(dir, "animation.png"), OverlayAnim.LOOP_SEC, opt.fps) { c, t -> renderer.drawScene(c, theme, cfg, scene, t, OverlayRenderer.Layer.MOVING) }
+                val fontId = FontId.of(theme.font)
+                raster.fontBytes(fontId)?.let { File(dir, "polices/${fontId.file}").also { f -> f.parentFile.mkdirs() }.writeBytes(it) }
+                File(dir, "scene.html").writeText(sceneHtml(theme, cfg, scene, fontId.file, opt.countdownMinutes).replace("../../polices/", "polices/"))
+            }
+            scene != null && (scene.animated || cfg.itemsOf(scene).any { !it.hidden && it.anim != ItemAnim.NONE }) -> {
+                val sc = if (scene == SceneKind.VERTICAL) cfg.copy(width = cfg.height * 9 / 16 / 2 * 2, height = cfg.height) else cfg
+                exportAnimation(sc, dir, name, OverlayAnim.LOOP_SEC, opt, onFrame) { c, t -> renderer.drawScene(c, theme, sc, scene, t) }
+            }
+            scene != null -> {
+                val sc = if (scene == SceneKind.VERTICAL) cfg.copy(width = cfg.height * 9 / 16 / 2 * 2, height = cfg.height) else cfg
+                File(dir, "$name.png").writeBytes(renderPng(sc) { c -> renderer.drawScene(c, theme, sc, scene, 0.0) })
+            }
+        }
+        File(dir, "LISEZ-MOI.txt").writeText(elementReadme(scene, stinger, name, opt.video != null))
+        progress(1f, "Terminé")
+        return dir
+    }
+
+    private fun elementReadme(scene: SceneKind?, stinger: StingerStyle?, name: String, video: Boolean) = """
+CUTTINX PRO — ${scene?.label ?: stinger?.label}
+=================================================
+
+Fichiers (fond transparent, animation en boucle) :
+  • $name.html  → OBS : Sources > + > « Navigateur » > Fichier local.
+                  Streamlabs : + Source > « Source navigateur » > Fichier local.
+  • $name.png   → PNG animé (OBS « Source média », navigateurs, Discord).
+  • $name.gif   → GIF animé : se lit partout. OBS : Source « Image ». Streamlabs : Alert Box > Image.
+${if (video) VIDEO_LINE.replace("NAME", name) else ""}${if (stinger != null) TRANSITION_LINE else ""}${if (scene?.fullBackground == true) SCENE_LINE else ""}
+Un élément sans animation est exporté en PNG simple (source « Image »).
+""".trimStart()
+
+    private companion object {
+        const val VIDEO_LINE = """  • NAME.webm  → Vidéo transparente : OBS « Source média » (Lecture en boucle) ou « Stinger » pour une
+                  transition. Streamlabs : Source média, Alert Box > Image/Vidéo, Transition Stinger.
+"""
+        val TRANSITION_LINE = "\nTransition : point de transition à ${(OverlayAnim.STINGER_COVER_SEC * 1000).toInt()} ms.\n"
+        const val SCENE_LINE = "\nscene.html = fond + animation + compte à rebours en direct (scene.html?min=10 pour 10 minutes).\n"
+    }
+
     fun slug(s: String) = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "").replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "scene" }
 
     /** Exports the whole pack into [root]/CuttinxPRO_<chaîne>_<thème>. Returns the folder. */
@@ -82,11 +188,14 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
             // the vertical live layout is exported upright (9:16)
             val sc = if (s == SceneKind.VERTICAL) cfg.copy(width = cfg.height * 9 / 16 / 2 * 2, height = cfg.height) else cfg
             f.writeBytes(renderPng(sc) { c -> renderer.drawScene(c, theme, sc, s, 0.0) })
+            // frames with animated pictures / texts / stickers also get their animated versions
+            if (cfg.itemsOf(s).any { !it.hidden && it.anim != ItemAnim.NONE })
+                exportAnimation(sc, f.parentFile, f.nameWithoutExtension + "_anime", OverlayAnim.LOOP_SEC, opt) { c, t -> renderer.drawScene(c, theme, sc, s, t) }
             done++
         }
         // ------------------------------------------------ animated widgets (ticker, socials pop-up)
         for (s in widgets) {
-            renderApng(cfg, File(dir, "widgets/${slug(s.label)}.png"), OverlayAnim.LOOP_SEC, opt.fps, { a, b -> progress((done + a / b.toFloat()) / steps, "${s.label} ($a/$b)") }) { c, t ->
+            exportAnimation(cfg, File(dir, "widgets"), slug(s.label), OverlayAnim.LOOP_SEC, opt, { a, b -> progress((done + a / b.toFloat()) / steps, "${s.label} ($a/$b)") }) { c, t ->
                 renderer.drawScene(c, theme, cfg, s, t)
             }
             done++
@@ -102,11 +211,13 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
                 renderer.drawScene(c, theme, cfg, s, t, OverlayRenderer.Layer.MOVING)
             }
             File(sd, "scene.html").writeText(sceneHtml(theme, cfg, s, fontFile, opt.countdownMinutes))
+            if (opt.gif) renderGif(cfg, File(sd, "scene.gif"), OverlayAnim.LOOP_SEC, minOf(opt.fps, 20)) { c, t -> renderer.drawScene(c, theme, cfg, s, t) }
+            opt.video?.let { v -> runCatching { v.write(File(sd, "scene.webm"), cfg.width, cfg.height, opt.fps, frames(cfg, OverlayAnim.LOOP_SEC, opt.fps) { c, t -> renderer.drawScene(c, theme, cfg, s, t) }) } }
             done++
         }
         // ------------------------------------------------ alerts
         for (al in alerts) {
-            renderApng(cfg, File(dir, "alertes/${alertFile(al)}.png"), OverlayAnim.LOOP_SEC, opt.fps, { a, b -> progress((done + a / b.toFloat()) / steps, "${al.label} ($a/$b)") }) { c, t ->
+            exportAnimation(cfg, File(dir, "alertes"), alertFile(al), OverlayAnim.LOOP_SEC, opt, { a, b -> progress((done + a / b.toFloat()) / steps, "${al.label} ($a/$b)") }) { c, t ->
                 renderer.drawScene(c, theme, cfg, al, t)
             }
             done++
@@ -141,9 +252,10 @@ class ObsExporter(private val raster: Raster, private val renderer: OverlayRende
             renderApng(cfg, File(dir, "transitions/${slug(st.label)}.png"), OverlayAnim.STINGER_SEC, 30, { a, b -> progress((done + a / b.toFloat()) / steps, "Transition « ${st.label} » ($a/$b)") }) { c, t ->
                 renderer.drawStinger(c, theme, cfg, st, t)
             }
+            opt.video?.let { v -> runCatching { v.write(File(dir, "transitions/${slug(st.label)}.webm"), cfg.width, cfg.height, 30, frames(cfg, OverlayAnim.STINGER_SEC, 30) { c, t -> renderer.drawStinger(c, theme, cfg, st, t) }) } }
             done++
         }
-        File(dir, "LISEZ-MOI.txt").writeText(readme(theme, cfg, animated, layouts, stingers, alerts, opt.profile))
+        File(dir, "LISEZ-MOI.txt").writeText(readme(theme, cfg, animated, layouts, stingers, alerts, opt.profile) + streamlabsReadme(opt.video != null))
         progress(1f, "Terminé")
         return dir
     }
@@ -189,6 +301,24 @@ tick(); setInterval(tick, 250);
 </body></html>
 """
     }
+
+    private fun streamlabsReadme(video: Boolean) = """
+
+=====================================================================
+STREAMLABS DESKTOP (et OBS) — GARDER TOUT ANIMÉ
+=====================================================================
+Chaque élément animé existe en plusieurs formats, à côté les uns des autres :
+  • .html : « Source navigateur » (OBS : Navigateur) > cochez « Fichier local » > choisissez le .html.
+            C'est la meilleure qualité, animation en boucle, fond transparent.
+  • .gif  : se lit partout. Streamlabs : Alert Box > Paramètres de l'alerte > Image > importez le GIF.
+            OBS / Streamlabs : Source « Image » (les GIF y sont animés).
+${if (video) """  • .webm : vidéo transparente. Source « Média » > cochez « Lecture en boucle ». Pour les transitions :
+            Transitions > Stinger > la vidéo .webm du dossier « transitions ».
+""" else """  • Les vidéos .webm transparentes (transitions Stinger) sont créées par l'appli PC CUTTINX PRO.
+"""}  • .png animé : Source média d'OBS, navigateurs, Discord.
+Astuce : un .png animé ou un .gif ouvert dans la visionneuse de Windows peut sembler figé ;
+ouvrez-le dans un navigateur (Chrome, Edge, Firefox) pour voir l'animation.
+"""
 
     private fun readme(theme: OverlayTheme, cfg: OverlayConfig, scenes: List<SceneKind>, layouts: List<SceneKind>, stingers: List<StingerStyle>, alerts: List<SceneKind>, profile: Boolean) = """
 CUTTINX PRO — Pack d'overlays « ${theme.name} » pour ${cfg.channel}

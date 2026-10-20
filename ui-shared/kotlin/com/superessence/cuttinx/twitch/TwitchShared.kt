@@ -165,6 +165,8 @@ private fun itemIcon(t: ItemType) = when (t) { ItemType.IMAGE -> CxIcons.Image; 
 fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (Sel?) -> Unit, onChange: (OverlayConfig, String?) -> Unit,
                   /** true = a single canvas (Studio Créateur): no built-in elements, no "other scenes". */
                   canvasOnly: Boolean = false,
+                  /** Opens the picture picker for the background photo of [scene] (null = not offered). */
+                  onPickBackground: (() -> Unit)? = null,
                   onPickImages: (replaceId: String?) -> Unit) {
     if (scene == null) {
         Text("Choisis une scène, un cadre ou une alerte au-dessus pour y ajouter des images, des textes et des stickers.", fontSize = 12.sp)
@@ -173,6 +175,7 @@ fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (S
     val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
     Text("Clique un élément sur l'aperçu (ou dans la liste) : glisse pour le déplacer, tire un coin pour l'agrandir, le rond pour le tourner. Sur mobile : deux doigts pour agrandir et tourner.",
         fontSize = 12.sp, color = dim)
+    if (!canvasOnly && scene.fullBackground) SceneBackgroundPanel(cfg, scene, onChange, onPickBackground)
     // new elements belong to this scene (or to the whole canvas in the Studio Créateur)
     val home: SceneKind? = if (canvasOnly) null else scene
     Heading(if (canvasOnly) "AJOUTER" else "AJOUTER SUR « ${scene.label.uppercase()} »")
@@ -222,6 +225,44 @@ fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (S
             if (canvasOnly) SmallButton("Tout effacer", { onChange(cfg.copy(items = emptyList()), null); onSelect(null) }, danger = true)
             else if (items.any { it.scene == scene }) SmallButton("Vider la scène", { onChange(cfg.copy(items = cfg.items.filter { it.scene != scene }), null); onSelect(null) }, danger = true)
         }
+    }
+}
+
+/** Background of an animated scene, scene by scene: theme, colour, gradient or photo, and its decorations. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SceneBackgroundPanel(cfg: OverlayConfig, scene: SceneKind, onChange: (OverlayConfig, String?) -> Unit, onPickPhoto: (() -> Unit)?) {
+    val bg = cfg.backgroundOf(scene)
+    fun up(key: String?, f: (SceneBackground) -> SceneBackground) = onChange(cfg.copy(backgrounds = cfg.backgrounds + (scene to f(bg))), key?.let { "bg:$it:$scene" })
+    Heading("FOND DE « ${scene.label.uppercase()} »")
+    TwitchChips(SceneBgKind.entries.filter { it != SceneBgKind.IMAGE || onPickPhoto != null }.map { it.label }, bg.kind.ordinal) { i ->
+        val k = SceneBgKind.entries[i]
+        if (k == SceneBgKind.IMAGE && bg.image.isEmpty()) onPickPhoto?.invoke() else up(null) { it.copy(kind = k) }
+    }
+    if (bg.kind == SceneBgKind.IMAGE) {
+        Spacer(Modifier.height(6.dp))
+        if (onPickPhoto != null) SmallButton(if (bg.image.isEmpty()) "Choisir une photo" else "Changer la photo", onPickPhoto)
+        LabeledSlider("Assombrir la photo : ${(bg.dim * 100).roundToInt()} %", bg.dim, 0f..0.85f) { v -> up("dim") { it.copy(dim = v) } }
+    }
+    if (bg.kind == SceneBgKind.COLOR || bg.kind == SceneBgKind.GRADIENT) {
+        listOf("Couleur" to bg.color, "Couleur 2" to bg.color2).take(if (bg.kind == SceneBgKind.GRADIENT) 2 else 1).forEachIndexed { n, (label, cur) ->
+            Text(label, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OverlayLabels.swatches.forEach { c ->
+                    Box(Modifier.size(26.dp).clip(RoundedCornerShape(6.dp)).background(Color(c.toInt()))
+                        .border(if (c == cur) 3.dp else 1.dp, if (c == cur) TwitchAccent else Color.White.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                        .clickable { up(null) { if (n == 0) it.copy(color = c) else it.copy(color2 = c) } })
+                }
+            }
+        }
+    }
+    ToggleRow("Motifs du thème", bg.motifs) { v -> up(null) { it.copy(motifs = v) } }
+    ToggleRow("Particules animées", bg.particles) { v -> up(null) { it.copy(particles = v) } }
+    ToggleRow("Décorations des coins", bg.decor) { v -> up(null) { it.copy(decor = v) } }
+    ToggleRow("Vignettage", bg.vignette) { v -> up(null) { it.copy(vignette = v) } }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SmallButton("Fond du thème", { onChange(cfg.copy(backgrounds = cfg.backgrounds - scene), null) })
+        SmallButton("Ce fond sur toutes les scènes", { onChange(cfg.copy(backgrounds = SceneKind.entries.filter { it.fullBackground }.associateWith { bg }), null) })
     }
 }
 

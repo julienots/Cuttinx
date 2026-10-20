@@ -130,7 +130,34 @@ data class Zone(val kind: ZoneKind, val x: Float, val y: Float, val w: Float, va
 }
 
 @Serializable
-enum class ZoneKind(val label: String) { SCREEN("Écran / jeu"), CAMERA("Caméra"), CAMERA2("Caméra invité"), CHAT("Chat"), TITLE("Titre"), INFO("Infos"), SOCIALS("Réseaux"), LOGO("Logo") }
+enum class ZoneKind(val label: String) {
+    SCREEN("Écran / jeu"), CAMERA("Caméra"), CAMERA2("Caméra invité"), CHAT("Chat"), TITLE("Titre"), INFO("Infos"), SOCIALS("Réseaux"), LOGO("Logo"),
+    BADGE("Badge (LIVE…)"), CHANNEL("Nom de la chaîne"),
+}
+
+/** Kind of background of an animated scene. */
+@Serializable
+enum class SceneBgKind(val label: String) { THEME("Thème"), COLOR("Couleur"), GRADIENT("Dégradé"), IMAGE("Photo") }
+
+/** Background of one animated scene, editable scene by scene (default = the theme's). */
+@Serializable
+data class SceneBackground(
+    val kind: SceneBgKind = SceneBgKind.THEME,
+    val color: Long? = null,
+    val color2: Long? = null,
+    /** Photo (base64) and its height / width ratio. */
+    val image: String = "",
+    val imageAspect: Float = 0.5625f,
+    /** Darkens the photo so the texts stay readable. */
+    val dim: Float = 0.3f,
+    /** Theme patterns (hexagons, waves…). */
+    val motifs: Boolean = true,
+    /** Moving particles (snow, sakura, stars…). */
+    val particles: Boolean = true,
+    /** Corner decorations of the theme. */
+    val decor: Boolean = true,
+    val vignette: Boolean = true,
+)
 
 /** What the streamer types once and finds on every scene. */
 @Serializable
@@ -182,7 +209,14 @@ data class OverlayConfig(
     val items: List<OverlayItem> = emptyList(),
     /** Built-in elements hidden by the streamer, key = "SCENE:ZONE" (see [OverlayLayout.key]). */
     val hiddenZones: Set<String> = emptySet(),
+    /** Backgrounds changed scene by scene (animated scenes only). */
+    val backgrounds: Map<SceneKind, SceneBackground> = emptyMap(),
 ) {
+    /** Size factor the streamer gave a built-in element: its texts grow and shrink with it. */
+    fun zoneScale(scene: SceneKind, kind: ZoneKind) = (zoneMoves[OverlayLayout.key(scene, kind)]?.scale ?: 1f).coerceIn(0.3f, 2.5f)
+
+    fun backgroundOf(scene: SceneKind) = backgrounds[scene] ?: SceneBackground()
+
     /** Decoded logo bytes (null = no logo); the same array is returned while the logo is unchanged. */
     val logoBytes: ByteArray? get() = logo?.let { LogoMemo.decode(it) }
 

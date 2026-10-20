@@ -132,6 +132,15 @@ class SkiaRaster(val fonts: Fonts = Fonts()) : Raster {
             override val width = width
             override val height = height
             override fun png(): ByteArray = s.makeImageSnapshot().encodeToData(EncodedImageFormat.PNG)!!.bytes
+            override fun argb(): IntArray {
+                val bmp = Bitmap()
+                bmp.allocPixels(ImageInfo(width, height, ColorType.BGRA_8888, ColorAlphaType.UNPREMUL))
+                s.readPixels(bmp, 0, 0)
+                val b = bmp.readPixels()!!
+                bmp.close()
+                // BGRA bytes (little endian) = 0xAARRGGBB ints
+                return IntArray(width * height) { i -> val o = i * 4; ((b[o + 3].toInt() and 0xFF) shl 24) or ((b[o + 2].toInt() and 0xFF) shl 16) or ((b[o + 1].toInt() and 0xFF) shl 8) or (b[o].toInt() and 0xFF) }
+            }
         }
     }
 

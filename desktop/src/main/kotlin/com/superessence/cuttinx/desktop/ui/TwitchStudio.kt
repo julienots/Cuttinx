@@ -264,7 +264,7 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
         if (tab == 3) { StyleTab(state); return@Column }
         if (tab == 4) {
             val sc = (target as? Target.Scene)?.kind
-            ElementsPanel(cfg, sc, state.twitchSel, { state.twitchSel = it }, { c, k -> state.setConfig(c, k) }) { rid -> importImages(state, sc, rid) }
+            ElementsPanel(cfg, sc, state.twitchSel, { state.twitchSel = it }, { c, k -> state.setConfig(c, k) }, onPickBackground = { if (sc != null) importBackground(state, sc) }) { rid -> importImages(state, sc, rid) }
             return@Column
         }
         if (tab == 1) {
@@ -281,7 +281,7 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
         }
 
         Title("EXPORT POUR OBS")
-        Hint("Le pack contient toutes les scènes animées (HTML + PNG animé), les cadres (jeu, discussion, duo, caméra plein écran, chat, live vertical), le bandeau défilant, le pop-up réseaux, la barre d'objectif, 4 alertes, la photo de profil, les badges d'abonné, les emotes, les points de chaîne, les panneaux et bannières, les transitions choisies et un guide OBS.")
+        Hint("Pour OBS et Streamlabs. Le pack contient toutes les scènes animées (HTML, GIF, vidéo WebM transparente, PNG animé), les cadres (jeu, discussion, duo, caméra plein écran, chat, live vertical), le bandeau défilant, le pop-up réseaux, la barre d'objectif, 4 alertes, la photo de profil, les badges d'abonné, les emotes, les points de chaîne, les panneaux et bannières, les transitions choisies et un guide OBS.")
         Spacer(Modifier.height(6.dp))
         Text("Transitions incluses :", fontSize = 13.sp)
         StingerStyle.entries.chunked(2).forEach { row ->
@@ -306,10 +306,22 @@ private fun Settings(state: AppState, target: Target, minutes: Int, setMinutes: 
             scope.launch(Dispatchers.Default) {
                 runCatching {
                     val c = if (hd) state.config.copy(width = 1920, height = 1080) else state.config.copy(width = 1280, height = 720)
-                    ObsExporter(state.raster, state.renderer).exportPack(state.theme, c, dir, PackOptions(stingers = stingers, fps = fps, countdownMinutes = minutes)) { p, l -> progress = p; progressLabel = l }
+                    ObsExporter(state.raster, state.renderer).exportPack(state.theme, c, dir, PackOptions(stingers = stingers, fps = fps, countdownMinutes = minutes, video = com.superessence.cuttinx.desktop.engine.WebmAlpha)) { p, l -> progress = p; progressLabel = l }
                 }.onSuccess { lastExport = it; progress = null }.onFailure { error = "Export impossible : ${it.message}"; progress = null }
             }
-        }, Modifier.fillMaxWidth(), enabled = progress == null) { Text("Exporter le pack OBS complet") }
+        }, Modifier.fillMaxWidth(), enabled = progress == null) { Text("Exporter le pack OBS / Streamlabs complet (animé)") }
+        Button({
+            val dir = chooseFolder("Où enregistrer l'élément animé ?") ?: return@Button
+            error = null; progress = 0f
+            scope.launch(Dispatchers.Default) {
+                runCatching {
+                    val c = if (hd) state.config.copy(width = 1920, height = 1080) else state.config.copy(width = 1280, height = 720)
+                    ObsExporter(state.raster, state.renderer).exportElement(state.theme, c, dir, (target as? Target.Scene)?.kind, (target as? Target.Stinger)?.style,
+                        PackOptions(fps = fps, countdownMinutes = minutes, video = com.superessence.cuttinx.desktop.engine.WebmAlpha)) { p, l -> progress = p; progressLabel = l }
+                }.onSuccess { lastExport = it; progress = null }.onFailure { error = "Export impossible : ${it.message}"; progress = null }
+            }
+        }, Modifier.fillMaxWidth(), enabled = progress == null && (target is Target.Scene || target is Target.Stinger)) { Text("Exporter cet élément animé (HTML + GIF + WebM)") }
+        Hint("Animé partout : .html (source Navigateur), .gif (source Image, Alert Box Streamlabs), .webm transparent (source Média, Stinger), .png animé.")
         OutlinedButton({
             val s = (target as? Target.Scene)?.kind ?: SceneKind.GAMEPLAY
             val name = when (target) { is Target.Panel -> "panneau-${state.config.panels.getOrNull(target.index) ?: ""}"; Target.Banner -> "banniere-profil"; is Target.Asset -> target.asset.file; else -> s.label }
@@ -374,6 +386,14 @@ private fun importImages(state: AppState, scene: SceneKind?, replaceId: String?)
     state.setConfig(cfg, null)
     last?.let { state.twitchSel = Sel.Item(it) }
     if (failed.isNotEmpty()) state.twitchMessage = "Image(s) illisible(s) : ${failed.joinToString()}"
+}
+
+/** Photo as the background of one animated scene. */
+private fun importBackground(state: AppState, scene: SceneKind) {
+    val f = com.superessence.cuttinx.desktop.editor.openFiles("Photo de fond", listOf("png", "jpg", "jpeg", "webp", "bmp"), multiple = false).firstOrNull() ?: return
+    val (b64, w, h) = encodePicture(f, 1920) ?: run { state.twitchMessage = "Image illisible : ${f.name}"; return }
+    val c = state.config
+    state.setConfig(c.copy(backgrounds = c.backgrounds + (scene to c.backgroundOf(scene).copy(kind = SceneBgKind.IMAGE, image = b64, imageAspect = h.toFloat() / w))), null)
 }
 
 internal fun encodePicture(f: File, max: Int = 1600): Triple<String, Int, Int>? = runCatching {
