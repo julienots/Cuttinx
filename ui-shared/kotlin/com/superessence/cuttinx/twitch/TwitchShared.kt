@@ -162,7 +162,9 @@ private fun itemIcon(t: ItemType) = when (t) { ItemType.IMAGE -> CxIcons.Image; 
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (Sel?) -> Unit, onChange: (OverlayConfig, String?) -> Unit, onPickImages: (replaceId: String?) -> Unit) {
+fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (Sel?) -> Unit, onChange: (OverlayConfig, String?) -> Unit, onPickImages: (replaceId: String?) -> Unit,
+                  /** true = a single canvas (Studio Créateur): no built-in elements, no "other scenes". */
+                  canvasOnly: Boolean = false) {
     if (scene == null) {
         Text("Choisis une scène, un cadre ou une alerte au-dessus pour y ajouter des images, des textes et des stickers.", fontSize = 12.sp)
         return
@@ -170,12 +172,14 @@ fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (S
     val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
     Text("Clique un élément sur l'aperçu (ou dans la liste) : glisse pour le déplacer, tire un coin pour l'agrandir, le rond pour le tourner. Sur mobile : deux doigts pour agrandir et tourner.",
         fontSize = 12.sp, color = dim)
-    Heading("AJOUTER SUR « ${scene.label.uppercase()} »")
+    // new elements belong to this scene (or to the whole canvas in the Studio Créateur)
+    val home: SceneKind? = if (canvasOnly) null else scene
+    Heading(if (canvasOnly) "AJOUTER" else "AJOUTER SUR « ${scene.label.uppercase()} »")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Button({ onPickImages(null) }, colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White)) {
             Icon(CxIcons.Image, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Images")
         }
-        Button({ val t = OverlayItems.text(cfg, scene); onChange(OverlayItems.add(cfg, t), null); onSelect(Sel.Item(t.id)) },
+        Button({ val t = OverlayItems.text(cfg, home); onChange(OverlayItems.add(cfg, t), null); onSelect(Sel.Item(t.id)) },
             colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White)) {
             Icon(CxIcons.Text, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Texte")
         }
@@ -183,17 +187,17 @@ fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (S
     Spacer(Modifier.height(6.dp))
     Text("Stickers :", fontSize = 12.sp, color = dim)
     TwitchChips(Sticker.entries.map { it.label }, null) { i ->
-        val st = OverlayItems.sticker(cfg, scene, Sticker.entries[i]); onChange(OverlayItems.add(cfg, st), null); onSelect(Sel.Item(st.id))
+        val st = OverlayItems.sticker(cfg, home, Sticker.entries[i]); onChange(OverlayItems.add(cfg, st), null); onSelect(Sel.Item(st.id))
     }
 
     // ------------------------------------------------ layers
     Heading("CALQUES (LE PLUS HAUT EN PREMIER)")
     val items = cfg.itemsOf(scene).asReversed()
     val (lc, _) = twitchLayoutOf(cfg, scene)
-    val zones = if (scene.movable()) OverlayLayout.zones(scene, lc).map { it.kind }.distinct() else emptyList()
+    val zones = if (!canvasOnly && scene.movable()) OverlayLayout.zones(scene, lc).map { it.kind }.distinct() else emptyList()
     if (items.isEmpty() && zones.isEmpty()) Text("Aucun élément pour l'instant.", fontSize = 12.sp, color = dim)
     items.forEach { item ->
-        LayerRow(itemIcon(item.type), item.name + if (item.type == ItemType.TEXT) " « ${item.text.take(18)} »" else "", if (item.scene == null) "toutes les scènes" else null,
+        LayerRow(itemIcon(item.type), item.name + if (item.type == ItemType.TEXT) " « ${item.text.take(18)} »" else "", if (item.scene == null && !canvasOnly) "toutes les scènes" else null,
             sel == Sel.Item(item.id), item.hidden, item.locked, { onSelect(Sel.Item(item.id)) },
             { onChange(cfg.updateItem(item.id) { x -> x.copy(hidden = !x.hidden) }, null) },
             { onChange(cfg.updateItem(item.id) { x -> x.copy(locked = !x.locked) }, null) },
@@ -206,7 +210,7 @@ fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (S
 
     // ------------------------------------------------ inspector
     when (sel) {
-        is Sel.Item -> cfg.item(sel.id)?.takeIf { it.scene == null || it.scene == scene }?.let { ItemInspector(cfg, scene, it, onSelect, onChange, onPickImages) }
+        is Sel.Item -> cfg.item(sel.id)?.takeIf { it.scene == null || it.scene == scene }?.let { ItemInspector(cfg, scene, it, onSelect, onChange, onPickImages, canvasOnly) }
         is Sel.Zone -> if (sel.kind in zones) ZoneInspector(cfg, scene, sel.kind, onChange)
         null -> {}
     }
@@ -214,7 +218,8 @@ fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (S
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (zones.isNotEmpty()) SmallButton("Replacer les éléments du thème", { onChange(OverlayLayout.reset(cfg, scene), null) })
-            if (items.any { it.scene == scene }) SmallButton("Vider la scène", { onChange(cfg.copy(items = cfg.items.filter { it.scene != scene }), null); onSelect(null) }, danger = true)
+            if (canvasOnly) SmallButton("Tout effacer", { onChange(cfg.copy(items = emptyList()), null); onSelect(null) }, danger = true)
+            else if (items.any { it.scene == scene }) SmallButton("Vider la scène", { onChange(cfg.copy(items = cfg.items.filter { it.scene != scene }), null); onSelect(null) }, danger = true)
         }
     }
 }
@@ -240,7 +245,7 @@ private fun LayerRow(icon: androidx.compose.ui.graphics.vector.ImageVector, name
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ItemInspector(cfg: OverlayConfig, scene: SceneKind, item: OverlayItem, onSelect: (Sel?) -> Unit, onChange: (OverlayConfig, String?) -> Unit, onPickImages: (String?) -> Unit) {
+private fun ItemInspector(cfg: OverlayConfig, scene: SceneKind, item: OverlayItem, onSelect: (Sel?) -> Unit, onChange: (OverlayConfig, String?) -> Unit, onPickImages: (String?) -> Unit, canvasOnly: Boolean) {
     val id = item.id
     fun up(key: String?, f: (OverlayItem) -> OverlayItem) = onChange(cfg.updateItem(id, f), key?.let { "$it:$id" })
     val (lc, _) = twitchLayoutOf(cfg, scene)
@@ -248,7 +253,7 @@ private fun ItemInspector(cfg: OverlayConfig, scene: SceneKind, item: OverlayIte
     Heading("ÉLÉMENT SÉLECTIONNÉ")
     if (item.type == ItemType.TEXT) OutlinedTextField(item.text, { v -> up("text") { it.copy(text = v) } }, Modifier.fillMaxWidth(), label = { Text("Texte") }, singleLine = true)
     if (item.type == ItemType.IMAGE) SmallButton("Remplacer l'image", { onPickImages(id) })
-    ToggleRow("Afficher sur toutes les scènes", item.scene == null) { v -> up(null) { it.copy(scene = if (v) null else scene) } }
+    if (!canvasOnly) ToggleRow("Afficher sur toutes les scènes", item.scene == null) { v -> up(null) { it.copy(scene = if (v) null else scene) } }
     // position & size
     LabeledSlider("Position horizontale : ${(item.x * 100).roundToInt()} %", item.x, 0f..1f) { v -> up("x") { it.copy(x = v) } }
     LabeledSlider("Position verticale : ${(item.y * 100).roundToInt()} %", item.y, 0f..1f) { v -> up("y") { it.copy(y = v) } }
@@ -309,7 +314,7 @@ private fun ItemInspector(cfg: OverlayConfig, scene: SceneKind, item: OverlayIte
         SmallButton("Reculer", { onChange(OverlayItems.reorder(cfg, id, -1), null) })
         SmallButton("Arrière-plan", { onChange(OverlayItems.reorder(cfg, id, Int.MIN_VALUE), null) })
         SmallButton("Dupliquer", { val d = OverlayItems.duplicate(item); onChange(OverlayItems.add(cfg, d), null); onSelect(Sel.Item(d.id)) })
-        SmallButton("Copier sur toutes les scènes", { onChange(OverlayItems.add(cfg, OverlayItems.duplicate(item).copy(scene = null, x = item.x, y = item.y)), null) })
+        if (!canvasOnly) SmallButton("Copier sur toutes les scènes", { onChange(OverlayItems.add(cfg, OverlayItems.duplicate(item).copy(scene = null, x = item.x, y = item.y)), null) })
         SmallButton(if (item.locked) "Déverrouiller" else "Verrouiller", { up(null) { it.copy(locked = !it.locked) } })
         SmallButton("Réinitialiser", { up(null) { it.copy(rotation = 0f, opacity = 1f, flipX = false, flipY = false, anim = ItemAnim.NONE, x = 0.5f, y = 0.5f) } })
         SmallButton("Supprimer", { onChange(OverlayItems.remove(cfg, id), null); onSelect(null) }, danger = true)

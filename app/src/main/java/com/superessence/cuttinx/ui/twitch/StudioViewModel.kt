@@ -98,7 +98,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
             .onFailure { saveStatus.value = "Échec de l'enregistrement"; message.value = "Enregistrement impossible : ${it.message}" }
     }
 
-    override fun onCleared() { synchronized(store) { runCatching { store.save(config.value) } } }
+    override fun onCleared() { synchronized(store) { runCatching { store.save(config.value) } }; creator.saveNow() }
 
     /**
      * Adds pictures to [scene] (several at once) or replaces the picture [replaceId]. They are
@@ -123,6 +123,24 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private data class Pic(val b64: String, val w: Int, val h: Int, val name: String)
+
+    /** Studio Créateur: thumbnails, covers, posts and banners (saved in their own folder). */
+    val creator = com.superessence.cuttinx.creator.CreatorState(File(app.filesDir, "createur"))
+
+    /** Decodes pictures for the Studio Créateur off the main thread, then hands them over. */
+    fun pickPictures(uris: List<Uri>, onDone: (List<com.superessence.cuttinx.creator.PickedPicture>) -> Unit) = viewModelScope.launch(Dispatchers.Default) {
+        val pics = uris.mapNotNull { u -> runCatching { encodePicture(u) }.getOrNull()?.let { com.superessence.cuttinx.creator.PickedPicture(it.b64, it.w, it.h, it.name) } }
+        withContext(Dispatchers.Main) {
+            if (pics.size < uris.size) message.value = "${uris.size - pics.size} image(s) illisible(s)"
+            if (pics.isNotEmpty()) onDone(pics)
+        }
+    }
+
+    /** Saves a Studio Créateur visual as a PNG at the platform's exact size. */
+    fun exportDesign(target: Uri, d: com.superessence.cuttinx.core.creator.CreatorDesign) =
+        saveImage(target, d.format.width, d.format.height) { g -> creatorRenderer.draw(g, d, d.format.width.toFloat(), d.format.height.toFloat(), 0.0) }
+
+    val creatorRenderer = com.superessence.cuttinx.core.creator.CreatorRenderer(renderer)
 
     private fun encodePicture(uri: Uri, max: Int = 1600): Pic? {
         val cr = getApplication<Application>().contentResolver

@@ -91,6 +91,13 @@ espaces de l'accueil Android, en onglets en haut de la fenêtre : **Éditeur** �
   rotation / opacité au pourcent près, formes (arrondi, rond), bordure, ombre, halo, miroir,
   12 animations en boucle exportées dans OBS ; zoom de l'aperçu jusqu'à 800 % (molette, pincement,
   boutons) ; annuler / rétablir ; enregistrement automatique sur disque + bouton Enregistrer.
+- **Studio Créateur** (Android, tablette, PC) : miniatures YouTube, bannières YouTube / Twitch / X /
+  LinkedIn, couvertures TikTok / Reels / Shorts, posts et stories Instagram, photo de profil, pochette
+  podcast — au format exact de chaque réseau, avec zone sûre affichée, modèles (choc, néon, citation,
+  annonce live) aux couleurs de l'ID Influenceur, fonds (dégradé, diagonale, motif animé, photo),
+  et le même éditeur d'éléments que le Twitch Editor ; export PNG, sauvegarde automatique.
+- **Animations** : intro de lancement (lames de lumière aux couleurs des 4 espaces, logo qui rebondit,
+  gerbe d'étincelles) et transitions entre espaces (glissement + zoom + traînée colorée).
 - **ID Influenceur** : génère l'univers d'un créateur (archétype, palette, polices, slogans, bios
   TikTok / Instagram / YouTube / Twitch, piliers de contenu, hashtags, ton, moodboard, logo), exporte
   une planche PNG et un guide, et applique la palette aux overlays.

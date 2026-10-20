@@ -376,7 +376,7 @@ private fun importImages(state: AppState, scene: SceneKind?, replaceId: String?)
     if (failed.isNotEmpty()) state.twitchMessage = "Image(s) illisible(s) : ${failed.joinToString()}"
 }
 
-private fun encodePicture(f: File, max: Int = 1600): Triple<String, Int, Int>? = runCatching {
+internal fun encodePicture(f: File, max: Int = 1600): Triple<String, Int, Int>? = runCatching {
     val src = org.jetbrains.skia.Image.makeFromEncoded(f.readBytes())
     val k = minOf(1f, max.toFloat() / maxOf(src.width, src.height))
     val w = (src.width * k).toInt().coerceAtLeast(1); val h = (src.height * k).toInt().coerceAtLeast(1)

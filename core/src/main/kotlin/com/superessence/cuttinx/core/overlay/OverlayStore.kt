@@ -96,6 +96,9 @@ class UndoHistory<T>(private val limit: Int = 200) {
     /** Ends the current group (next change starts a new step). */
     fun cut() { lastKey = null }
 
+    /** Forgets every step (another document is opened). */
+    fun clear() { undo.clear(); redo.clear(); lastKey = null }
+
     fun undo(current: T): T? = undo.removeLastOrNull()?.also { redo.addLast(current); lastKey = null }
     fun redo(current: T): T? = redo.removeLastOrNull()?.also { undo.addLast(current); lastKey = null }
 }

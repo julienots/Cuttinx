@@ -178,7 +178,9 @@ fun Modifier.overlayEditing(
     stage: StageState,
     onChange: (OverlayConfig, String) -> Unit,
     onEnd: () -> Unit,
-): Modifier = if (scene == null) this else this.pointerInput(scene) {
+    /** false = a plain canvas (Studio Créateur): only the free elements can be grabbed. */
+    builtIns: Boolean = true,
+): Modifier = if (scene == null) this else this.pointerInput(scene, builtIns) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         val c0 = cfg()
@@ -200,7 +202,7 @@ fun Modifier.overlayEditing(
             else if (listOf(-1 to -1, 1 to -1, 1 to 1, -1 to 1).any { (sx, sy) -> OverlayItems.corner(b, sx, sy).let { (x, y) -> hypot(p0.x - x, p0.y - y) < tol } }) mode = Mode.SIZE_ITEM
             if (mode != Mode.NONE) target = sel0
         }
-        val zoneSel = (sel0 as? Sel.Zone)?.takeIf { scene.movable() }?.let { s -> OverlayLayout.zone(scene, lc, s.kind) }
+        val zoneSel = (sel0 as? Sel.Zone)?.takeIf { builtIns && scene.movable() }?.let { s -> OverlayLayout.zone(scene, lc, s.kind) }
         if (mode == Mode.NONE && zoneSel != null) {
             val near = listOf(zoneSel.x to zoneSel.y, zoneSel.right to zoneSel.y, zoneSel.right to zoneSel.bottom, zoneSel.x to zoneSel.bottom).any { (x, y) -> hypot(p0.x - x, p0.y - y) < tol }
             if (near) { mode = Mode.SIZE_ZONE; target = sel0 }
@@ -209,7 +211,7 @@ fun Modifier.overlayEditing(
         if (mode == Mode.NONE) {
             OverlayItems.hit(c0, scene, p0.x, p0.y, cw, ch, 4.dp.toPx() * kx)?.let { mode = Mode.MOVE_ITEM; target = Sel.Item(it.id) }
         }
-        if (mode == Mode.NONE && scene.movable()) {
+        if (mode == Mode.NONE && builtIns && scene.movable()) {
             OverlayLayout.hit(scene, lc, p0.x, p0.y)?.let { mode = Mode.MOVE_ZONE; target = Sel.Zone(it) }
         }
         if (target != null && target != sel0) onSelect(target)

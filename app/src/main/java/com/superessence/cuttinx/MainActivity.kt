@@ -22,7 +22,6 @@ import com.superessence.cuttinx.ui.help.HelpScreen
 import com.superessence.cuttinx.ui.help.LicensesScreen
 import com.superessence.cuttinx.ui.home.HomeScreen
 import com.superessence.cuttinx.ui.settings.SettingsScreen
-import com.superessence.cuttinx.ui.splash.SplashScreen
 import com.superessence.cuttinx.ui.theme.CuttinxTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -67,7 +66,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 when (val s = stack.last()) {
-                    Screen.Splash -> SplashScreen { replace(Screen.Home) }
+                    Screen.Splash -> com.superessence.cuttinx.motion.LaunchIntro(onDone = { if (stack.lastOrNull() == Screen.Splash) replace(Screen.Home) })
                     Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) })
                     is Screen.Editor -> key(s.id) {
                         val vm: EditorViewModel = viewModel(key = s.id, factory = EditorViewModel.Factory(application, s.id))

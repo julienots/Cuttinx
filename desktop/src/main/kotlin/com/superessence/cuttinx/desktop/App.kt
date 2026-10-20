@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.desktop
 
+import com.superessence.cuttinx.motion.spaceTransition
 import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,7 +38,8 @@ object Cx {
 
 /** The three spaces of CUTTINX PRO (same as the Android home screen) + the guide. */
 enum class Section(val label: String, val icon: () -> androidx.compose.ui.graphics.vector.ImageVector, val color: Color) {
-    EDITOR("Éditeur", { CxIcons.Editor }, Color(0xFFFFCC1F)), TWITCH("Twitch Editor", { CxIcons.Twitch }, Color(0xFF3D8BFF)), BRAND("ID Influenceur", { CxIcons.Identity }, Color(0xFFFF4FA3)), GUIDE("Guide", { CxIcons.Help }, Color(0xFF9AA0AC)),
+    EDITOR("Éditeur", { CxIcons.Editor }, Color(0xFFFFCC1F)), TWITCH("Twitch Editor", { CxIcons.Twitch }, Color(0xFF3D8BFF)), BRAND("ID Influenceur", { CxIcons.Identity }, Color(0xFFFF4FA3)),
+    CREATOR("Studio Créateur", { CxIcons.Studio }, Color(0xFFFF5A36)), GUIDE("Guide", { CxIcons.Help }, Color(0xFF9AA0AC)),
 }
 
 /** Slanted card echoing the big « / » separators. */
@@ -50,7 +52,7 @@ private val SlantShape = androidx.compose.foundation.shape.GenericShape { size, 
 @Composable
 private fun SpacesBar(selected: Section, onSelect: (Section) -> Unit, modifier: Modifier) {
     Row(modifier.height(64.dp), verticalAlignment = Alignment.CenterVertically) {
-        listOf(Section.EDITOR, Section.TWITCH, Section.BRAND).forEachIndexed { i, s ->
+        listOf(Section.EDITOR, Section.TWITCH, Section.BRAND, Section.CREATOR).forEachIndexed { i, s ->
             if (i > 0) Text("/", Modifier.padding(horizontal = 4.dp), fontSize = 46.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color.White.copy(alpha = 0.3f))
             val sel = s == selected
             val weight by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.8f else 1f, androidx.compose.animation.core.spring(0.6f, 240f), label = "w")
@@ -129,6 +131,11 @@ class AppState {
             .isSuccess
     }
 
+    /** Studio Créateur (thumbnails, covers, posts, banners), saved in ~/CuttinxPRO/createur. */
+    val creator = com.superessence.cuttinx.creator.CreatorState(java.io.File(java.io.File(System.getProperty("user.home"), "CuttinxPRO"), "createur"))
+    /** The launch animation is shown once per start. */
+    var intro by mutableStateOf(true)
+
     private val brandFile = java.io.File(twitchDir, "identite.json")
     var brandKit by mutableStateOf(runCatching { json.decodeFromString(BrandKit.serializer(), brandFile.readText()) }.getOrNull())
         private set
@@ -158,7 +165,35 @@ class AppState {
     fun shutdown() {
         pendingSave?.cancel(false)
         saveTwitch()
+        creator.saveNow()
         if (editorLazy.isInitialized()) runCatching { editor.saveNow(); editor.player.close() }
+    }
+
+    /** Shortcuts of the Studio Créateur: undo / redo / save, delete, duplicate, arrows, zoom. */
+    private fun onCreatorKey(e: androidx.compose.ui.input.key.KeyEvent, ctrl: Boolean): Boolean {
+        val c = creator
+        val d = c.current ?: return false
+        val sel = c.sel as? com.superessence.cuttinx.twitch.Sel.Item
+        val step = if (e.isShiftPressed) 0.02f else 0.002f
+        fun nudge(dx: Float, dy: Float) { if (sel != null) c.setConfig(d.asConfig().updateItem(sel.id) { com.superessence.cuttinx.core.overlay.OverlayItems.place(it, it.x + dx, it.y + dy * d.format.ratio) }, "nudge:${sel.id}") }
+        when {
+            ctrl && e.key == Key.Z && e.isShiftPressed -> c.redo()
+            ctrl && e.key == Key.Z -> c.undo()
+            ctrl && e.key == Key.Y -> c.redo()
+            ctrl && e.key == Key.S -> c.saveNow()
+            ctrl && e.key == Key.D && sel != null -> d.asConfig().item(sel.id)?.let { val x = com.superessence.cuttinx.core.overlay.OverlayItems.duplicate(it); c.setConfig(com.superessence.cuttinx.core.overlay.OverlayItems.add(d.asConfig(), x), null); c.sel = com.superessence.cuttinx.twitch.Sel.Item(x.id) }
+            ctrl && (e.key == Key.Equals || e.key == Key.Plus || e.key == Key.NumPadAdd) -> c.stage.zoomBy(1.25f)
+            ctrl && (e.key == Key.Minus || e.key == Key.NumPadSubtract) -> c.stage.zoomBy(0.8f)
+            ctrl && e.key == Key.Zero -> c.stage.reset()
+            (e.key == Key.Delete || e.key == Key.Backspace) && sel != null -> { c.setConfig(com.superessence.cuttinx.core.overlay.OverlayItems.remove(d.asConfig(), sel.id), null); c.sel = null }
+            e.key == Key.Escape -> if (c.sel != null) c.sel = null else c.close()
+            e.key == Key.DirectionLeft && sel != null -> nudge(-step, 0f)
+            e.key == Key.DirectionRight && sel != null -> nudge(step, 0f)
+            e.key == Key.DirectionUp && sel != null -> nudge(0f, -step)
+            e.key == Key.DirectionDown && sel != null -> nudge(0f, step)
+            else -> return false
+        }
+        return true
     }
 
     /** Shortcuts of the Twitch Editor: undo / redo / save, delete, move with the arrows, duplicate, zoom. */
@@ -212,10 +247,12 @@ class AppState {
             ctrl && e.key == Key.One -> { section = Section.EDITOR; return true }
             ctrl && e.key == Key.Two -> { section = Section.TWITCH; return true }
             ctrl && e.key == Key.Three -> { section = Section.BRAND; return true }
+            ctrl && e.key == Key.Four -> { section = Section.CREATOR; return true }
             e.key == Key.F1 -> { section = Section.GUIDE; return true }
             ctrl && e.key == Key.Tab -> { section = Section.entries[(section.ordinal + if (e.isShiftPressed) Section.entries.size - 1 else 1) % Section.entries.size]; return true }
         }
         if (section == Section.TWITCH) return onTwitchKey(e, ctrl)
+        if (section == Section.CREATOR) return onCreatorKey(e, ctrl)
         if (section != Section.EDITOR) return false
         val m = editor
         if (ctrl && e.key == Key.N) { if (m.current != null) m.close(); return true }
@@ -265,7 +302,9 @@ private val scheme = darkColorScheme(
 
 @Composable
 fun App(state: AppState = remember { AppState() }) {
+    val lastSection = remember { arrayOf(state.section) }
     MaterialTheme(colorScheme = scheme) {
+    Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().background(Cx.Bg)) {
             // top: logo + the three spaces facing the user + guide
             Row(Modifier.fillMaxWidth().background(Cx.Panel).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -284,17 +323,26 @@ fun App(state: AppState = remember { AppState() }) {
                 val accent = state.section.color.takeIf { state.section != Section.GUIDE } ?: Cx.Yellow
                 MaterialTheme(colorScheme = scheme.copy(primary = accent, secondary = accent, onPrimary = if (accent == Cx.Yellow) Color.Black else Color.White)) {
                 androidx.compose.runtime.CompositionLocalProvider(com.superessence.cuttinx.desktop.ui.LocalAccent provides accent) {
-                androidx.compose.animation.Crossfade(state.section, label = "space") { sec ->
+                // the chosen space slides in from the side of its tab, with a swoosh in its colour
+                androidx.compose.animation.AnimatedContent(state.section, Modifier.fillMaxSize(), transitionSpec = {
+                    spaceTransition(targetState.ordinal > initialState.ordinal)
+                }, label = "space") { sec ->
                 when (sec) {
                     Section.EDITOR -> com.superessence.cuttinx.desktop.editor.EditorSpace(state)
                     Section.TWITCH -> TwitchStudio(state)
                     Section.BRAND -> BrandStudio(state)
+                    Section.CREATOR -> com.superessence.cuttinx.desktop.ui.CreatorStudio(state)
                     Section.GUIDE -> GuideScreen(state)
                 }
                 }
+                val forward = remember(state.section) { (state.section.ordinal >= lastSection[0].ordinal).also { lastSection[0] = state.section } }
+                com.superessence.cuttinx.motion.SpaceSwoosh(state.section, state.section.color, forward)
                 }
                 }
             }
         }
+        // launch animation over the whole window, once per start
+        if (state.intro) com.superessence.cuttinx.motion.LaunchIntro(onDone = { state.intro = false })
+    }
     }
 }
