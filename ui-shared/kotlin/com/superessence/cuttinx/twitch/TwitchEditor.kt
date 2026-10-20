@@ -68,7 +68,7 @@ class StageState {
         clamp()
     }
 
-    fun setZoom(z: Float) = zoomBy(z / zoom)
+    fun zoomTo(z: Float) = zoomBy(z / zoom)
 
     fun panBy(dx: Float, dy: Float) { panX += dx; panY += dy; clamp() }
 
@@ -145,14 +145,14 @@ fun ZoomBar(state: StageState, accent: Color, modifier: Modifier = Modifier) {
         val compact = maxWidth < 420.dp
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton({ state.zoomBy(1 / 1.4f) }, enabled = state.zoom > StageState.MIN_ZOOM) { Icon(CxIcons.ZoomOut, "Dézoomer") }
-            Slider(state.zoom, { state.setZoom(it) }, Modifier.weight(1f), valueRange = StageState.MIN_ZOOM..StageState.MAX_ZOOM,
+            Slider(state.zoom, { state.zoomTo(it) }, Modifier.weight(1f), valueRange = StageState.MIN_ZOOM..StageState.MAX_ZOOM,
                 colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
             IconButton({ state.zoomBy(1.4f) }, enabled = state.zoom < StageState.MAX_ZOOM) { Icon(CxIcons.ZoomIn, "Zoomer") }
             Text("${(state.zoom * 100).roundToInt()} %", Modifier.widthIn(min = 40.dp), fontSize = 12.sp)
             if (compact) IconButton({ state.reset() }) { Icon(CxIcons.Fit, "Ajuster") }
             else {
                 TextButton({ state.reset() }) { Icon(CxIcons.Fit, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Ajuster", fontSize = 12.sp) }
-                TextButton({ state.setZoom(StageState.MAX_ZOOM) }) { Text("Max", fontSize = 12.sp) }
+                TextButton({ state.zoomTo(StageState.MAX_ZOOM) }) { Text("Max", fontSize = 12.sp) }
             }
         }
     }

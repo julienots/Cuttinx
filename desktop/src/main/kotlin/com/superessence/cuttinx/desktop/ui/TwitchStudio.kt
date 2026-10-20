@@ -71,10 +71,12 @@ fun TwitchStudio(state: AppState) {
     LaunchedEffect(scene) { state.twitchScene = scene; state.twitchSel = null }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         // small windows: the theme gallery folds away so the preview and the export stay visible
-        var gallery by remember { mutableStateOf(maxWidth >= 1280.dp) }
+        val wideWindow = maxWidth >= 1280.dp
+        var gallery by remember { mutableStateOf(wideWindow) }
         val sideW = if (maxWidth < 1150.dp) 330.dp else 380.dp
+        val galleryW = if (maxWidth < 1400.dp) 280.dp else 330.dp
         Row(Modifier.fillMaxSize()) {
-            if (gallery) ThemeGallery(state, Modifier.width(if (maxWidth < 1400.dp) 280.dp else 330.dp).fillMaxHeight())
+            if (gallery) ThemeGallery(state, Modifier.width(galleryW).fillMaxHeight())
             Column(Modifier.weight(1f).fillMaxHeight().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton({ gallery = !gallery }) { Text(if (gallery) "◀ Thèmes" else "Thèmes ▶") }
