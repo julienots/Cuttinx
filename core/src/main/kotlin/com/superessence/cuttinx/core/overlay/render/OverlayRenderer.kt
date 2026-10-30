@@ -41,32 +41,139 @@ class OverlayRenderer {
         val p = pal(theme, cfg)
         val k = if (scene == SceneKind.VERTICAL) w / 1080f else w / OverlayLayout.REF_W
         when {
-            scene == SceneKind.TICKER -> { drawTicker(c, theme, cfg, t, layer); return }
-            scene == SceneKind.SOCIALS -> { if (layer != Layer.STATIC) drawSocialsPop(c, theme, cfg, t); return }
-            scene.isAlert -> { if (layer != Layer.STATIC) drawAlert(c, theme, cfg, t, scene); return }
-            scene == SceneKind.GOAL -> { if (layer != Layer.MOVING) drawGoal(c, theme, cfg); return }
+            scene == SceneKind.TICKER -> drawTicker(c, theme, cfg, t, layer)
+            scene == SceneKind.SOCIALS -> if (layer != Layer.STATIC) drawSocialsPop(c, theme, cfg, t)
+            scene.isAlert -> if (layer != Layer.STATIC) drawAlert(c, theme, cfg, t, scene)
+            scene == SceneKind.GOAL -> if (layer != Layer.MOVING) drawGoal(c, theme, cfg)
             scene.fullBackground -> {
                 val static = layer != Layer.MOVING; val moving = layer != Layer.STATIC
-                if (static) background(c, p, w, h)
+                val bg = cfg.backgroundOf(scene)
+                if (static) sceneBackground(c, p, bg, w, h)
                 for (m in theme.motifs) {
                     val mv = Motifs.isMoving(m)
-                    if ((mv && moving && cfg.particles) || (!mv && static)) Motifs.draw(c, m, p, w, h, if (layer == Layer.STATIC) 0.0 else t)
+                    if ((mv && moving && cfg.particles && bg.particles) || (!mv && static && bg.motifs)) Motifs.draw(c, m, p, w, h, if (layer == Layer.STATIC) 0.0 else t)
                 }
+                drawItems(c, theme, cfg, scene, p, t, layer, behind = true)
                 if (static) fullSceneTexts(c, theme, cfg, scene, p, w, h, k, countdown)
                 if (moving) fullSceneAnimation(c, theme, cfg, scene, p, w, h, k, t)
             }
             else -> {
-                if (layer == Layer.MOVING) return
-                for (z in OverlayLayout.zones(scene, cfg)) zone(c, theme, cfg, p, z, k)
+                drawItems(c, theme, cfg, scene, p, t, layer, behind = true)
+                // every built-in element is drawn at its own size: its texts follow when it is resized
+                if (layer != Layer.MOVING) for (z in OverlayLayout.zones(scene, cfg)) if (!cfg.isHidden(scene, z.kind)) zone(c, theme, cfg, p, z, k * cfg.zoneScale(scene, z.kind))
             }
+        }
+        drawItems(c, theme, cfg, scene, p, t, layer, behind = false)
+    }
+
+    // ================================================================== free elements (pictures, texts, stickers)
+
+    /** Draws the free elements of [scene]: still ones on the static layer, animated ones on the moving layer. */
+    private fun drawItems(c: Gfx, theme: OverlayTheme, cfg: OverlayConfig, scene: SceneKind, p: OverlayPalette, t: Double, layer: Layer, behind: Boolean) {
+        val w = cfg.width.toFloat(); val h = cfg.height.toFloat()
+        for (it in cfg.itemsOf(scene)) {
+            if (it.hidden || it.behind != behind) continue
+            val animated = it.anim != ItemAnim.NONE
+            if ((layer == Layer.STATIC && animated) || (layer == Layer.MOVING && !animated)) continue
+            drawItem(c, theme, p, it, w, h, t)
         }
     }
 
-    private fun background(c: Gfx, p: OverlayPalette, w: Float, h: Float) {
+    /** One free element on a [w]×[h] canvas at time [t]. */
+    fun drawItem(c: Gfx, theme: OverlayTheme, p: OverlayPalette, it: OverlayItem, w: Float, h: Float, t: Double) {
+        val b = OverlayItems.box(it, w, h)
+        val pose = OverlayItems.pose(it, t, b.h)
+        val alpha = (it.opacity * pose.alpha).coerceIn(0f, 1f)
+        if (alpha <= 0.002f || b.w < 0.5f || b.h < 0.5f) return
+        c.save()
+        c.translate(b.cx + pose.dx, b.cy + pose.dy)
+        c.rotate(b.rotation + pose.rotation)
+        c.scale(pose.scaleX * (if (it.flipX) -1f else 1f), pose.scaleY * (if (it.flipY) -1f else 1f))
+        val x0 = -b.w / 2; val y0 = -b.h / 2
+        val m = max(b.w, b.h)
+        val tint = it.color ?: p.primary
+        if (it.glow) c.circle(0f, 0f, m * 0.7f, shaded(radial(0f, 0f, m * 0.7f, intArrayOf(col(p.glow, 0.6f * alpha), col(p.glow, 0.18f * alpha), 0), floatArrayOf(0f, 0.55f, 1f))))
+        val bw = max(2f, min(b.w, b.h) * 0.035f)
+        when (it.type) {
+            ItemType.IMAGE -> {
+                val r = when (it.shape) { ItemShape.FREE -> 0f; ItemShape.ROUNDED -> min(b.w, b.h) * 0.14f; ItemShape.CIRCLE -> min(b.w, b.h) / 2 }
+                val cw = if (it.shape == ItemShape.CIRCLE) min(b.w, b.h) else b.w
+                val ch = if (it.shape == ItemShape.CIRCLE) min(b.w, b.h) else b.h
+                if (it.shadow && it.shape != ItemShape.FREE) c.rrect(-cw / 2 + bw, -ch / 2 + bw * 1.6f, cw, ch, r, fill(col(0xFF000000, 0.45f * alpha)).glow(bw * 2f))
+                val bytes = it.bytes
+                c.save()
+                if (it.shape != ItemShape.FREE) c.clipRRect(-cw / 2, -ch / 2, cw, ch, r)
+                if (bytes != null) c.image(bytes, x0, y0, b.w, b.h, alpha)
+                else c.rect(x0, y0, b.w, b.h, fill(col(p.backgroundAlt, 0.6f * alpha)))
+                c.restore()
+                if (it.border) c.rrect(-cw / 2, -ch / 2, cw, ch, r, stroke(col(tint, alpha), bw))
+            }
+            ItemType.TEXT -> {
+                val text = it.text.ifBlank { " " }
+                val f = FontId.of(it.font ?: theme.font)
+                val size = c.txt.fit(text, f, b.h * 0.8f, b.w * 0.96f)
+                val base = c.txt.baselineFor(0f, f, size)
+                if (it.shadow) c.txt.draw(text, size * 0.05f, base + size * 0.06f, f, size, fill(col(0xFF000000, 0.55f * alpha)).glow(size * 0.06f))
+                if (it.border) c.txt.draw(text, 0f, base, f, size, stroke(col(p.background, alpha), size * 0.12f))
+                c.txt.draw(text, 0f, base, f, size, fill(col(it.color ?: p.text, alpha)))
+            }
+            ItemType.STICKER -> {
+                val s = min(b.w, b.h)
+                val path = stickerPath(it.sticker, b.w, b.h, s)
+                if (it.shadow) { c.save(); c.translate(s * 0.04f, s * 0.06f); c.path(path, fill(col(0xFF000000, 0.45f * alpha)).glow(s * 0.05f)); c.restore() }
+                if (it.sticker == Sticker.CIRCLE) c.circle(0f, 0f, s * 0.48f, shaded(radial(-s * 0.15f, -s * 0.15f, s * 0.7f, intArrayOf(col(lighten(tint, 0.45f), alpha), col(tint, alpha)))))
+                else c.path(path, Paint().apply { shader = linear(0f, -b.h / 2, 0f, b.h / 2, intArrayOf(col(lighten(tint, 0.35f), alpha), col(tint, alpha))) })
+                if (it.border) c.path(path, stroke(col(0xFFFFFFFF, alpha), max(2f, s * 0.04f)))
+            }
+        }
+        c.restore()
+    }
+
+    private fun stickerPath(st: Sticker, w: Float, h: Float, s: Float): Path = when (st) {
+        Sticker.HEART -> Shapes.heart(0f, s * 0.06f, s * 1.05f)
+        Sticker.STAR -> Shapes.star(0f, s * 0.04f, s * 0.5f)
+        Sticker.SPARKLE -> Shapes.sparkle(0f, 0f, s * 0.5f)
+        Sticker.HEXAGON -> Shapes.hexagon(0f, 0f, s * 0.48f)
+        Sticker.SAKURA -> Shapes.sakura(s * 0.95f)
+        Sticker.LEAF -> Shapes.leaf(s * 0.95f)
+        Sticker.BAT -> Shapes.bat(s * 0.9f)
+        Sticker.CIRCLE -> Path().addCircle(0f, 0f, s * 0.48f)
+        Sticker.BURST -> Shapes.star(0f, 0f, s * 0.5f, 12, 0.62f)
+        Sticker.BOLT -> Path().moveTo(s * 0.12f, -s * 0.5f).lineTo(-s * 0.3f, s * 0.06f).lineTo(-s * 0.02f, s * 0.06f).lineTo(-s * 0.14f, s * 0.5f)
+            .lineTo(s * 0.32f, -s * 0.1f).lineTo(s * 0.04f, -s * 0.1f).closePath()
+        Sticker.ARROW -> Path().moveTo(-w / 2, -h * 0.18f).lineTo(w * 0.12f, -h * 0.18f).lineTo(w * 0.12f, -h / 2).lineTo(w / 2, 0f)
+            .lineTo(w * 0.12f, h / 2).lineTo(w * 0.12f, h * 0.18f).lineTo(-w / 2, h * 0.18f).closePath()
+        Sticker.CROWN -> Path().moveTo(-s * 0.48f, s * 0.36f).lineTo(-s * 0.48f, -s * 0.3f).lineTo(-s * 0.22f, -s * 0.02f).lineTo(0f, -s * 0.42f)
+            .lineTo(s * 0.22f, -s * 0.02f).lineTo(s * 0.48f, -s * 0.3f).lineTo(s * 0.48f, s * 0.36f).closePath()
+    }
+
+    /** Background of an animated scene: the theme's, or the colour / gradient / photo chosen for this scene. */
+    private fun sceneBackground(c: Gfx, p: OverlayPalette, bg: SceneBackground, w: Float, h: Float) {
+        when (bg.kind) {
+            SceneBgKind.THEME -> { background(c, p, w, h, bg.vignette); return }
+            SceneBgKind.COLOR -> c.rect(0f, 0f, w, h, fill(col(bg.color ?: p.background)))
+            SceneBgKind.GRADIENT -> c.rect(0f, 0f, w, h, shaded(linear(0f, 0f, w * 0.4f, h, intArrayOf(col(bg.color ?: p.background), col(bg.color2 ?: p.primary)))))
+            SceneBgKind.IMAGE -> {
+                c.rect(0f, 0f, w, h, fill(col(bg.color ?: p.background)))
+                val bytes = if (bg.image.isNotEmpty()) LogoMemo.decode(bg.image) else null
+                if (bytes != null) {
+                    // cover: the photo fills the whole scene, centred
+                    val ih = w * bg.imageAspect
+                    val dw = if (ih >= h) w else h / bg.imageAspect
+                    val dh = if (ih >= h) ih else h
+                    c.save(); c.clipRect(0f, 0f, w, h); c.image(bytes, (w - dw) / 2, (h - dh) / 2, dw, dh); c.restore()
+                }
+                if (bg.dim > 0f) c.rect(0f, 0f, w, h, fill(col(0xFF000000, bg.dim.coerceIn(0f, 0.9f))))
+            }
+        }
+        if (bg.vignette) c.rect(0f, 0f, w, h, shaded(radial(w / 2, h / 2, hypot(w, h) / 2, intArrayOf(0, 0, col(0xFF000000, 0.45f)), floatArrayOf(0f, 0.65f, 1f))))
+    }
+
+    private fun background(c: Gfx, p: OverlayPalette, w: Float, h: Float, vignette: Boolean = true) {
         c.rect(0f, 0f, w, h, shaded(linear(0f, 0f, w * 0.3f, h, intArrayOf(col(p.background), col(p.backgroundAlt)))))
         c.circle(w / 2, h * 0.45f, h * 0.75f, shaded(radial(w / 2, h * 0.45f, h * 0.75f, intArrayOf(col(p.primary, 0.22f), 0))))
         // vignette
-        c.rect(0f, 0f, w, h, shaded(radial(w / 2, h / 2, hypot(w, h) / 2, intArrayOf(0, 0, col(0xFF000000, 0.45f)), floatArrayOf(0f, 0.65f, 1f))))
+        if (vignette) c.rect(0f, 0f, w, h, shaded(radial(w / 2, h / 2, hypot(w, h) / 2, intArrayOf(0, 0, col(0xFF000000, 0.45f)), floatArrayOf(0f, 0.65f, 1f))))
     }
 
     private fun fullSceneTexts(c: Gfx, theme: OverlayTheme, cfg: OverlayConfig, scene: SceneKind, p: OverlayPalette, w: Float, h: Float, k: Float, countdown: String?) {
@@ -74,32 +181,42 @@ class OverlayRenderer {
         val info = OverlayLayout.zone(scene, cfg, ZoneKind.INFO)!!
         val socials = OverlayLayout.zone(scene, cfg, ZoneKind.SOCIALS)!!
         val tf = FontId.of(theme.font)
+        val showTitle = !cfg.isHidden(scene, ZoneKind.TITLE); val showInfo = !cfg.isHidden(scene, ZoneKind.INFO)
+        // texts follow their element: moved with it, and sized with it (zone scale)
+        val sT = k * cfg.zoneScale(scene, ZoneKind.TITLE); val sI = k * cfg.zoneScale(scene, ZoneKind.INFO); val sS = k * cfg.zoneScale(scene, ZoneKind.SOCIALS)
         // badge + channel
-        badge(c, theme, p, 60f * k, 56f * k, theme.badge, k)
-        c.txt.draw(cfg.channel.uppercase(), w - 60f * k, 92f * k, FontId.BOLD, 34f * k, fill(col(p.text, 0.9f)), Align.RIGHT, spacing = 4f * k)
+        if (!cfg.isHidden(scene, ZoneKind.BADGE)) OverlayLayout.zone(scene, cfg, ZoneKind.BADGE)?.let { z -> badge(c, theme, p, z.x, z.y, theme.badge, k * cfg.zoneScale(scene, ZoneKind.BADGE)) }
+        if (!cfg.isHidden(scene, ZoneKind.CHANNEL)) OverlayLayout.zone(scene, cfg, ZoneKind.CHANNEL)?.let { z ->
+            val kc = k * cfg.zoneScale(scene, ZoneKind.CHANNEL)
+            c.txt.draw(cfg.channel.uppercase(), z.right, c.txt.baselineFor(z.y + z.h / 2, FontId.BOLD, 34f * kc), FontId.BOLD, c.txt.fit(cfg.channel.uppercase(), FontId.BOLD, 34f * kc, z.w - 4f * kc * cfg.channel.length), fill(col(p.text, 0.9f)), Align.RIGHT, spacing = 4f * kc)
+        }
         // title plate + title
-        plate(c, theme, p, title, k, strong = true)
+        if (showTitle) {
+        plate(c, theme, p, title, sT, strong = true)
         val titleText = cfg.titleOf(scene)
+        val tx = title.x + title.w / 2
         // letter spacing is added on top of the measured width: keep room for it
-        val size = c.txt.fit(titleText, tf, (if (theme.font == TitleFont.PIXEL) 74f else 118f) * k * cfg.textScale.coerceIn(0.5f, 1.6f), title.w - 140f * k - titleSpacing(theme, k) * titleText.length)
+        val size = c.txt.fit(titleText, tf, (if (theme.font == TitleFont.PIXEL) 74f else 118f) * sT * cfg.textScale.coerceIn(0.5f, 1.6f), title.w - 140f * sT - titleSpacing(theme, sT) * titleText.length)
         val base = c.txt.baselineFor(title.y + title.h / 2, tf, size)
-        c.txt.draw(titleText, w / 2 + 6f * k, base + 6f * k, tf, size, fill(col(0xFF000000, 0.35f)).glow(6f * k), spacing = titleSpacing(theme, k))
-        c.txt.draw(titleText, w / 2, base, tf, size, titlePaint(theme, p, title), spacing = titleSpacing(theme, k))
+        c.txt.draw(titleText, tx + 6f * sT, base + 6f * sT, tf, size, fill(col(0xFF000000, 0.35f)).glow(6f * sT), spacing = titleSpacing(theme, sT))
+        c.txt.draw(titleText, tx, base, tf, size, titlePaint(theme, p, title), spacing = titleSpacing(theme, sT))
+        }
         // info line
-        val line = if (scene == SceneKind.STARTING) null else cfg.subtitleOf(scene)
-        if (scene == SceneKind.STARTING) {
-            plate(c, theme, p, info, k, strong = false)
-            c.txt.draw("DÉBUT DANS", w / 2, info.y + 30f * k, FontId.BOLD, 20f * k, fill(col(p.text, 0.7f)), spacing = 6f * k)
-            if (countdown != null) c.txt.draw(countdown, w / 2, info.y + info.h - 26f * k, tf, 58f * k, fill(col(p.text)))
+        val ix = info.x + info.w / 2
+        val line = if (scene == SceneKind.STARTING || !showInfo) null else cfg.subtitleOf(scene)
+        if (scene == SceneKind.STARTING && showInfo) {
+            plate(c, theme, p, info, sI, strong = false)
+            c.txt.draw("DÉBUT DANS", ix, info.y + 30f * sI, FontId.BOLD, 20f * sI, fill(col(p.text, 0.7f)), spacing = 6f * sI)
+            if (countdown != null) c.txt.draw(countdown, ix, info.y + info.h - 26f * sI, tf, c.txt.fit(countdown, tf, 58f * sI, info.w), fill(col(p.text)))
         } else if (line != null) {
-            val ls = c.txt.fit(line, FontId.REGULAR, 40f * k, info.w)
-            c.txt.draw(line, w / 2, c.txt.baselineFor(info.y + info.h / 2, FontId.REGULAR, ls), FontId.REGULAR, ls, fill(col(p.text, 0.9f)))
+            val ls = c.txt.fit(line, FontId.REGULAR, 40f * sI, info.w)
+            c.txt.draw(line, ix, c.txt.baselineFor(info.y + info.h / 2, FontId.REGULAR, ls), FontId.REGULAR, ls, fill(col(p.text, 0.9f)))
         }
         // socials + schedule
         val soc = (cfg.socials.filter { it.isNotBlank() } + if (scene == SceneKind.STARTING) listOf(cfg.schedule) else emptyList()).joinToString("   •   ")
-        if (soc.isNotBlank()) c.txt.draw(soc, w / 2, c.txt.baselineFor(socials.y + socials.h / 2, FontId.BOLD, 30f * k), FontId.BOLD, c.txt.fit(soc, FontId.BOLD, 30f * k, socials.w), fill(col(p.text, 0.85f)))
-        cornerDecorations(c, theme, p, w, h, k)
-        OverlayLayout.zone(scene, cfg, ZoneKind.LOGO)?.let { logo(c, cfg, it) }
+        if (soc.isNotBlank() && !cfg.isHidden(scene, ZoneKind.SOCIALS)) c.txt.draw(soc, socials.x + socials.w / 2, c.txt.baselineFor(socials.y + socials.h / 2, FontId.BOLD, 30f * sS), FontId.BOLD, c.txt.fit(soc, FontId.BOLD, 30f * sS, socials.w), fill(col(p.text, 0.85f)))
+        if (cfg.backgroundOf(scene).decor) cornerDecorations(c, theme, p, w, h, k)
+        if (!cfg.isHidden(scene, ZoneKind.LOGO)) OverlayLayout.zone(scene, cfg, ZoneKind.LOGO)?.let { logo(c, cfg, it) }
     }
 
     /** The streamer's own logo, fitted in the zone (nothing when no logo was imported). */
@@ -125,19 +242,21 @@ class OverlayRenderer {
 
     /** Animated layer of a full scene: glow pulse, loading dots, theme-specific accents. */
     private fun fullSceneAnimation(c: Gfx, theme: OverlayTheme, cfg: OverlayConfig, scene: SceneKind, p: OverlayPalette, w: Float, h: Float, k: Float, t: Double) {
+        if (cfg.isHidden(scene, ZoneKind.TITLE)) return
         val title = OverlayLayout.zone(scene, cfg, ZoneKind.TITLE)!!
         val pulse = OverlayAnim.pulse(t)
         // breathing glow line under the title plate
         val y = title.bottom + 8f * k
         val len = title.w * (0.35f + 0.25f * pulse)
-        c.line(w / 2 - len / 2, y, w / 2 + len / 2, y, stroke(col(p.glow, 0.85f), 6f * k).glow(10f * k))
-        c.line(w / 2 - len / 2, y, w / 2 + len / 2, y, stroke(col(0xFFFFFFFF, 0.9f), 2f * k))
+        val tx = title.x + title.w / 2
+        c.line(tx - len / 2, y, tx + len / 2, y, stroke(col(p.glow, 0.85f), 6f * k).glow(10f * k))
+        c.line(tx - len / 2, y, tx + len / 2, y, stroke(col(0xFFFFFFFF, 0.9f), 2f * k))
         // loading dots
         if (scene == SceneKind.STARTING || scene == SceneKind.BRB || scene == SceneKind.PAUSE || scene == SceneKind.TECH || scene == SceneKind.INTERMISSION) {
             val phase = (t / OverlayAnim.LOOP_SEC * 4) % 1.0
             for (i in 0 until 3) {
                 val a = (sin((phase - i * 0.15) * 2 * PI) * 0.5 + 0.5).toFloat()
-                c.circle(w / 2 + (i - 1) * 34f * k, title.y - 34f * k, (7f + 5f * a) * k, fill(col(p.accent, 0.4f + 0.6f * a)))
+                c.circle(tx + (i - 1) * 34f * k, title.y - 34f * k, (7f + 5f * a) * k, fill(col(p.accent, 0.4f + 0.6f * a)))
             }
         }
         // sweeping shine over the plate
@@ -213,6 +332,8 @@ class OverlayRenderer {
                     c.txt.draw(soc, z.x + z.w / 2, c.txt.baselineFor(z.y + z.h / 2, FontId.BOLD, s), FontId.BOLD, s, fill(col(p.text, 0.9f)).also { it.shadow = Shadow(0f, 2f * k, 4f * k, col(0xFF000000, 0.7f)) })
                 }
             }
+            // only on the animated scenes (drawn with their texts)
+            ZoneKind.BADGE, ZoneKind.CHANNEL -> {}
         }
     }
 
@@ -438,7 +559,7 @@ class OverlayRenderer {
     /** Follower / sub goal bar (transparent overlay). */
     fun drawGoal(c: Gfx, theme0: OverlayTheme, cfg: OverlayConfig) {
         val theme = cfg.styled(theme0)
-        val p = pal(theme, cfg); val k = cfg.width / OverlayLayout.REF_W
+        val p = pal(theme, cfg); val k = cfg.width / OverlayLayout.REF_W * cfg.zoneScale(SceneKind.GOAL, ZoneKind.INFO)
         val z = OverlayLayout.zone(SceneKind.GOAL, cfg, ZoneKind.INFO)!!
         plate(c, theme, p, z, k, strong = true)
         val tf = FontId.of(theme.font)

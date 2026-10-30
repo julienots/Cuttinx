@@ -124,6 +124,7 @@ class AndroidRaster(assets: AssetManager) : Raster {
         override val width get() = bitmap.width
         override val height get() = bitmap.height
         override fun png(): ByteArray = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
+        override fun argb(): IntArray = IntArray(width * height).also { bitmap.getPixels(it, 0, width, 0, 0, width, height) }
     }
 
     override fun frame(width: Int, height: Int): BitmapFrame = BitmapFrame(Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888), fonts)

@@ -40,7 +40,7 @@ fun BrandStudio(state: AppState) {
     var seed by remember { mutableStateOf(0) }
     val board = remember { BrandBoard() }
     fun generate() {
-        state.brandKit = BrandGenerator.generate(BrandBrief(name.ifBlank { "MaChaîne" }, niche, traits, audience, if (useHue) hue.toInt() else -1, keywords), seed)
+        state.updateBrandKit(BrandGenerator.generate(BrandBrief(name.ifBlank { "MaChaîne" }, niche, traits, audience, if (useHue) hue.toInt() else -1, keywords), seed))
     }
 
     Row(Modifier.fillMaxSize()) {

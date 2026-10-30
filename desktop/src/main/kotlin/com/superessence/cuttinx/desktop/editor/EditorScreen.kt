@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -40,6 +41,9 @@ import com.superessence.cuttinx.desktop.ui.openFolder
 @Composable
 fun EditorScreen(m: EditorModel) {
     var showExport by remember { mutableStateOf(false) }
+    // Ctrl + E opens the export from anywhere in the editor
+    val exportAsk by m.exportRequest.collectAsState()
+    LaunchedEffect(exportAsk) { if (exportAsk > 0) showExport = true }
     Column(Modifier.fillMaxSize()) {
         TopBar(m) { showExport = true }
         Row(Modifier.weight(1f).fillMaxWidth()) {
@@ -62,14 +66,19 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
     val canRedo by m.canRedo.collectAsState()
     var renaming by remember { mutableStateOf(false) }
     var name by remember(p?.id) { mutableStateOf(p?.name ?: "") }
+    // the export button is laid out first so it is never pushed out of a small window
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    val compact = maxWidth < 1350.dp
     Row(Modifier.fillMaxWidth().background(Cx.Panel).padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        TextButton({ m.close() }) { Icon(CxIcons.Back, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Projets") }
+        TextButton({ m.close() }) { Icon(CxIcons.Back, null, Modifier.size(18.dp)); if (!compact) { Spacer(Modifier.width(6.dp)); Text("Projets") } }
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
         if (renaming) {
-            OutlinedTextField(name, { name = it }, Modifier.width(260.dp), singleLine = true)
+            OutlinedTextField(name, { name = it }, Modifier.weight(1f, fill = false).widthIn(max = 260.dp), singleLine = true)
             TextButton({ m.rename(name); renaming = false }) { Text("OK") }
-        } else Text(p?.name ?: "", Modifier.clickable { renaming = true }.padding(horizontal = 8.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-        Text("${p?.format?.width}×${p?.format?.height} · ${p?.format?.frameRate} i/s", color = Cx.Dim, fontSize = 12.sp)
-        Spacer(Modifier.width(16.dp))
+        } else Text(p?.name ?: "", Modifier.weight(1f, fill = false).clickable { renaming = true }.padding(horizontal = 8.dp), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        if (!compact) Text("${p?.format?.width}×${p?.format?.height} · ${p?.format?.frameRate} i/s", color = Cx.Dim, fontSize = 12.sp, maxLines = 1)
+        Spacer(Modifier.width(8.dp))
         var formatMenu by remember { mutableStateOf(false) }
         Box {
             TextButton({ formatMenu = true }) { Text("Format"); Icon(CxIcons.ChevronDown, null, Modifier.size(16.dp)) }
@@ -79,7 +88,7 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.weight(1f))
+        }
         // one-click keyframe (◇+) next to undo / redo, like the pro editors
         val sel by m.selection.collectAsState()
         m.player.position.collectAsState().value
@@ -87,8 +96,9 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
         IconButton({ m.toggleQuickKeyframe() }, enabled = sel.isNotEmpty()) {
             Icon(if (kfOn) CxIcons.KeyframeRemove else CxIcons.KeyframeAdd, if (kfOn) "Retirer l'image clé" else "Ajouter une image clé", tint = if (kfOn) LocalAccent.current else if (sel.isNotEmpty()) Color.White else Cx.Dim)
         }
-        TextButton({ m.undo() }, enabled = canUndo) { Icon(CxIcons.Undo, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Annuler") }
-        TextButton({ m.redo() }, enabled = canRedo) { Icon(CxIcons.Redo, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Rétablir") }
+        TextButton({ m.undo() }, enabled = canUndo) { Icon(CxIcons.Undo, "Annuler", Modifier.size(18.dp)); if (!compact) { Spacer(Modifier.width(6.dp)); Text("Annuler") } }
+        TextButton({ m.redo() }, enabled = canRedo) { Icon(CxIcons.Redo, "Rétablir", Modifier.size(18.dp)); if (!compact) { Spacer(Modifier.width(6.dp)); Text("Rétablir") } }
+        IconButton({ m.saveNow(); m.message.value = "Projet enregistré" }) { Icon(CxIcons.Check, "Enregistrer (Ctrl+S)") }
         var keys by remember { mutableStateOf(false) }
         IconButton({ keys = true }) { Icon(CxIcons.Keyboard, "Raccourcis clavier") }
         if (keys) ShortcutsDialog { keys = false }
@@ -96,6 +106,8 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
         Box {
             IconButton({ more = true }) { Icon(CxIcons.More, "Plus") }
             DropdownMenu(more, { more = false }) {
+                DropdownMenuItem({ Text("Enregistrer maintenant (Ctrl + S)") }, { more = false; m.saveNow(); m.message.value = "Projet enregistré" })
+                DropdownMenuItem({ Text("Exporter la vidéo (Ctrl + E)") }, { more = false; onExport() })
                 DropdownMenuItem({ Text("Enregistrer le projet pour un autre appareil (.cuttinx)") }, {
                     more = false
                     saveFile("Enregistrer le projet", "${p?.name ?: "projet"}.cuttinx")?.let { m.exportArchive(it, includeMedia = true) }
@@ -104,7 +116,8 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
             }
         }
         Spacer(Modifier.width(8.dp))
-        Button(onExport) { Icon(CxIcons.Download, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Exporter la vidéo", fontWeight = FontWeight.Bold) }
+        Button(onExport) { Icon(CxIcons.Download, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(if (compact) "Exporter" else "Exporter la vidéo", fontWeight = FontWeight.Bold, maxLines = 1) }
+    }
     }
 }
 
@@ -148,7 +161,7 @@ private fun Transport(m: EditorModel) {
     val p by m.project.collectAsState()
     val fps = p?.format?.frameRate ?: 30
     val frameUs = 1_000_000L / fps
-    Row(Modifier.fillMaxWidth().background(Cx.Panel).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+    Row(Modifier.fillMaxWidth().background(Cx.Panel).horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
         Text(timecode(pos, true, fps), Modifier.width(110.dp), fontWeight = FontWeight.Bold, color = LocalAccent.current)
         IconButton({ m.player.seek(0) }) { Icon(CxIcons.SkipStart, "Début") }
         IconButton({ m.player.seek(pos - frameUs) }) { Icon(CxIcons.Prev, "Image précédente") }
@@ -173,8 +186,9 @@ private fun ExportDialog(m: EditorModel, onClose: () -> Unit) {
     var fps by remember { mutableStateOf(pr.format.frameRate) }
     var webm by remember { mutableStateOf(pr.export.container == Container.WEBM) }
     var lastFile by remember { mutableStateOf<java.io.File?>(null) }
-    Box(Modifier.fillMaxSize().background(Color(0xAA000000)).clickable(enabled = progress == null) { onClose() }, contentAlignment = Alignment.Center) {
-        Column(Modifier.width(520.dp).clip(RoundedCornerShape(18.dp)).background(Cx.Panel).clickable(enabled = false) {}.padding(24.dp)) {
+    Box(Modifier.fillMaxSize().background(Color(0xAA000000)).clickable(enabled = progress == null) { onClose() }.padding(16.dp), contentAlignment = Alignment.Center) {
+        // scrolls in small windows: the export button is always reachable
+        Column(Modifier.widthIn(max = 520.dp).clip(RoundedCornerShape(18.dp)).background(Cx.Panel).clickable(enabled = false) {}.verticalScroll(rememberScrollState()).padding(24.dp)) {
             Text("Exporter la vidéo", fontSize = 22.sp, fontWeight = FontWeight.Black)
             Hint("Rendu image par image en qualité maximale, avec tous les effets, textes et sons.")
             Title("RÉSOLUTION")
@@ -232,6 +246,8 @@ private val shortcuts = listOf(
     "Ctrl + D" to "Dupliquer",
     "M" to "Marqueur",
     "Ctrl + Z / Ctrl + Y" to "Annuler / rétablir",
+    "Ctrl + S" to "Enregistrer le projet",
+    "Ctrl + E" to "Exporter la vidéo",
     "Molette" to "Défiler dans le temps (Maj : dans les pistes)",
     "Ctrl + molette" to "Zoomer / dézoomer la timeline sous la souris",
     "Clic molette ou clic droit glissé" to "Se déplacer dans la timeline",

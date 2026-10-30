@@ -130,7 +130,34 @@ data class Zone(val kind: ZoneKind, val x: Float, val y: Float, val w: Float, va
 }
 
 @Serializable
-enum class ZoneKind(val label: String) { SCREEN("Écran / jeu"), CAMERA("Caméra"), CAMERA2("Caméra invité"), CHAT("Chat"), TITLE("Titre"), INFO("Infos"), SOCIALS("Réseaux"), LOGO("Logo") }
+enum class ZoneKind(val label: String) {
+    SCREEN("Écran / jeu"), CAMERA("Caméra"), CAMERA2("Caméra invité"), CHAT("Chat"), TITLE("Titre"), INFO("Infos"), SOCIALS("Réseaux"), LOGO("Logo"),
+    BADGE("Badge (LIVE…)"), CHANNEL("Nom de la chaîne"),
+}
+
+/** Kind of background of an animated scene. */
+@Serializable
+enum class SceneBgKind(val label: String) { THEME("Thème"), COLOR("Couleur"), GRADIENT("Dégradé"), IMAGE("Photo") }
+
+/** Background of one animated scene, editable scene by scene (default = the theme's). */
+@Serializable
+data class SceneBackground(
+    val kind: SceneBgKind = SceneBgKind.THEME,
+    val color: Long? = null,
+    val color2: Long? = null,
+    /** Photo (base64) and its height / width ratio. */
+    val image: String = "",
+    val imageAspect: Float = 0.5625f,
+    /** Darkens the photo so the texts stay readable. */
+    val dim: Float = 0.3f,
+    /** Theme patterns (hexagons, waves…). */
+    val motifs: Boolean = true,
+    /** Moving particles (snow, sakura, stars…). */
+    val particles: Boolean = true,
+    /** Corner decorations of the theme. */
+    val decor: Boolean = true,
+    val vignette: Boolean = true,
+)
 
 /** What the streamer types once and finds on every scene. */
 @Serializable
@@ -178,9 +205,30 @@ data class OverlayConfig(
     val logoOnScenes: Boolean = true,
     /** Name of the guest in the duo layout. */
     val guest: String = "Invité",
+    /** Free elements added by the streamer (pictures, texts, stickers), drawn in list order (last = on top). */
+    val items: List<OverlayItem> = emptyList(),
+    /** Built-in elements hidden by the streamer, key = "SCENE:ZONE" (see [OverlayLayout.key]). */
+    val hiddenZones: Set<String> = emptySet(),
+    /** Backgrounds changed scene by scene (animated scenes only). */
+    val backgrounds: Map<SceneKind, SceneBackground> = emptyMap(),
 ) {
+    /** Size factor the streamer gave a built-in element: its texts grow and shrink with it. */
+    fun zoneScale(scene: SceneKind, kind: ZoneKind) = (zoneMoves[OverlayLayout.key(scene, kind)]?.scale ?: 1f).coerceIn(0.3f, 2.5f)
+
+    fun backgroundOf(scene: SceneKind) = backgrounds[scene] ?: SceneBackground()
+
     /** Decoded logo bytes (null = no logo); the same array is returned while the logo is unchanged. */
     val logoBytes: ByteArray? get() = logo?.let { LogoMemo.decode(it) }
+
+    /** Free elements shown on [scene] (its own ones + the ones set to "every scene"), bottom to top. */
+    fun itemsOf(scene: SceneKind): List<OverlayItem> = items.filter { it.scene == null || it.scene == scene }
+
+    fun item(id: String) = items.firstOrNull { it.id == id }
+
+    /** Replaces the element [id] (no change when it does not exist). */
+    fun updateItem(id: String, f: (OverlayItem) -> OverlayItem) = copy(items = items.map { if (it.id == id) f(it) else it })
+
+    fun isHidden(scene: SceneKind, kind: ZoneKind) = OverlayLayout.key(scene, kind) in hiddenZones
 
     fun titleOf(s: SceneKind) = sceneTitles[s]?.takeIf { it.isNotBlank() } ?: s.title
     fun subtitleOf(s: SceneKind) = sceneSubtitles[s]?.takeIf { it.isNotBlank() } ?: when (s) {
@@ -245,13 +293,80 @@ object OverlayLabels {
     )
 }
 
-/** Single-entry cache of the decoded logo (configs are copied on every edit, the logo rarely changes). */
-internal object LogoMemo {
-    private var key: String? = null
-    private var bytes: ByteArray? = null
-    @Synchronized fun decode(b64: String): ByteArray? {
-        if (key === b64 || key == b64) return bytes
-        bytes = runCatching { java.util.Base64.getDecoder().decode(b64) }.getOrNull(); key = b64
-        return bytes
+/**
+ * Cache of the decoded pictures (logo and free elements). Configs are copied on every edit while
+ * the pictures rarely change: the same array is returned for the same base64 text, so the
+ * renderers can keep their decoded bitmaps.
+ */
+object LogoMemo {
+    private val cache = object : LinkedHashMap<String, ByteArray?>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray?>?) = size > 96
     }
+    @Synchronized fun decode(b64: String): ByteArray? = cache.getOrPut(b64) { runCatching { java.util.Base64.getDecoder().decode(b64) }.getOrNull() }
+}
+
+/** What a free element is. */
+@Serializable
+enum class ItemType { IMAGE, TEXT, STICKER }
+
+/** Loop animation of a free element (every animation is still at t = 0, so PNG exports stay clean). */
+@Serializable
+enum class ItemAnim(val label: String) {
+    NONE("Aucune"), FLOAT("Flotter"), PULSE("Pulsation"), HEARTBEAT("Battement"), SPIN("Rotation"), SWING("Balancier"),
+    BOUNCE("Rebond"), SHAKE("Secousse"), BLINK("Clignoter"), WOBBLE("Gélatine"), ORBIT("Orbite"), NEON("Néon vacillant"),
+}
+
+/** Crop of a free element. */
+@Serializable
+enum class ItemShape(val label: String) { FREE("Libre"), ROUNDED("Arrondi"), CIRCLE("Rond") }
+
+/** Ready-made vector stickers, coloured with the palette. */
+@Serializable
+enum class Sticker(val label: String) {
+    HEART("Cœur"), STAR("Étoile"), SPARKLE("Étincelle"), BOLT("Éclair"), HEXAGON("Hexagone"), SAKURA("Sakura"),
+    LEAF("Feuille"), BAT("Chauve-souris"), CIRCLE("Rond"), ARROW("Flèche"), BURST("Explosion BD"), CROWN("Couronne"),
+}
+
+/**
+ * A free element placed by the streamer on a scene: picture, text or sticker.
+ * Position and size are fractions of the scene canvas, so they survive any export resolution.
+ */
+@Serializable
+data class OverlayItem(
+    val id: String,
+    val type: ItemType = ItemType.IMAGE,
+    val name: String = "Image",
+    /** Scene the element belongs to; null = shown on every scene. */
+    val scene: SceneKind? = null,
+    /** Picture (PNG / JPEG, base64) for [ItemType.IMAGE]. */
+    val data: String = "",
+    val text: String = "",
+    val font: TitleFont? = null,
+    val sticker: Sticker = Sticker.STAR,
+    /** Fill colour (0xAARRGGBB) of texts and stickers; null = palette. */
+    val color: Long? = null,
+    /** Centre, as a fraction of the canvas. */
+    val x: Float = 0.5f,
+    val y: Float = 0.5f,
+    /** Width as a fraction of the canvas width. */
+    val w: Float = 0.2f,
+    /** Height / width ratio of the box (pixels). */
+    val aspect: Float = 1f,
+    val rotation: Float = 0f,
+    val opacity: Float = 1f,
+    val flipX: Boolean = false,
+    val flipY: Boolean = false,
+    val shape: ItemShape = ItemShape.FREE,
+    val border: Boolean = false,
+    val glow: Boolean = false,
+    val shadow: Boolean = false,
+    /** Drawn behind the scene texts / frames instead of on top. */
+    val behind: Boolean = false,
+    val anim: ItemAnim = ItemAnim.NONE,
+    /** Animation cycles per loop (1 = slow … 4 = fast), integer so exported loops stay seamless. */
+    val animSpeed: Int = 1,
+    val hidden: Boolean = false,
+    val locked: Boolean = false,
+) {
+    val bytes: ByteArray? get() = if (type == ItemType.IMAGE && data.isNotEmpty()) LogoMemo.decode(data) else null
 }

@@ -28,6 +28,7 @@ data class TitleTemplate(val name: String, val style: TextStyle, val animIn: Tex
  * (undo / redo), media import, resources, editing commands, preview player and export.
  */
 class EditorModel(val home: File = File(System.getProperty("user.home"), "CuttinxPRO")) {
+
     val store = ProjectStore(File(home, "projets").also { it.mkdirs() })
     val resDir = File(home, "ressources").also { it.mkdirs() }
     val importDir = File(home, "imports").also { it.mkdirs() }
@@ -82,8 +83,12 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         io.execute { refreshProjects() }
     }
 
-    /** Synchronous save (window closing). */
-    fun saveNow() { player.pause(); current?.let { runCatching { store.save(it) } } }
+    /** Synchronous save (window closing, Ctrl + S); runs on the io thread so it never races an autosave. */
+    fun saveNow() {
+        player.pause()
+        val p = current ?: return
+        runCatching { io.submit(Runnable { store.save(p) }).get() }.onFailure { message.value = "Enregistrement impossible : ${it.cause?.message ?: it.message}" }
+    }
 
     fun delete(id: String) { store.delete(id); refreshProjects() }
 
@@ -138,7 +143,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         io.execute {
             Thread.sleep(800)
             savePending = false
-            session?.current?.let { runCatching { store.save(it) } }
+            session?.current?.let { p -> runCatching { store.save(p) }.onFailure { message.value = "Enregistrement impossible : ${it.message}" } }
         }
     }
 
@@ -171,7 +176,11 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
 
     /** Timeline zoom in dp per second (shared by the toolbar, the mouse wheel and the shortcuts). */
     val zoom = MutableStateFlow(70f)
-    fun zoomBy(f: Float) { zoom.value = (zoom.value * f).coerceIn(4f, 600f) }
+    fun zoomBy(f: Float) { zoom.value = (zoom.value.coerceAtMost(zoomCap) * f).coerceIn(MIN_ZOOM, zoomCap.coerceAtLeast(MIN_ZOOM)) }
+    /** Deepest zoom for the current film (set by the timeline: a layout has a maximum width). */
+    @Volatile var zoomCap = MAX_ZOOM
+    /** Incremented to open the export window (Ctrl + E). */
+    val exportRequest = MutableStateFlow(0)
     /** Incremented to ask the timeline to fit the whole montage in view. */
     val fitRequest = MutableStateFlow(0)
 
@@ -422,6 +431,9 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
     fun cancelExport() = cancelExport.set(true)
 
     companion object {
+        /** Timeline zoom range in dp per second: 4 = a whole film, 4000 = frame by frame. */
+        const val MIN_ZOOM = 4f
+        const val MAX_ZOOM = 4000f
         private val EMPTY = Project("none", "")
 
         val titles = listOf(

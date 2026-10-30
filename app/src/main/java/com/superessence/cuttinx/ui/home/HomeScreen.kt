@@ -1,5 +1,6 @@
 package com.superessence.cuttinx.ui.home
 
+import com.superessence.cuttinx.motion.spaceTransition
 import com.superessence.cuttinx.icons.CxIcons
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -106,16 +107,17 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
                 }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
         }) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
-        StudioTabs(tab, { tab = it })
-        // the chosen space slides in from the side of its tab
-        androidx.compose.animation.AnimatedContent(tab, Modifier.weight(1f), transitionSpec = {
-            val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-            (androidx.compose.animation.slideInHorizontally { it * dir / 3 } + androidx.compose.animation.fadeIn()) togetherWith
-                (androidx.compose.animation.slideOutHorizontally { -it * dir / 3 } + androidx.compose.animation.fadeOut())
+        var forward by remember { mutableStateOf(true) }
+        StudioTabs(tab, { forward = it.ordinal >= tab.ordinal; tab = it })
+        // the chosen space slides in from the side of its tab, with a swoosh in its colour
+        Box(Modifier.weight(1f)) {
+        androidx.compose.animation.AnimatedContent(tab, Modifier.fillMaxSize(), transitionSpec = {
+            spaceTransition(targetState.ordinal > initialState.ordinal)
         }, label = "space") { shown ->
         when (shown) {
         StudioTab.TWITCH -> com.superessence.cuttinx.ui.twitch.TwitchScreen(studio)
         StudioTab.ID -> com.superessence.cuttinx.ui.brand.BrandScreen(studio) { tab = StudioTab.TWITCH }
+        StudioTab.CREATOR -> com.superessence.cuttinx.ui.creator.CreatorScreen(studio)
         StudioTab.EDITOR -> {
         val visible = projects.filter { it.archived == showArchived && (query.isBlank() || it.name.contains(query, true)) }
         LazyVerticalGrid(GridCells.Adaptive(160.dp), Modifier.fillMaxSize(), contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -171,6 +173,8 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
         }
         }
         }
+        }
+        com.superessence.cuttinx.motion.SpaceSwoosh(tab, tab.color, forward)
         }
         }
     }
@@ -270,6 +274,7 @@ enum class StudioTab(val label: String, val short: String, val icon: () -> andro
     EDITOR("Éditeur", "Éditeur", { CxIcons.Editor }, Cx.Yellow),
     TWITCH("Twitch Editor", "Twitch", { CxIcons.Twitch }, Color(0xFF3D8BFF)),
     ID("ID Influenceur", "ID Influ", { CxIcons.Identity }, Color(0xFFFF4FA3)),
+    CREATOR("Créateur", "Créa", { CxIcons.Studio }, Color(0xFFFF5A36)),
 }
 
 /** Slanted card echoing the big « / » separators. */
@@ -287,9 +292,9 @@ private fun StudioTabs(selected: StudioTab, onSelect: (StudioTab) -> Unit) {
     val cx = LocalCx.current
     Row(Modifier.fillMaxWidth().height(104.dp).padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         StudioTab.entries.forEachIndexed { i, t ->
-            if (i > 0) Text("/", Modifier.padding(horizontal = 1.dp), fontSize = 58.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color.White.copy(alpha = 0.3f))
+            if (i > 0) Text("/", Modifier.padding(horizontal = 1.dp), fontSize = 44.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color.White.copy(alpha = 0.3f))
             val sel = t == selected
-            val weight by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.9f else 1f, androidx.compose.animation.core.spring(0.6f, 240f), label = "w")
+            val weight by androidx.compose.animation.core.animateFloatAsState(if (sel) 2.1f else 1f, androidx.compose.animation.core.spring(0.6f, 240f), label = "w")
             val scale by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.12f else 0.9f, androidx.compose.animation.core.spring(0.42f, 320f), label = "s")
             val alpha by androidx.compose.animation.core.animateFloatAsState(if (sel) 1f else 0.6f, label = "a")
             val bounce = remember { androidx.compose.animation.core.Animatable(0f) }
@@ -299,7 +304,7 @@ private fun StudioTabs(selected: StudioTab, onSelect: (StudioTab) -> Unit) {
                 Column(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }, horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(t.icon(), null, Modifier.size(30.dp).graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f },
                         tint = if (sel) (if (t == StudioTab.EDITOR) Color.Black else Color.White) else MaterialTheme.colorScheme.onSurface)
-                    Text(if (sel) t.label else t.short, fontWeight = FontWeight.Black, fontSize = if (sel) 15.sp else 12.sp, maxLines = 1,
+                    Text(if (sel) t.label else t.short, fontWeight = FontWeight.Black, fontSize = if (sel) 14.sp else 11.sp, maxLines = 1, softWrap = false,
                         color = if (sel) (if (t == StudioTab.EDITOR) Color.Black else Color.White) else MaterialTheme.colorScheme.onSurface)
                 }
             }
