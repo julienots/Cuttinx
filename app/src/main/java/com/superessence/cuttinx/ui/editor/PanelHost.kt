@@ -70,6 +70,16 @@ fun PanelHost(vm: EditorViewModel, panel: Panel, p: Project, sel: Clip?, track: 
                 Panel.PRESETS -> FiltersPanel(vm, sel)
                 Panel.MOTION -> MotionPanel(vm, sel!!)
                 Panel.PRO_TOOLS -> ProToolsPanel(vm, p, sel)
+                Panel.SMART -> {
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    com.superessence.cuttinx.smart.SmartStudioPanel(p, sel?.id, cx.accent,
+                        onEdit = { label, op -> if (vm.edit(label) { op(it) }) vm.message.value = "$label : fait (annulable)" },
+                        onSeek = { vm.preview.seekTo(it) },
+                        onCopy = { t ->
+                            (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("CUTTINX", t))
+                            vm.message.value = "Chapitres copiés"
+                        })
+                }
             }
         }
     }

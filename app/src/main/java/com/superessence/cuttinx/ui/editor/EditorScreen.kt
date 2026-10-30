@@ -215,6 +215,7 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         add(T(Icons.Default.Title, "Titres") { vm.panel.value = Panel.TEMPLATES })
         add(T(Icons.Default.Subtitles, "Sous-titres") { vm.panel.value = Panel.SUBTITLES })
         add(T(Icons.Default.Mic, "Voix off") { if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) vm.panel.value = Panel.VOICE else micPerm.launch(Manifest.permission.RECORD_AUDIO) })
+        add(T(Icons.Default.Lightbulb, "Studio IA") { vm.panel.value = Panel.SMART })
         add(T(Icons.Default.AutoAwesome, "AI Lab") { vm.panel.value = Panel.AI })
         add(T(Icons.Default.Stars, "Outils pro") { vm.panel.value = Panel.PRO_TOOLS })
         if (!beginner || ws != Workspace.QUICK) {
@@ -257,6 +258,7 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         add(T(Icons.Default.CopyAll, "Copier") { vm.copySelected() })
         if (sel.kind == ClipKind.MEDIA && asset?.isVisual == true) add(T(Icons.Default.FindReplace, "Remplacer") { pickReplace.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) })
         if (asset?.type == MediaType.VIDEO && asset.hasAudio && track?.kind == TrackKind.VIDEO) add(T(Icons.AutoMirrored.Filled.CallSplit, "Extraire l'audio") { vm.extractAudio() })
+        add(T(Icons.Default.Lightbulb, "Studio IA") { vm.panel.value = Panel.SMART })
         add(T(Icons.Default.AutoAwesome, "AI Lab") { vm.panel.value = Panel.AI })
         add(T(Icons.Default.Stars, "Outils pro") { vm.panel.value = Panel.PRO_TOOLS })
         add(T(Icons.Default.Checklist, "Multi", active = multi) { vm.multiSelect.value = !multi })
