@@ -25,6 +25,17 @@ object CxIcons {
         return b.build()
     }
 
+    val Magnet by lazy { build(IconSet.Magnet) }
+    val TrimBefore by lazy { build(IconSet.TrimBefore) }
+    val TrimAfter by lazy { build(IconSet.TrimAfter) }
+    val CloseGaps by lazy { build(IconSet.CloseGaps) }
+    val JlCut by lazy { build(IconSet.JlCut) }
+    val Paste by lazy { build(IconSet.Paste) }
+    val Equalize by lazy { build(IconSet.Equalize) }
+    val Solo by lazy { build(IconSet.Solo) }
+    val Save by lazy { build(IconSet.Save) }
+    val Grid by lazy { build(IconSet.Grid) }
+    val Gear by lazy { build(IconSet.Gear) }
     val ZoomIn by lazy { build(IconSet.ZoomIn) }
     val ZoomOut by lazy { build(IconSet.ZoomOut) }
     val Fit by lazy { build(IconSet.Fit) }

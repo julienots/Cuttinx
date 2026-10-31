@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@file:OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.superessence.cuttinx.desktop.editor
 
@@ -48,7 +48,7 @@ import com.superessence.cuttinx.desktop.engine.EditorModel
 import com.superessence.cuttinx.desktop.ui.LocalAccent
 import kotlin.math.roundToInt
 
-private val HeaderW = 150.dp
+private val HeaderW = 184.dp
 
 /** Ctrl held (multi-selection with Ctrl + click), tracked by the window key handler. */
 var ctrlHeld = false
@@ -118,14 +118,23 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
     Column(modifier.background(Cx.Bg)) {
         // edit toolbar
         Row(Modifier.fillMaxWidth().background(Cx.Panel).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Tool(CxIcons.Split, "Couper (S)") { m.splitAtPlayhead() }
-            Tool(CxIcons.Delete, "Supprimer") { m.deleteSelection() }
-            Tool(CxIcons.RippleDelete, "Supprimer et resserrer") { m.deleteSelection(ripple = true) }
-            Tool(CxIcons.Duplicate, "Dupliquer") { m.duplicateSelection() }
-            Tool(CxIcons.Marker, "Marqueur") { m.addMarker() }
+            IconTool(CxIcons.Split, "Couper à la tête de lecture", "S") { m.splitAtPlayhead() }
+            IconTool(CxIcons.TrimBefore, "Couper avant la tête de lecture et resserrer", "Q") { m.trimAtPlayhead(true) }
+            IconTool(CxIcons.TrimAfter, "Couper après la tête de lecture et resserrer", "W") { m.trimAtPlayhead(false) }
+            ToolSep()
+            IconTool(CxIcons.Delete, "Supprimer", "Suppr") { m.deleteSelection() }
+            IconTool(CxIcons.RippleDelete, "Supprimer et resserrer", "Maj + Suppr") { m.deleteSelection(ripple = true) }
+            IconTool(CxIcons.CloseGaps, "Fermer les espaces de la piste") { m.closeGaps() }
+            IconTool(CxIcons.Duplicate, "Dupliquer", "Ctrl + D") { m.duplicateSelection() }
+            ToolSep()
+            IconTool(CxIcons.Marker, "Ajouter un marqueur", "M") { m.addMarker() }
+            IconTool(CxIcons.Equalize, "Marqueurs sur chaque coupe") { m.markersAtCuts() }
+            val snapOn by m.snap.collectAsState()
+            IconTool(CxIcons.Magnet, if (snapOn) "Aimant activé (se colle aux bords et à la tête de lecture)" else "Aimant désactivé", "N", active = snapOn) { m.snap.value = !snapOn }
+            ToolSep()
             var addMenu by remember { mutableStateOf(false) }
             Box {
-                Tool(CxIcons.Add, "Piste") { addMenu = true }
+                IconTool(CxIcons.Add, "Ajouter une piste") { addMenu = true }
                 DropdownMenu(addMenu, { addMenu = false }) {
                     listOf(TrackKind.VIDEO to "Vidéo / incrustation", TrackKind.AUDIO to "Audio", TrackKind.TEXT to "Texte", TrackKind.SUBTITLE to "Sous-titres", TrackKind.EFFECT to "Calque d'effets").forEach { (k, l) ->
                         DropdownMenuItem({ Text(l) }, { m.addTrack(k); addMenu = false })
@@ -133,14 +142,12 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
                 }
             }
             Spacer(Modifier.weight(1f))
-            Text("Molette : défiler · Ctrl + molette : zoom · clic molette / droit glissé : déplacer", color = Cx.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            Spacer(Modifier.width(8.dp))
-            Tool(CxIcons.ZoomOut, "") { m.zoomBy(0.8f) }
+            IconTool(CxIcons.ZoomOut, "Dézoomer", "Ctrl + -") { m.zoomBy(0.8f) }
             // logarithmic slider: as precise for a whole film as for frame-by-frame editing
             Slider(kotlin.math.ln(pps), { m.zoom.value = kotlin.math.exp(it).coerceIn(EditorModel.MIN_ZOOM, zoomCap) }, Modifier.width(140.dp),
                 valueRange = kotlin.math.ln(EditorModel.MIN_ZOOM)..kotlin.math.ln(zoomCap).coerceAtLeast(kotlin.math.ln(EditorModel.MIN_ZOOM) + 0.01f))
-            Tool(CxIcons.ZoomIn, "") { m.zoomBy(1.25f) }
-            Tool(CxIcons.Fit, "Tout voir") { m.fitRequest.value++ }
+            IconTool(CxIcons.ZoomIn, "Zoomer", "Ctrl + +") { m.zoomBy(1.25f) }
+            IconTool(CxIcons.Fit, "Tout voir", "Ctrl + 0") { m.fitRequest.value++ }
             Tool(CxIcons.ZoomIn, "Max") {
                 // deepest zoom, centred on the playhead
                 m.zoom.value = zoomCap
@@ -206,6 +213,22 @@ fun Timeline(m: EditorModel, modifier: Modifier) {
     }
 }
 
+/** Icon button with a tooltip (name and shortcut); [active] shows a toggle that is on. */
+@Composable
+private fun IconTool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, shortcut: String? = null, active: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
+    val accent = LocalAccent.current
+    TooltipArea(tooltip = {
+        Text(label + (shortcut?.let { "   [$it]" } ?: ""), Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xF2000000)).padding(horizontal = 10.dp, vertical = 5.dp), color = Color.White, fontSize = 12.sp)
+    }, delayMillis = 350) {
+        Box(Modifier.size(34.dp).clip(RoundedCornerShape(6.dp)).background(if (active) accent.copy(alpha = 0.22f) else Color.Transparent).clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
+            Icon(icon, label, Modifier.size(19.dp), tint = if (!enabled) Cx.Dim else if (active) accent else Color.White)
+        }
+    }
+}
+
+@Composable
+private fun ToolSep() = Box(Modifier.padding(horizontal = 6.dp).width(1.dp).height(20.dp).background(Cx.Line))
+
 @Composable
 private fun Tool(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) = TextButton(onClick, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
     Icon(icon, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(label, fontSize = 12.sp)
@@ -222,6 +245,8 @@ private fun TrackHeader(m: EditorModel, t: Track, modifier: Modifier) {
         Icon(icon, null, Modifier.size(15.dp), tint = Cx.Dim)
         Spacer(Modifier.width(4.dp))
         Text(t.name.ifBlank { t.kind.name }, Modifier.weight(1f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (t.kind == TrackKind.AUDIO || t.kind == TrackKind.VIDEO)
+            Toggle(CxIcons.Solo, "Solo (n'écouter que cette piste)", m.current?.let { com.superessence.cuttinx.core.smart.EditTools.isSolo(it, t.id) } == true) { m.solo(t.id) }
         if (t.kind == TrackKind.AUDIO || t.kind == TrackKind.VIDEO)
             Toggle(if (t.muted) CxIcons.VolumeOff else CxIcons.Volume, "Son", !t.muted) { m.updateTrack(t.id, if (t.muted) "Son activé" else "Piste muette") { it.copy(muted = !it.muted) } }
         if (t.kind != TrackKind.AUDIO)
@@ -291,7 +316,7 @@ private fun ClipBox(m: EditorModel, p: Project, t: Track, tracks: List<Track>, c
                     var newStart = c.startUs + toUs(dx)
                     // magnet: snap to the playhead and to clip edges (within 8 dp)
                     val snap = (8f / pps * 1e6).toLong()
-                    val edges = listOf(m.playhead, 0L) + p.allClips.filter { it.id != c.id }.flatMap { listOf(it.startUs, it.endUs) }
+                    val edges = if (!m.snap.value) emptyList() else listOf(m.playhead, 0L) + p.allClips.filter { it.id != c.id }.flatMap { listOf(it.startUs, it.endUs) }
                     edges.minByOrNull { kotlin.math.abs(it - newStart) }?.let { if (kotlin.math.abs(it - newStart) < snap) newStart = it }
                     edges.minByOrNull { kotlin.math.abs(it - (newStart + c.durationUs)) }?.let { e -> if (kotlin.math.abs(e - (newStart + c.durationUs)) < snap) newStart = e - c.durationUs }
                     if (dx != 0f || target != null) m.moveClip(c.id, newStart, target)

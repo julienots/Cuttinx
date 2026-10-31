@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -77,7 +78,7 @@ fun PanelHost(vm: EditorViewModel, panel: Panel, p: Project, sel: Clip?, track: 
                     onDelete = { vm.c.versions.delete(it) })
                 Panel.SMART -> {
                     val ctx = androidx.compose.ui.platform.LocalContext.current
-                    com.superessence.cuttinx.smart.SmartStudioPanel(p, sel?.id, cx.accent,
+                    com.superessence.cuttinx.smart.SmartStudioPanel(p, vm.selection.collectAsStateWithLifecycle().value, vm.position, cx.accent,
                         onEdit = { label, op -> vm.snapshot("Avant : $label", auto = true); if (vm.edit(label) { op(it) }) vm.message.value = "$label : fait (annulable)" },
                         onSeek = { vm.preview.seekTo(it) },
                         onCopy = { t ->

@@ -10,6 +10,7 @@ import com.superessence.cuttinx.core.project.ProjectStore
 import com.superessence.cuttinx.core.resources.Synth
 import com.superessence.cuttinx.core.timeline.EditResult
 import com.superessence.cuttinx.core.timeline.EditSession
+import com.superessence.cuttinx.core.smart.EditTools
 import com.superessence.cuttinx.core.timeline.TimelineEditor
 import com.superessence.cuttinx.core.util.Ids
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,11 +105,14 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         io.execute { refreshProjects() }
     }
 
+    /** Ctrl + S: saves right now and says so. */
+    fun saveWithMessage() { saveNow(); message.value = "Projet enregistré" }
+
     /** Synchronous save (window closing, Ctrl + S); runs on the io thread so it never races an autosave. */
     fun saveNow() {
         player.pause()
         val p = current ?: return
-        runCatching { io.submit(Runnable { store.save(p) }).get() }.onFailure { message.value = "Enregistrement impossible : ${it.cause?.message ?: it.message}" }
+        runCatching { io.submit(Runnable { store.save(p) }).get(); unsaved.value = false; savedAtMs.value = System.currentTimeMillis() }.onFailure { message.value = "Enregistrement impossible : ${it.cause?.message ?: it.message}" }
     }
 
     fun delete(id: String) { store.delete(id); refreshProjects() }
@@ -153,6 +157,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         selection.value = selection.value.filter { p.findClip(it) != null }.toSet()
         player.invalidate()
         updateHistory()
+        unsaved.value = true
         scheduleSave()
     }
 
@@ -165,7 +170,7 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
             Thread.sleep(800)
             savePending = false
             session?.current?.let { p ->
-                runCatching { store.save(p) }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
+                runCatching { store.save(p) }.onSuccess { unsaved.value = session?.current !== p; savedAtMs.value = System.currentTimeMillis() }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
                 // an automatic version every five minutes of editing
                 if (System.currentTimeMillis() - lastVersionMs >= 5 * 60_000L) { lastVersionMs = System.currentTimeMillis(); runCatching { versions.snapshot(p, "Enregistrement automatique", auto = true) } }
             }
@@ -280,6 +285,41 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         if (targets.isEmpty()) { edit("Couper tout") { TimelineEditor.splitAll(it, t) }; return }
         edit("Couper") { pr -> targets.fold(pr) { acc, c -> TimelineEditor.split(acc, c.id, t).first } }
     }
+
+    // ------------------------------------------------------------------ precision tools
+
+    /** True while the montage has changes not yet written to disk (shown in the status bar). */
+    val unsaved = MutableStateFlow(false)
+    val savedAtMs = MutableStateFlow(0L)
+
+    /** Magnet while dragging clips (snaps to the playhead and to the edges of the other clips). */
+    val snap = MutableStateFlow(true)
+
+    /** Selected clips crossing the playhead, or the main-track shot under it. */
+    private fun trimTargets(): List<String> {
+        val p = current ?: return emptyList()
+        val t = playhead
+        return selection.value.filter { id -> p.findClip(id)?.second?.let { t > it.startUs && t < it.endUs } == true }.ifEmpty { EditTools.mainClipsAt(p, t) }
+    }
+
+    /** Q / W: removes what is before / after the playhead and closes the hole. */
+    fun trimAtPlayhead(keepAfter: Boolean) {
+        val ids = trimTargets()
+        if (ids.isEmpty()) { message.value = "Place la tête de lecture à l'intérieur d'un plan"; return }
+        val t = playhead
+        edit(if (keepAfter) "Couper avant la tête de lecture" else "Couper après la tête de lecture") { EditTools.rippleTrim(it, t, keepAfter, ids) }
+    }
+
+    /** Closes the empty spaces of the track of the selected clip (or of the main track). */
+    fun closeGaps() {
+        val p = current ?: return
+        val tid = selection.value.firstOrNull()?.let { p.findClip(it)?.first?.id }
+        edit("Fermer les espaces") { EditTools.closeGaps(it, tid) }
+    }
+
+    fun nudgeSelection(frames: Int) { val ids = selection.value; if (ids.isNotEmpty()) edit("Décaler de $frames image(s)", "nudge") { EditTools.nudge(it, ids, frames) } }
+    fun markersAtCuts() = edit("Marqueurs sur les coupes") { EditTools.markersAtCuts(it) }
+    fun solo(trackId: String) = edit("Solo") { EditTools.solo(it, trackId) }
 
     fun deleteSelection(ripple: Boolean = false) {
         val ids = selection.value

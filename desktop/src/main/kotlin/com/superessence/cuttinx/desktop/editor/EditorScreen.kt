@@ -55,8 +55,36 @@ fun EditorScreen(m: EditorModel) {
             Inspector(m, Modifier.width(340.dp).fillMaxHeight())
         }
         Timeline(m, Modifier.fillMaxWidth().height(300.dp))
+        StatusBar(m)
     }
     if (showExport) ExportDialog(m) { showExport = false }
+}
+
+/** Thin bar at the bottom of the editor: save state on the left, project facts on the right. */
+@Composable
+private fun StatusBar(m: EditorModel) {
+    val p by m.project.collectAsState()
+    val unsaved by m.unsaved.collectAsState()
+    val savedAt by m.savedAtMs.collectAsState()
+    val sel by m.selection.collectAsState()
+    val snap by m.snap.collectAsState()
+    val pos by m.player.position.collectAsState()
+    val pr = p ?: return
+    val clock = remember { java.text.SimpleDateFormat("HH:mm:ss") }
+    Row(Modifier.fillMaxWidth().background(Color(0xFF101116)).padding(horizontal = 12.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(if (unsaved) Color(0xFFFFB020) else Color(0xFF2FB67C)))
+        Spacer(Modifier.width(7.dp))
+        Text(if (unsaved) "Modifications en cours d'enregistrement" else if (savedAt > 0) "Enregistré à ${clock.format(java.util.Date(savedAt))}" else "Projet à jour", fontSize = 11.sp, color = Cx.Dim)
+        Spacer(Modifier.weight(1f))
+        val items = listOf(
+            "${pr.format.width}×${pr.format.height} · ${pr.format.frameRate} i/s",
+            "Durée ${timecode(pr.durationUs)}",
+            "Tête ${timecode(pos, true, pr.format.frameRate)}",
+            "${pr.allClips.size} éléments" + if (sel.isNotEmpty()) " · ${sel.size} sélectionné(s)" else "",
+            if (snap) "Aimant activé" else "Aimant désactivé",
+        )
+        Text(items.joinToString("     "), fontSize = 11.sp, color = Cx.Dim, maxLines = 1)
+    }
 }
 
 @Composable
@@ -96,6 +124,7 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
         IconButton({ m.toggleQuickKeyframe() }, enabled = sel.isNotEmpty()) {
             Icon(if (kfOn) CxIcons.KeyframeRemove else CxIcons.KeyframeAdd, if (kfOn) "Retirer l'image clé" else "Ajouter une image clé", tint = if (kfOn) LocalAccent.current else if (sel.isNotEmpty()) Color.White else Cx.Dim)
         }
+        IconButton({ m.saveWithMessage() }) { Icon(CxIcons.Save, "Enregistrer (Ctrl + S)") }
         TextButton({ m.undo() }, enabled = canUndo) { Icon(CxIcons.Undo, "Annuler", Modifier.size(18.dp)); if (!compact) { Spacer(Modifier.width(6.dp)); Text("Annuler") } }
         TextButton({ m.redo() }, enabled = canRedo) { Icon(CxIcons.Redo, "Rétablir", Modifier.size(18.dp)); if (!compact) { Spacer(Modifier.width(6.dp)); Text("Rétablir") } }
         IconButton({ m.saveNow(); m.message.value = "Projet enregistré" }) { Icon(CxIcons.Check, "Enregistrer (Ctrl+S)") }
@@ -242,6 +271,10 @@ private val shortcuts = listOf(
     "Ctrl + clic" to "Ajouter un clip à la sélection",
     "Ctrl + A" to "Tout sélectionner",
     "S" to "Couper à la tête de lecture",
+    "Q / W" to "Couper avant / après la tête de lecture et resserrer",
+    "N" to "Aimant activé / désactivé",
+    ", / ." to "Décaler la sélection d'une image (Maj : dix)",
+    "Ctrl + S" to "Enregistrer",
     "Suppr" to "Supprimer (Maj : supprimer et resserrer)",
     "Ctrl + D" to "Dupliquer",
     "M" to "Marqueur",

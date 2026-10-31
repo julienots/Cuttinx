@@ -87,6 +87,19 @@ object IconSet {
     val Background = def("Background", "M3 3h18v18H3z", "M3 15l6-6 12 12", filled = setOf())
     val Folder get() = Media
 
+    // ---- precision editing
+    val Magnet = def("Magnet", "M6 3v9a6 6 0 0 0 12 0V3", "M6 8h4", "M14 8h4")
+    val TrimBefore = def("TrimBefore", "M5 4v16", "M20 12H9", "M13 8l-4 4 4 4")
+    val TrimAfter = def("TrimAfter", "M19 4v16", "M4 12h11", "M11 8l4 4-4 4")
+    val CloseGaps = def("CloseGaps", "M3 8h5v8H3z", "M16 8h5v8h-5z", "M10 9l2 3-2 3", "M14 9l-2 3 2 3")
+    val JlCut = def("JlCut", "M3 8h11", "M10 16h11", "M14 5v6", "M10 13v6")
+    val Paste = def("Paste", "M9 3h6v4H9z", "M7 5H5v16h14V5h-2", "M9 12h6", "M9 16h4")
+    val Equalize = def("Equalize", "M5 7v10", "M10 7v10", "M15 7v10", "M20 7v10")
+    val Solo = def("Solo", "M4 14v-2a8 8 0 0 1 16 0v2", "M4 14h3v6H4z", "M17 14h3v6h-3z")
+    val Save = def("Save", "M5 3h11l3 3v15H5z", "M8 3v6h8V3", "M8 21v-7h8v7")
+    val Grid = def("Grid", "M3 3h18v18H3z", "M9 3v18", "M15 3v18", "M3 9h18", "M3 15h18")
+    val Gear = def("Gear", circle(12f, 12f, 4f), "M12 3v3", "M12 18v3", "M3 12h3", "M18 12h3", "M5.6 5.6l2.1 2.1", "M16.3 16.3l2.1 2.1", "M18.4 5.6l-2.1 2.1", "M7.7 16.3l-2.1 2.1")
+
     // ---- identity
     val Idea = def("Idea", "M9 18h6", "M10 21h4", "M12 3a6 6 0 0 0-3.5 10.9c.8.6 1.5 1.6 1.5 2.6V17h4v-.5c0-1 .7-2 1.5-2.6A6 6 0 0 0 12 3z")
     val Do = def("Do", circle(12f, 12f, 9f), "M8 12.5l3 3 5-6")
@@ -96,7 +109,7 @@ object IconSet {
     val Rocket = def("Rocket", "M5 15c-1.5 1.3-2 4-2 6 2 0 4.7-.5 6-2", "M9 15l-3-3c1.5-4 5-9 13-9 0 8-5 11.5-9 13z", circle(14.5f, 9.5f, 1.5f))
 
     /** All icons by name. */
-    val all: Map<String, IconDef> by lazy { listOf(Editor, Twitch, Identity, Help, Media, Text, Music, Sfx, Effects, Transitions, Animation, Voice, Pro, Image, Video, Upload, Download, Play, Pause, SkipStart, SkipEnd, Prev, Next, Replay, Split, Delete, RippleDelete, Duplicate, Marker, Undo, Redo, KeyframeAdd, KeyframeRemove, Mirror, Add, Close, Check, Warning, Back, ChevronDown, More, Search, Relink, Lock, Unlock, Eye, EyeOff, Volume, VolumeOff, ZoomSlow, ZoomIn, ZoomOut, Fit, Move, Keyboard, Progress, Captions, Hook, Watermark, NoiseOff, Studio, Background, Idea, Do, Dont, Calendar, Star, Rocket).associateBy { it.name } }
+    val all: Map<String, IconDef> by lazy { listOf(Editor, Twitch, Identity, Help, Media, Text, Music, Sfx, Effects, Transitions, Animation, Voice, Pro, Image, Video, Upload, Download, Play, Pause, SkipStart, SkipEnd, Prev, Next, Replay, Split, Delete, RippleDelete, Duplicate, Marker, Undo, Redo, KeyframeAdd, KeyframeRemove, Mirror, Add, Close, Check, Warning, Back, ChevronDown, More, Search, Relink, Lock, Unlock, Eye, EyeOff, Volume, VolumeOff, ZoomSlow, Magnet, TrimBefore, TrimAfter, CloseGaps, JlCut, Paste, Equalize, Solo, Save, Grid, Gear, ZoomIn, ZoomOut, Fit, Move, Keyboard, Progress, Captions, Hook, Watermark, NoiseOff, Studio, Background, Idea, Do, Dont, Calendar, Star, Rocket).associateBy { it.name } }
 }
 
 /** Draws [icon] in a [size]-pixel square at ([x], [y]). */

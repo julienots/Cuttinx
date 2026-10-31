@@ -62,7 +62,7 @@ fun Library(m: EditorModel, modifier: Modifier) {
                     val p by m.project.collectAsState()
                     val sel by m.selection.collectAsState()
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                        com.superessence.cuttinx.smart.SmartStudioPanel(p, sel.firstOrNull(), LocalAccent.current,
+                        com.superessence.cuttinx.smart.SmartStudioPanel(p, sel, m.player.position.collectAsState().value, LocalAccent.current,
                             onEdit = { label, op -> m.snapshot("Avant : $label", auto = true); if (m.edit(label) { op(it) }) m.message.value = "$label : fait (Ctrl + Z pour annuler)" },
                             onSeek = { m.player.seek(it) },
                             onCopy = { com.superessence.cuttinx.desktop.ui.copyToClipboard(it); m.message.value = "Chapitres copiés" })

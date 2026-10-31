@@ -284,7 +284,13 @@ class AppState {
             ctrl && e.key == Key.Z -> m.undo()
             ctrl && e.key == Key.Y -> m.redo()
             ctrl && e.key == Key.D -> m.duplicateSelection()
+            ctrl && e.key == Key.S -> m.saveWithMessage()
             e.key == Key.S && !ctrl -> m.splitAtPlayhead()
+            e.key == Key.Q && !ctrl -> m.trimAtPlayhead(keepAfter = true)
+            e.key == Key.W && !ctrl -> m.trimAtPlayhead(keepAfter = false)
+            e.key == Key.N && !ctrl -> m.snap.value = !m.snap.value
+            e.key == Key.Comma && !ctrl -> m.nudgeSelection(if (e.isShiftPressed) -10 else -1)
+            e.key == Key.Period && !ctrl -> m.nudgeSelection(if (e.isShiftPressed) 10 else 1)
             e.key == Key.Delete || e.key == Key.Backspace -> m.deleteSelection(ripple = e.isShiftPressed)
             e.key == Key.DirectionLeft -> m.player.seek(m.playhead - (if (e.isShiftPressed) 1_000_000L else 1_000_000L / fps))
             e.key == Key.DirectionRight -> m.player.seek(m.playhead + (if (e.isShiftPressed) 1_000_000L else 1_000_000L / fps))

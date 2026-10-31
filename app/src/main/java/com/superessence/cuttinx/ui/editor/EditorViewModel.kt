@@ -329,6 +329,28 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
     fun addMarker(label: String = "") = edit("Marqueur") { TimelineEditor.addMarker(it, position, label) }
     fun removeMarker(id: String) = edit("Supprimer le marqueur") { TimelineEditor.removeMarker(it, id) }
 
+    // ------------------------------------------------------------------ precision tools
+
+    /** Selected shots crossing the playhead, or the main-track shot under it. */
+    private fun trimTargets(): List<String> {
+        val t = position
+        return selection.value.filter { id -> current.findClip(id)?.second?.let { t > it.startUs && t < it.endUs } == true }
+            .ifEmpty { com.superessence.cuttinx.core.smart.EditTools.mainClipsAt(current, t) }
+    }
+
+    /** Removes what is before / after the playhead and closes the hole (ripple trim). */
+    fun trimAtPlayhead(keepAfter: Boolean) {
+        val ids = trimTargets()
+        if (ids.isEmpty()) { message.value = "Placez la tête de lecture à l'intérieur d'un plan"; return }
+        val t = position
+        edit(if (keepAfter) "Couper avant la tête de lecture" else "Couper après la tête de lecture") { com.superessence.cuttinx.core.smart.EditTools.rippleTrim(it, t, keepAfter, ids) }
+    }
+
+    fun closeGaps() {
+        val tid = primaryId?.let { current.findClip(it)?.first?.id }
+        edit("Fermer les espaces") { com.superessence.cuttinx.core.smart.EditTools.closeGaps(it, tid) }
+    }
+
     fun splitAll() = edit("Diviser toutes les pistes") { TimelineEditor.splitAll(it, position) }
 
     // ------------------------------------------------------------------ text

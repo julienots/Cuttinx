@@ -38,7 +38,8 @@ private val CardBg = Color.White.copy(alpha = 0.06f)
 @Composable
 fun SmartStudioPanel(
     project: Project?,
-    selectedClipId: String?,
+    selection: Set<String>,
+    playheadUs: Long,
     accent: Color,
     onEdit: (label: String, op: (Project) -> Project) -> Unit,
     onSeek: (Long) -> Unit,
@@ -61,7 +62,7 @@ fun SmartStudioPanel(
         when (section) {
             0 -> Director(project, accent, onEdit)
             1 -> Quality(project, platform, accent, onEdit, onSeek)
-            else -> Tools(project, platform, selectedClipId, accent, onEdit, onCopy)
+            else -> Tools(project, platform, selection, playheadUs, accent, onEdit, onCopy)
         }
     }
 }
@@ -195,7 +196,40 @@ private fun Tool(icon: ImageVector, title: String, sub: String, accent: Color, o
 }
 
 @Composable
-private fun Tools(project: Project, platform: Platform, selectedClipId: String?, accent: Color, onEdit: (String, (Project) -> Project) -> Unit, onCopy: (String) -> Unit) {
+private fun Tools(project: Project, platform: Platform, selection: Set<String>, playheadUs: Long, accent: Color, onEdit: (String, (Project) -> Project) -> Unit, onCopy: (String) -> Unit) {
+    val selectedClipId = selection.firstOrNull()
+    SectionTitle("MONTAGE PRÉCIS", accent)
+    // trims at the playhead apply to the selected shots that cross it, or to the main-track shot under it
+    val trimIds = selection.filter { id -> project.findClip(id)?.second?.let { playheadUs > it.startUs && playheadUs < it.endUs } == true }.ifEmpty { EditTools.mainClipsAt(project, playheadUs) }
+    Tool(CxIcons.TrimBefore, "Couper avant la tête de lecture", "Supprime ce qui précède et resserre (touche Q sur PC)", accent) { onEdit("Couper avant la tête de lecture") { EditTools.rippleTrim(it, playheadUs, true, trimIds) } }
+    Tool(CxIcons.TrimAfter, "Couper après la tête de lecture", "Supprime ce qui suit et resserre (touche W sur PC)", accent) { onEdit("Couper après la tête de lecture") { EditTools.rippleTrim(it, playheadUs, false, trimIds) } }
+    Tool(CxIcons.CloseGaps, "Fermer les espaces", "Supprime les trous de la piste du clip sélectionné (ou de la piste principale)", accent) {
+        val tid = selectedClipId?.let { project.findClip(it)?.first?.id }
+        onEdit("Fermer les espaces") { EditTools.closeGaps(it, tid) }
+    }
+    Tool(CxIcons.Marker, "Marqueurs sur chaque coupe", "Un marqueur « Plan N » à chaque changement de plan", accent) { onEdit("Marqueurs sur les coupes") { EditTools.markersAtCuts(it) } }
+    Tool(CxIcons.Split, "Couper à tous les marqueurs", "Découpe toutes les pistes à chaque marqueur", accent) { onEdit("Couper aux marqueurs") { EditTools.splitAtMarkers(it) } }
+    Text("Durée identique pour les photos et textes de la piste principale :", fontSize = 12.sp, color = Dim, modifier = Modifier.padding(top = 8.dp))
+    Spacer(Modifier.height(4.dp))
+    val stillSecs = listOf(1, 2, 3, 5)
+    Pills(stillSecs.map { "$it s" }, -1, accent) { i -> SmartTools.mainTrack(project)?.let { t -> onEdit("Photos et textes : ${stillSecs[i]} s") { EditTools.equalizeDurations(it, t.id, stillSecs[i] * 1_000_000L) } } }
+    // J / L cuts on the selected video shot
+    var jl by remember { mutableIntStateOf(500) }
+    val jlTarget = selectedClipId?.let { id -> project.allClips.firstOrNull { it.id == id && it.kind == ClipKind.MEDIA && project.asset(it.assetId)?.type == MediaType.VIDEO } }
+    Text("Coupes en J et en L (le son déborde sur le plan voisin) :", fontSize = 12.sp, color = Dim, modifier = Modifier.padding(top = 10.dp))
+    Spacer(Modifier.height(4.dp))
+    val jlOptions = listOf(300, 500, 800, 1200)
+    Pills(jlOptions.map { "%.1f s".format(it / 1000f) }, jlOptions.indexOf(jl), accent) { jl = jlOptions[it] }
+    Tool(CxIcons.JlCut, "Coupe en J", if (jlTarget == null) "Sélectionne un plan vidéo : son avant l'image" else "Le son de « ${jlTarget.name.take(22)} » démarre ${jl / 1000f} s avant l'image", accent) { jlTarget?.let { c -> onEdit("Coupe en J") { EditTools.jlCut(it, c.id, jl * 1000L, 0) } } }
+    Tool(CxIcons.JlCut, "Coupe en L", if (jlTarget == null) "Sélectionne un plan vidéo : son après l'image" else "Le son continue ${jl / 1000f} s après le plan", accent) { jlTarget?.let { c -> onEdit("Coupe en L") { EditTools.jlCut(it, c.id, 0, jl * 1000L) } } }
+    Tool(CxIcons.JlCut, "Coupe en J + L", "Le son déborde des deux côtés : transition dialogue très fluide", accent) { jlTarget?.let { c -> onEdit("Coupe en J + L") { EditTools.jlCut(it, c.id, jl * 1000L, jl * 1000L) } } }
+    // paste attributes
+    val modelId = selection.firstOrNull()
+    val others = selection.drop(1)
+    Text(if (others.isEmpty()) "Coller les réglages : sélectionne plusieurs éléments (le premier sert de modèle)." else "Coller les réglages du premier élément sur les ${others.size} autre(s) :", fontSize = 12.sp, color = Dim, modifier = Modifier.padding(top = 10.dp))
+    Tool(CxIcons.Paste, "Tous les réglages", "Effets, position et taille, animations, son, incrustation et masque", accent) { if (modelId != null && others.isNotEmpty()) onEdit("Coller les réglages") { EditTools.copyAttributes(it, modelId, others) } }
+    Tool(CxIcons.Effects, "Seulement les effets", "Garde le reste de chaque élément tel quel", accent) { if (modelId != null && others.isNotEmpty()) onEdit("Coller les effets") { EditTools.copyAttributes(it, modelId, others, setOf(Attribute.EFFECTS)) } }
+
     SectionTitle("DURÉE & FORMAT", accent)
     Text("Raccourcir intelligemment à… (chaque plan perd ses débuts et fins, le cœur de l'action reste)", fontSize = 12.sp, color = Dim)
     Spacer(Modifier.height(4.dp))
