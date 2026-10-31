@@ -94,7 +94,7 @@ class StudioViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun write() = synchronized(store) {
         runCatching { store.save(config.value) }
-            .onSuccess { saveStatus.value = "Enregistré ✓" }
+            .onSuccess { saveStatus.value = "Enregistré" }
             .onFailure { saveStatus.value = "Échec de l'enregistrement"; message.value = "Enregistrement impossible : ${it.message}" }
     }
 

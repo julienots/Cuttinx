@@ -30,6 +30,7 @@ data class TitleTemplate(val name: String, val style: TextStyle, val animIn: Tex
 class EditorModel(val home: File = File(System.getProperty("user.home"), "CuttinxPRO")) {
 
     val store = ProjectStore(File(home, "projets").also { it.mkdirs() })
+    val versions = com.superessence.cuttinx.core.project.VersionStore(File(home, "versions").also { it.mkdirs() })
     val resDir = File(home, "ressources").also { it.mkdirs() }
     val importDir = File(home, "imports").also { it.mkdirs() }
 
@@ -74,6 +75,26 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         selection.value = emptySet()
         player.pause(); player.seek(0); player.invalidate()
         updateHistory()
+        lastVersionMs = System.currentTimeMillis()
+        io.execute { runCatching { versions.snapshot(p, "Ouverture du projet", auto = true) } }
+    }
+
+    // ------------------------------------------------------------------ versions
+
+    @Volatile private var lastVersionMs = 0L
+
+    /** Keeps the current state in the project's version history. */
+    fun snapshot(label: String, auto: Boolean = false) {
+        val p = current ?: return
+        io.execute { runCatching { versions.snapshot(p, label, auto) } }
+    }
+
+    /** Puts a saved version back as a regular edit (undoable); the state before is kept as a version. */
+    fun restoreVersion(info: com.superessence.cuttinx.core.project.VersionInfo) {
+        val old = versions.load(info) ?: run { message.value = "Cette version est illisible."; return }
+        snapshot("Avant la restauration", auto = true)
+        edit("Restaurer « ${info.label} »") { cur -> old.copy(id = cur.id, name = cur.name, modifiedAtMs = cur.modifiedAtMs, createdAtMs = cur.createdAtMs) }
+        selection.value = emptySet()
     }
 
     fun close() {
@@ -143,7 +164,11 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         io.execute {
             Thread.sleep(800)
             savePending = false
-            session?.current?.let { p -> runCatching { store.save(p) }.onFailure { message.value = "Enregistrement impossible : ${it.message}" } }
+            session?.current?.let { p ->
+                runCatching { store.save(p) }.onFailure { message.value = "Enregistrement impossible : ${it.message}" }
+                // an automatic version every five minutes of editing
+                if (System.currentTimeMillis() - lastVersionMs >= 5 * 60_000L) { lastVersionMs = System.currentTimeMillis(); runCatching { versions.snapshot(p, "Enregistrement automatique", auto = true) } }
+            }
         }
     }
 

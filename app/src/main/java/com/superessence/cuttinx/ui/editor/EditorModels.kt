@@ -12,7 +12,7 @@ enum class Panel(val title: String) {
     STICKERS("Autocollants"), BACKGROUND("Arrière-plan"), FORMAT("Format du projet"), VOICE("Voix off"), MUSIC("Musique & sons"),
     SUBTITLES("Sous-titres"), AI("CUTTINX AI LAB"), EXPORT("Exporter"), HISTORY("Historique"), TRACKS("Pistes"),
     MARKERS("Marqueurs"), PRESETS("Préréglages"), MIXER("Mixage"), TEMPLATES("Titres prêts"), ADJUST_LAYER("Calque d'effets"),
-    MOTION("Animations"), PRO_TOOLS("Outils pro"), SMART("Studio intelligent"),
+    MOTION("Animations"), PRO_TOOLS("Outils pro"), SMART("Studio intelligent"), VERSIONS("Historique des versions"),
 }
 
 /** A long running background job (AI analysis, audio processing...). */

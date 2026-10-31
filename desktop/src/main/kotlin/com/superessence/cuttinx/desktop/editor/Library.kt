@@ -37,7 +37,7 @@ import java.io.File
 import javax.sound.sampled.AudioSystem
 
 private enum class Lib(val label: String, val icon: () -> androidx.compose.ui.graphics.vector.ImageVector) {
-    SMART("Studio IA", { CxIcons.Idea }), MEDIA("Médias", { CxIcons.Media }), TEXT("Textes", { CxIcons.Text }), MUSIC("Musique", { CxIcons.Music }), SFX("Bruitages", { CxIcons.Sfx }), FX("Effets", { CxIcons.Effects }),
+    SMART("Studio", { CxIcons.Idea }), VERSIONS("Versions", { CxIcons.Replay }), MEDIA("Médias", { CxIcons.Media }), TEXT("Textes", { CxIcons.Text }), MUSIC("Musique", { CxIcons.Music }), SFX("Bruitages", { CxIcons.Sfx }), FX("Effets", { CxIcons.Effects }),
     TRANSITIONS("Transitions", { CxIcons.Transitions }), MOTION("Animations", { CxIcons.Animation }), VOICE("Voix", { CxIcons.Voice }), PRO("Outils pro", { CxIcons.Pro }),
 }
 
@@ -63,10 +63,23 @@ fun Library(m: EditorModel, modifier: Modifier) {
                     val sel by m.selection.collectAsState()
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         com.superessence.cuttinx.smart.SmartStudioPanel(p, sel.firstOrNull(), LocalAccent.current,
-                            onEdit = { label, op -> if (m.edit(label) { op(it) }) m.message.value = "$label : fait (Ctrl + Z pour annuler)" },
+                            onEdit = { label, op -> m.snapshot("Avant : $label", auto = true); if (m.edit(label) { op(it) }) m.message.value = "$label : fait (Ctrl + Z pour annuler)" },
                             onSeek = { m.player.seek(it) },
                             onCopy = { com.superessence.cuttinx.desktop.ui.copyToClipboard(it); m.message.value = "Chapitres copiés" })
                         Spacer(Modifier.height(20.dp))
+                    }
+                }
+                Lib.VERSIONS -> {
+                    val p by m.project.collectAsState()
+                    p?.let { pr ->
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            com.superessence.cuttinx.versions.VersionsPanel(pr, LocalAccent.current,
+                                list = { m.versions.list(pr.id) }, load = { m.versions.load(it) },
+                                onSaveNamed = { name -> m.versions.snapshot(pr, name, auto = false); m.message.value = "Version « $name » enregistrée" },
+                                onRestore = { m.restoreVersion(it); m.message.value = "Version restaurée (Ctrl + Z pour annuler)" },
+                                onDelete = { m.versions.delete(it) })
+                            Spacer(Modifier.height(20.dp))
+                        }
                     }
                 }
                 Lib.MEDIA -> MediaTab(m)

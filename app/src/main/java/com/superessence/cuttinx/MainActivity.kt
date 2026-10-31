@@ -48,6 +48,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by c.settings.state.collectAsStateWithLifecycle()
             CuttinxTheme(settings) {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                // a task that failed was contained: tell the user, nothing else happens
+                LaunchedEffect(Unit) { CuttinxApp.backgroundError.collect { m -> if (m != null) { android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_LONG).show(); CuttinxApp.backgroundError.value = null } } }
+                var crashReport by remember { mutableStateOf(c.crashLog.unseen()) }
+                val looping = remember { c.crashLog.looping() }
+                LaunchedEffect(looping) {
+                    // several closures in a row: lighten the preview so the next session is stable
+                    if (looping && settings.previewQuality != com.superessence.cuttinx.engine.PreviewQuality.LOW) c.settings.update { it.copy(previewQuality = com.superessence.cuttinx.engine.PreviewQuality.LOW) }
+                }
                 var stack by remember { mutableStateOf(listOf<Screen>(Screen.Splash)) }
                 fun push(s: Screen) { stack = stack + s }
                 fun pop() { if (stack.size > 1) stack = stack.dropLast(1) else finish() }
@@ -64,6 +73,12 @@ class MainActivity : ComponentActivity() {
                         }
                         push(Screen.Editor(p.id))
                     }
+                }
+                crashReport?.let { f ->
+                    if (stack.last() == Screen.Home) CrashNotice(looping, onCopy = {
+                        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("CUTTINX", runCatching { f.readText() }.getOrDefault("")))
+                        android.widget.Toast.makeText(ctx, "Rapport copié", android.widget.Toast.LENGTH_SHORT).show()
+                    }, onClose = { c.crashLog.markSeen(f); crashReport = null })
                 }
                 when (val s = stack.last()) {
                     Screen.Splash -> com.superessence.cuttinx.motion.LaunchIntro(onDone = { if (stack.lastOrNull() == Screen.Splash) replace(Screen.Home) })
@@ -94,4 +109,18 @@ class MainActivity : ComponentActivity() {
         }
         if (uris.isNotEmpty()) shared.value = uris
     }
+}
+
+/** Shown on the home screen after the app closed unexpectedly. */
+@androidx.compose.runtime.Composable
+private fun CrashNotice(looping: Boolean, onCopy: () -> Unit, onClose: () -> Unit) {
+    androidx.compose.material3.AlertDialog(onDismissRequest = onClose,
+        title = { androidx.compose.material3.Text("Fermeture inattendue") },
+        text = {
+            androidx.compose.material3.Text(
+                "CUTTINX s'est fermé lors de la dernière utilisation. Ton travail est sauvegardé automatiquement : s'il y avait des modifications non enregistrées, une carte « Récupération » apparaît en haut de l'écran d'accueil." +
+                    if (looping) "\n\nPlusieurs fermetures se sont produites de suite : la qualité de l'aperçu a été réduite pour plus de stabilité. Tu peux la remettre dans Paramètres. Ferme aussi les autres applications avant de monter." else "")
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClose) { androidx.compose.material3.Text("OK") } },
+        dismissButton = { androidx.compose.material3.TextButton(onCopy) { androidx.compose.material3.Text("Copier le rapport") } })
 }

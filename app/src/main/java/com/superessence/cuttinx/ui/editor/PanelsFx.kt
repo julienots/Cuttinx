@@ -103,7 +103,7 @@ fun EffectsPanel(vm: EditorViewModel, sel: Clip?) {
             }
         }
     }
-    Text("✦ jaune : effet animé automatiquement. Tous les paramètres sont réglables et animables par images clés.", style = MaterialTheme.typography.labelSmall, color = LocalCx.current.dim, modifier = Modifier.padding(top = 6.dp))
+    Text("Étiquette jaune : effet animé automatiquement. Tous les paramètres sont réglables et animables par images clés.", style = MaterialTheme.typography.labelSmall, color = LocalCx.current.dim, modifier = Modifier.padding(top = 6.dp))
 }
 
 @UnstableApi

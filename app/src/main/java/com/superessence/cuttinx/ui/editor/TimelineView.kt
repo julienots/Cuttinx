@@ -467,13 +467,13 @@ private fun drawClip(ds: DrawScope, c: Clip, t: Track, p: Project, r: Rect, medi
         if (c.audio.fadeInUs > 0) drawPath(Path().apply { moveTo(r.left, r.top); lineTo(r.left + c.audio.fadeInUs.toFloat() / c.durationUs * r.width, r.top); lineTo(r.left, r.bottom); close() }, Color.Black.copy(alpha = 0.35f))
         if (c.audio.fadeOutUs > 0) drawPath(Path().apply { moveTo(r.right, r.top); lineTo(r.right - c.audio.fadeOutUs.toFloat() / c.durationUs * r.width, r.top); lineTo(r.right, r.bottom); close() }, Color.Black.copy(alpha = 0.35f))
         // label
-        val name = when { c.text != null -> c.text!!.text.replace('\n', ' '); c.kind == ClipKind.ADJUSTMENT -> "✦ " + c.effects.joinToString { com.superessence.cuttinx.core.effects.EffectRegistry[it.effectId]?.name ?: "" }.ifBlank { "Calque d'effets" }; else -> c.name }
+        val name = when { c.text != null -> c.text!!.text.replace('\n', ' '); c.kind == ClipKind.ADJUSTMENT -> "Fx " + c.effects.joinToString { com.superessence.cuttinx.core.effects.EffectRegistry[it.effectId]?.name ?: "" }.ifBlank { "Calque d'effets" }; else -> c.name }
         val badges = buildString {
-            if (c.speedCurve.isNotEmpty()) append("⟿ ") else if (c.speed != 1.0) append("%.2gx ".format(c.speed))
-            if (c.effects.isNotEmpty() && c.kind != ClipKind.ADJUSTMENT) append("✦${c.effects.size} ")
+            if (c.speedCurve.isNotEmpty()) append("Rampe ") else if (c.speed != 1.0) append("%.2gx ".format(c.speed))
+            if (c.effects.isNotEmpty() && c.kind != ClipKind.ADJUSTMENT) append("Fx${c.effects.size} ")
             if (c.audio.muted) append("muet · ")
-            if (c.chromaKey.enabled) append("◐ ")
-            if (c.mask.shape != MaskShape.NONE) append("◍ ")
+            if (c.chromaKey.enabled) append("Clé ")
+            if (c.mask.shape != MaskShape.NONE) append("Masque ")
             if (asset?.missing == true) append("MANQUANT · ")
         }
         val txt = badges + name

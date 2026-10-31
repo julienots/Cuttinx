@@ -47,8 +47,8 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, openLicenses: () ->
             SectionTitle("Appareil")
             TextButton({ showCodecs = !showCodecs }) { Text(if (showCodecs) "Masquer les formats" else "Formats pris en charge par ce téléphone") }
             if (showCodecs) {
-                CodecInfo.decoderSummary().forEach { (n, ok) -> Text("${if (ok) "✓" else "✗"} Décodage $n") }
-                CodecInfo.encoderCaps().forEach { c -> Text("✓ Export ${c.codec.label} jusqu'à ${c.maxWidth}×${c.maxHeight}, ${c.maxFps} i/s${if (c.hardware) " (matériel)" else ""}") }
+                CodecInfo.decoderSummary().forEach { (n, ok) -> Text("${if (ok) "OK" else "Absent"} · Décodage $n") }
+                CodecInfo.encoderCaps().forEach { c -> Text("OK · Export ${c.codec.label} jusqu'à ${c.maxWidth}×${c.maxHeight}, ${c.maxFps} i/s${if (c.hardware) " (matériel)" else ""}") }
             }
             SectionTitle("À propos")
             Text("CUTTINX — SUPERESSENCE CREATIVE STUDIO. Gratuit, sans abonnement, sans filigrane, sans publicité.")

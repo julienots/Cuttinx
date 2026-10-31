@@ -3,6 +3,7 @@ package com.superessence.cuttinx.desktop
 import com.superessence.cuttinx.motion.spaceTransition
 import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,33 +43,23 @@ enum class Section(val label: String, val icon: () -> androidx.compose.ui.graphi
     CREATOR("Studio Créateur", { CxIcons.Studio }, Color(0xFFFF5A36)), GUIDE("Guide", { CxIcons.Help }, Color(0xFF9AA0AC)),
 }
 
-/** Slanted card echoing the big « / » separators. */
-private val SlantShape = androidx.compose.foundation.shape.GenericShape { size, _ ->
-    val d = size.height * 0.22f
-    moveTo(d, 0f); lineTo(size.width, 0f); lineTo(size.width - d, size.height); lineTo(0f, size.height); close()
-}
-
-/** Éditeur / Twitch Editor / ID Influenceur: big, separated by « / », the chosen one grows with a spring. */
+/** The four spaces as a flat tab bar: icon and name, thin « / » separators, a short bar in the colour of the open space. */
 @Composable
 private fun SpacesBar(selected: Section, onSelect: (Section) -> Unit, modifier: Modifier) {
-    Row(modifier.height(64.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier.height(52.dp), verticalAlignment = Alignment.CenterVertically) {
         listOf(Section.EDITOR, Section.TWITCH, Section.BRAND, Section.CREATOR).forEachIndexed { i, s ->
-            if (i > 0) Text("/", Modifier.padding(horizontal = 4.dp), fontSize = 46.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color.White.copy(alpha = 0.3f))
+            if (i > 0) Text("/", Modifier.padding(horizontal = 6.dp), fontSize = 26.sp, fontWeight = FontWeight.Light, color = Color.White.copy(alpha = 0.22f))
             val sel = s == selected
-            val weight by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.8f else 1f, androidx.compose.animation.core.spring(0.6f, 240f), label = "w")
-            val scale by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.1f else 0.92f, androidx.compose.animation.core.spring(0.42f, 320f), label = "s")
-            val alpha by androidx.compose.animation.core.animateFloatAsState(if (sel) 1f else 0.6f, label = "a")
-            val bounce = remember { androidx.compose.animation.core.Animatable(0f) }
-            LaunchedEffect(sel) { if (sel) { bounce.snapTo(-18f); bounce.animateTo(0f, androidx.compose.animation.core.spring(0.25f, 220f)) } }
-            val bg = if (sel) androidx.compose.ui.graphics.Brush.linearGradient(listOf(s.color, s.color.copy(alpha = 0.6f))) else androidx.compose.ui.graphics.SolidColor(Cx.Panel2)
-            Box(Modifier.weight(weight).fillMaxHeight().clip(SlantShape).background(bg).clickable { onSelect(s) }, contentAlignment = Alignment.Center) {
-                Row(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(s.icon(), null, Modifier.size(28.dp).graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f },
-                        tint = if (sel) (if (s == Section.EDITOR) Color.Black else Color.White) else Color.White)
-                    Spacer(Modifier.width(10.dp))
-                    Text(s.label, fontWeight = FontWeight.Black, fontSize = if (sel) 20.sp else 15.sp, maxLines = 1,
-                        color = if (sel) (if (s == Section.EDITOR) Color.Black else Color.White) else Color.White)
+            val bar by androidx.compose.animation.core.animateFloatAsState(if (sel) 1f else 0f, androidx.compose.animation.core.tween(220), label = "bar")
+            val tone by androidx.compose.animation.animateColorAsState(if (sel) Color.White else Color.White.copy(alpha = 0.55f), androidx.compose.animation.core.tween(180), label = "tone")
+            Column(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(6.dp)).clickable { onSelect(s) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(s.icon(), null, Modifier.size(20.dp), tint = if (sel) s.color else tone)
+                    Spacer(Modifier.width(8.dp))
+                    Text(s.label, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal, fontSize = 14.sp, maxLines = 1, softWrap = false, color = tone)
                 }
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.fillMaxWidth(0.4f * bar).height(2.dp).background(s.color))
             }
         }
     }
@@ -126,7 +117,7 @@ class AppState {
     fun saveTwitch(): Boolean = synchronized(twitchStore) {
         val c = _config
         runCatching { twitchStore.save(c) }
-            .onSuccess { saveStatus = "Enregistré ✓" }
+            .onSuccess { saveStatus = "Enregistré" }
             .onFailure { saveStatus = "Échec de l'enregistrement"; twitchMessage = "Impossible d'enregistrer dans ${twitchDir.absolutePath} : ${it.message}" }
             .isSuccess
     }
@@ -149,6 +140,33 @@ class AppState {
     val fonts get() = raster.fonts
     val theme get() = OverlayThemes[config.themeId]
     /** The PC video editor (created on first use: it starts the preview threads). */
+    // ------------------------------------------------------------------ crash protection
+    val crashLog = com.superessence.cuttinx.core.project.CrashLog(java.io.File(java.io.File(System.getProperty("user.home"), "CuttinxPRO"), "crash"))
+    /** Message about a task that failed and was contained (banner at the bottom of the window). */
+    var notice by mutableStateOf<String?>(null)
+    /** Report of the previous session's crash, shown once at start. */
+    var crashReport by mutableStateOf<java.io.File?>(runCatching { crashLog.unseen() }.getOrNull())
+    val crashLooping = runCatching { crashLog.looping() }.getOrDefault(false)
+
+    /** Writes the open project to disk right now, from any thread (never waits for the io thread). */
+    fun emergencySave() { if (editorLazy.isInitialized()) runCatching { editor.current?.let { editor.store.save(it) } } }
+
+    /**
+     * Whatever thread fails (export, decoding, analysis, drawing…), the open project is saved, a report
+     * is written and the window stays open with an explanation instead of silently misbehaving.
+     */
+    private fun installCrashProtection() {
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            runCatching { crashLog.write(t.name, e, "${System.getProperty("os.name")} · Java ${System.getProperty("java.version")}") }
+            emergencySave()
+            notice = when (e) {
+                is OutOfMemoryError -> "Mémoire insuffisante : l'opération a été arrêtée. Ton projet est enregistré. Ferme d'autres programmes ou baisse la résolution d'export."
+                else -> "Une opération a échoué (${e.javaClass.simpleName}). Ton projet est enregistré ; si l'affichage se fige, ferme et rouvre CUTTINX."
+            }
+        }
+    }
+    init { installCrashProtection() }
+
     private val editorLazy = lazy { com.superessence.cuttinx.desktop.engine.EditorModel() }
     val editor by editorLazy
 
@@ -308,14 +326,14 @@ fun App(state: AppState = remember { AppState() }) {
         Column(Modifier.fillMaxSize().background(Cx.Bg)) {
             // top: logo + the three spaces facing the user + guide
             Row(Modifier.fillMaxWidth().background(Cx.Panel).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("CUTTINX", color = Cx.Yellow, fontWeight = FontWeight.Black, fontSize = 22.sp, letterSpacing = 2.sp)
-                Spacer(Modifier.width(6.dp))
-                Text("PRO", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Black,
-                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(Cx.Yellow).padding(horizontal = 6.dp, vertical = 1.dp))
+                Text("CUTTINX", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = 4.sp)
+                Spacer(Modifier.width(8.dp))
+                Text("PRO", color = Cx.Dim, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp,
+                    modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp))
                 Spacer(Modifier.width(28.dp))
                 SpacesBar(state.section, { state.section = it }, Modifier.weight(1f))
                 Spacer(Modifier.width(16.dp))
-                Row(Modifier.clip(RoundedCornerShape(12.dp)).background(if (state.section == Section.GUIDE) Cx.Panel2 else Color.Transparent).clickable { state.section = Section.GUIDE }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.clip(RoundedCornerShape(8.dp)).background(if (state.section == Section.GUIDE) Cx.Panel2 else Color.Transparent).clickable { state.section = Section.GUIDE }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(CxIcons.Help, null, Modifier.size(18.dp), tint = Cx.Dim); Spacer(Modifier.width(6.dp)); Text("Guide & tutos", color = Cx.Dim)
                 }
             }
@@ -343,6 +361,21 @@ fun App(state: AppState = remember { AppState() }) {
         }
         // launch animation over the whole window, once per start
         if (state.intro) com.superessence.cuttinx.motion.LaunchIntro(onDone = { state.intro = false })
+        // a contained failure: explained, never silent
+        state.notice?.let { msg ->
+            LaunchedEffect(msg) { kotlinx.coroutines.delay(9000); if (state.notice == msg) state.notice = null }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                Text(msg, Modifier.padding(bottom = 24.dp).widthIn(max = 640.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xF2201417)).clickable { state.notice = null }.padding(horizontal = 18.dp, vertical = 12.dp), color = Color.White, fontSize = 13.sp)
+            }
+        }
+        // the app closed unexpectedly last time
+        state.crashReport?.takeIf { !state.intro }?.let { f ->
+            AlertDialog({ state.crashLog.markSeen(f); state.crashReport = null },
+                title = { Text("Fermeture inattendue") },
+                text = { Text("CUTTINX s'est arrêté lors de la dernière utilisation. Tes projets sont enregistrés automatiquement dans le dossier CuttinxPRO." + if (state.crashLooping) "\n\nPlusieurs incidents de suite : ferme les autres programmes, évite les très grandes résolutions d'aperçu et exporte en 1080p." else "") },
+                confirmButton = { TextButton({ state.crashLog.markSeen(f); state.crashReport = null }) { Text("OK") } },
+                dismissButton = { TextButton({ com.superessence.cuttinx.desktop.ui.copyToClipboard(runCatching { f.readText() }.getOrDefault("")); state.notice = "Rapport copié" }) { Text("Copier le rapport") } })
+        }
     }
     }
 }

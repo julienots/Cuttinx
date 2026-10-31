@@ -78,13 +78,19 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
         }
         // preview follows every change
         viewModelScope.launch { session.revision.collect { preview.update(session.current) } }
-        // autosave
+        // autosave, and an automatic version every five minutes of editing
         viewModelScope.launch(Dispatchers.IO) {
             var lastSaved = session.revision.value
+            var lastVersion = System.currentTimeMillis()
+            runCatching { c.versions.snapshot(session.current, "Ouverture du projet", auto = true) }
             while (isActive) {
                 delay(c.settings.value.autosaveSeconds.coerceAtLeast(3) * 1000L)
                 val rev = session.revision.value
                 if (rev != lastSaved) { runCatching { c.store.autosave(session.current) }; lastSaved = rev }
+                if (System.currentTimeMillis() - lastVersion >= 5 * 60_000L) {
+                    runCatching { c.versions.snapshot(session.current, "Enregistrement automatique", auto = true) }
+                    lastVersion = System.currentTimeMillis()
+                }
             }
         }
         preview.update(loaded, immediate = true)
@@ -111,6 +117,22 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
     fun select(id: String?) {
         if (id == null) { selection.value = emptySet(); return }
         selection.value = if (multiSelect.value) (if (id in selection.value) selection.value - id else selection.value + id) else setOf(id)
+    }
+
+    // ------------------------------------------------------------------ versions
+
+    /** Keeps the current state in the project's version history. */
+    fun snapshot(label: String, auto: Boolean = false) {
+        val p = current
+        viewModelScope.launch(Dispatchers.IO) { runCatching { c.versions.snapshot(p, label, auto) } }
+    }
+
+    /** Puts a saved version back as a regular edit (undoable); the state before is kept as a version. */
+    fun restoreVersion(info: com.superessence.cuttinx.core.project.VersionInfo) {
+        val old = c.versions.load(info) ?: run { message.value = "Cette version est illisible."; return }
+        runCatching { c.versions.snapshot(current, "Avant la restauration", auto = true) }
+        edit("Restaurer « ${info.label} »") { cur -> old.copy(id = cur.id, name = cur.name, modifiedAtMs = cur.modifiedAtMs, createdAtMs = cur.createdAtMs) }
+        selection.value = emptySet()
     }
 
     fun save(): Boolean = runCatching { c.store.save(current); true }.getOrElse { message.value = "Sauvegarde impossible : ${it.message}"; false }

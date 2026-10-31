@@ -70,10 +70,15 @@ fun PanelHost(vm: EditorViewModel, panel: Panel, p: Project, sel: Clip?, track: 
                 Panel.PRESETS -> FiltersPanel(vm, sel)
                 Panel.MOTION -> MotionPanel(vm, sel!!)
                 Panel.PRO_TOOLS -> ProToolsPanel(vm, p, sel)
+                Panel.VERSIONS -> com.superessence.cuttinx.versions.VersionsPanel(p, cx.accent,
+                    list = { vm.c.versions.list(p.id) }, load = { vm.c.versions.load(it) },
+                    onSaveNamed = { name -> vm.c.versions.snapshot(vm.current, name, auto = false); vm.message.value = "Version « $name » enregistrée" },
+                    onRestore = { vm.restoreVersion(it); vm.message.value = "Version restaurée (annulable)" },
+                    onDelete = { vm.c.versions.delete(it) })
                 Panel.SMART -> {
                     val ctx = androidx.compose.ui.platform.LocalContext.current
                     com.superessence.cuttinx.smart.SmartStudioPanel(p, sel?.id, cx.accent,
-                        onEdit = { label, op -> if (vm.edit(label) { op(it) }) vm.message.value = "$label : fait (annulable)" },
+                        onEdit = { label, op -> vm.snapshot("Avant : $label", auto = true); if (vm.edit(label) { op(it) }) vm.message.value = "$label : fait (annulable)" },
                         onSeek = { vm.preview.seekTo(it) },
                         onCopy = { t ->
                             (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("CUTTINX", t))

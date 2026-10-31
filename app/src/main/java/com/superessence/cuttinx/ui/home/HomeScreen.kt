@@ -123,17 +123,18 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
         LazyVerticalGrid(GridCells.Adaptive(160.dp), Modifier.fillMaxSize(), contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column {
-                    // hero
-                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brush.linearGradient(listOf(Color(0xFF1B1B1F), Color(0xFF3A2E00)))).clickable { showNew = true }.padding(20.dp)) {
-                        Column {
-                            Text("Nouveau montage", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
-                            Text("Animations, effets, transitions, sons, IA — export 4K sans filigrane.", color = Color.White.copy(alpha = 0.75f), style = MaterialTheme.typography.bodySmall)
-                            Spacer(Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                AccentButton("Créer", { showNew = true }, icon = Icons.Default.Add)
-                                OutlinedButton({ quickPick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, shape = RoundedCornerShape(14.dp)) {
-                                    Icon(Icons.Default.VideoLibrary, null, tint = Color.White); Spacer(Modifier.width(6.dp)); Text("Depuis la galerie", color = Color.White)
-                                }
+                    // start card: flat, informative, no decoration
+                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cx.panel).border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp)).padding(20.dp)) {
+                        Text("Nouveau projet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text("Importez vos médias ou partez d'une timeline vide. Montage multipiste, effets, transitions et audio ; export jusqu'en 4K, sans filigrane.", color = cx.dim, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button({ showNew = true }, shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent)) {
+                                Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Créer", fontWeight = FontWeight.SemiBold)
+                            }
+                            OutlinedButton({ quickPick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, shape = RoundedCornerShape(8.dp)) {
+                                Icon(Icons.Default.VideoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Importer des médias")
                             }
                         }
                     }
@@ -148,14 +149,14 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
                             }
                         }
                     }
-                    SectionTitle("Modèles gratuits")
+                    SectionTitle("Modèles de départ")
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         vm.templates.list.forEach { t ->
-                            Column(Modifier.width(150.dp).clip(RoundedCornerShape(14.dp)).background(cx.panel2).clickable { vm.fromTemplate(t) { openProject(it.id) } }.padding(12.dp)) {
-                                Icon(Icons.Default.AutoAwesome, null, tint = cx.accent)
+                            Column(Modifier.width(150.dp).clip(RoundedCornerShape(10.dp)).background(cx.panel2).clickable { vm.fromTemplate(t) { openProject(it.id) } }.padding(12.dp)) {
+                                Icon(Icons.Default.Movie, null, Modifier.size(20.dp), tint = cx.dim)
                                 Text(t.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(t.description, style = MaterialTheme.typography.bodySmall, color = cx.dim, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text(t.aspect.label, style = MaterialTheme.typography.labelSmall, color = cx.accent)
+                                Text(t.aspect.label, style = MaterialTheme.typography.labelSmall, color = cx.dim)
                             }
                         }
                     }
@@ -262,11 +263,11 @@ fun NewProjectDialog(defaultAspect: AspectPreset, defaultFps: Int, onDismiss: ()
     }, confirmButton = { TextButton({ onCreate(name, ProjectFormat.forAspect(aspect, res, fps, cw, ch)) }) { Text("Créer") } }, dismissButton = { TextButton(onDismiss) { Text("Annuler") } })
 }
 
-/** "PRO" edition badge shown next to the wordmark. */
+/** "PRO" edition mark next to the wordmark: a plain outlined tag. */
 @Composable
 private fun ProBadge() {
-    Text("PRO", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp,
-        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Brush.linearGradient(listOf(Cx.Yellow, Color(0xFFFF8A00)))).padding(horizontal = 6.dp, vertical = 2.dp))
+    Text("PRO", color = LocalCx.current.dim, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp,
+        modifier = Modifier.border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp))
 }
 
 /** The three spaces of CUTTINX PRO, chosen at the top of the home screen. */
@@ -274,40 +275,32 @@ enum class StudioTab(val label: String, val short: String, val icon: () -> andro
     EDITOR("Éditeur", "Éditeur", { CxIcons.Editor }, Cx.Yellow),
     TWITCH("Twitch Editor", "Twitch", { CxIcons.Twitch }, Color(0xFF3D8BFF)),
     ID("ID Influenceur", "ID Influ", { CxIcons.Identity }, Color(0xFFFF4FA3)),
-    CREATOR("Créateur", "Créa", { CxIcons.Studio }, Color(0xFFFF5A36)),
-}
-
-/** Slanted card echoing the big « / » separators. */
-private val SlantShape = androidx.compose.foundation.shape.GenericShape { size, _ ->
-    val d = size.height * 0.2f
-    moveTo(d, 0f); lineTo(size.width, 0f); lineTo(size.width - d, size.height); lineTo(0f, size.height); close()
+    CREATOR("Créateur", "Créateur", { CxIcons.Studio }, Color(0xFFFF5A36)),
 }
 
 /**
- * The three spaces, big, separated by large « / ». Tapping one makes it grow (spring), its emoji
- * bounces and the two others shrink and fade.
+ * The four spaces as a flat tab bar: icon and name, thin « / » separators, and a short bar in the
+ * colour of the open space under its name.
  */
 @Composable
 private fun StudioTabs(selected: StudioTab, onSelect: (StudioTab) -> Unit) {
-    val cx = LocalCx.current
-    Row(Modifier.fillMaxWidth().height(104.dp).padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        StudioTab.entries.forEachIndexed { i, t ->
-            if (i > 0) Text("/", Modifier.padding(horizontal = 1.dp), fontSize = 44.sp, fontWeight = FontWeight.Black, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, color = Color.White.copy(alpha = 0.3f))
-            val sel = t == selected
-            val weight by androidx.compose.animation.core.animateFloatAsState(if (sel) 2.1f else 1f, androidx.compose.animation.core.spring(0.6f, 240f), label = "w")
-            val scale by androidx.compose.animation.core.animateFloatAsState(if (sel) 1.12f else 0.9f, androidx.compose.animation.core.spring(0.42f, 320f), label = "s")
-            val alpha by androidx.compose.animation.core.animateFloatAsState(if (sel) 1f else 0.6f, label = "a")
-            val bounce = remember { androidx.compose.animation.core.Animatable(0f) }
-            LaunchedEffect(sel) { if (sel) { bounce.snapTo(-18f); bounce.animateTo(0f, androidx.compose.animation.core.spring(0.25f, 220f)) } }
-            val bg = if (sel) Brush.linearGradient(listOf(t.color, t.color.copy(alpha = 0.6f))) else androidx.compose.ui.graphics.SolidColor(cx.panel2)
-            Box(Modifier.weight(weight).fillMaxHeight().clip(SlantShape).background(bg).clickable { onSelect(t) }, contentAlignment = Alignment.Center) {
-                Column(Modifier.graphicsLayer { scaleX = scale; scaleY = scale; this.alpha = alpha }, horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(t.icon(), null, Modifier.size(30.dp).graphicsLayer { rotationZ = bounce.value; translationY = bounce.value * 0.6f },
-                        tint = if (sel) (if (t == StudioTab.EDITOR) Color.Black else Color.White) else MaterialTheme.colorScheme.onSurface)
-                    Text(if (sel) t.label else t.short, fontWeight = FontWeight.Black, fontSize = if (sel) 14.sp else 11.sp, maxLines = 1, softWrap = false,
-                        color = if (sel) (if (t == StudioTab.EDITOR) Color.Black else Color.White) else MaterialTheme.colorScheme.onSurface)
+    val on = MaterialTheme.colorScheme.onSurface
+    Column {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            StudioTab.entries.forEachIndexed { i, t ->
+                if (i > 0) Text("/", Modifier.padding(horizontal = 1.dp), fontSize = 22.sp, fontWeight = FontWeight.Light, color = on.copy(alpha = 0.22f))
+                val sel = t == selected
+                val bar by androidx.compose.animation.core.animateFloatAsState(if (sel) 1f else 0f, androidx.compose.animation.core.tween(220), label = "bar")
+                val tone by androidx.compose.animation.animateColorAsState(if (sel) on else on.copy(alpha = 0.55f), androidx.compose.animation.core.tween(180), label = "tone")
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { onSelect(t) }.padding(top = 10.dp, bottom = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(t.icon(), null, Modifier.size(22.dp), tint = if (sel) t.color else tone)
+                    Spacer(Modifier.height(4.dp))
+                    Text(t.short, fontSize = 12.sp, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal, color = tone, maxLines = 1, softWrap = false)
+                    Spacer(Modifier.height(6.dp))
+                    Box(Modifier.fillMaxWidth(0.5f * bar).height(2.dp).background(t.color))
                 }
             }
         }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(on.copy(alpha = 0.08f)))
     }
 }

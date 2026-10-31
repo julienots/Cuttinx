@@ -315,8 +315,8 @@ private fun ItemInspector(cfg: OverlayConfig, scene: SceneKind, item: OverlayIte
         SmallButton("-90°", { up(null) { it.copy(rotation = ((it.rotation - 90f + 540f) % 360f) - 180f) } })
         SmallButton("0°", { up(null) { it.copy(rotation = 0f) } })
         SmallButton("+90°", { up(null) { it.copy(rotation = ((it.rotation + 90f + 540f) % 360f) - 180f) } })
-        SmallButton(if (item.flipX) "Miroir ↔ ✓" else "Miroir ↔", { up(null) { it.copy(flipX = !it.flipX) } })
-        SmallButton(if (item.flipY) "Miroir ↕ ✓" else "Miroir ↕", { up(null) { it.copy(flipY = !it.flipY) } })
+        SmallButton(if (item.flipX) "Miroir horizontal (actif)" else "Miroir horizontal", { up(null) { it.copy(flipX = !it.flipX) } })
+        SmallButton(if (item.flipY) "Miroir vertical (actif)" else "Miroir vertical", { up(null) { it.copy(flipY = !it.flipY) } })
     }
     // style
     Heading("STYLE")

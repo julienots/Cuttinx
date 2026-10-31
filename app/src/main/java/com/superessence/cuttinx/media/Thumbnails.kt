@@ -27,6 +27,9 @@ class Thumbnails(private val context: Context) {
 
     fun cached(key: String): Bitmap? = mem.get(key)
 
+    /** Frees the in-memory pictures (low memory); they are rebuilt from the disk cache on demand. */
+    fun trim() { mem.evictAll() }
+
     /** Frame of [asset] at source time [timeUs] whose height is about [height] px. */
     suspend fun frame(asset: MediaAsset, timeUs: Long, height: Int = 120): Bitmap? {
         val bucket = if (asset.type == MediaType.VIDEO) (timeUs / 250_000) * 250_000 else 0
@@ -87,6 +90,8 @@ class Waveforms(private val context: Context) {
     val bucketsPerSecond = 50
 
     fun cached(assetId: String) = mem.get(assetId)
+
+    fun trim() { mem.evictAll() }
 
     suspend fun load(asset: MediaAsset): FloatArray? {
         mem.get(asset.id)?.let { return it }

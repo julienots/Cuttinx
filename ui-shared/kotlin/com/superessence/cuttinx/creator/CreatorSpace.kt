@@ -117,7 +117,7 @@ class CreatorState(dir: File) {
 
     private fun write(d: CreatorDesign) {
         runCatching { store.save(d) }
-            .onSuccess { if (current?.id == d.id) saveStatus = "Enregistré ✓" }
+            .onSuccess { if (current?.id == d.id) saveStatus = "Enregistré" }
             .onFailure { saveStatus = "Échec de l'enregistrement"; message = "Enregistrement impossible : ${it.message}" }
     }
 
