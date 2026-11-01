@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
@@ -58,6 +59,33 @@ fun EditorScreen(m: EditorModel) {
         StatusBar(m)
     }
     if (showExport) ExportDialog(m) { showExport = false }
+    val paletteOpen by m.palette.collectAsState()
+    if (paletteOpen) ActionsDialog(m)
+}
+
+/** Ctrl + K : every editing action in one searchable list. */
+@Composable
+private fun ActionsDialog(m: EditorModel) {
+    val project by m.project.collectAsState()
+    val sel by m.selection.collectAsState()
+    val pos by m.player.position.collectAsState()
+    val pr = project ?: return
+    androidx.compose.ui.window.Dialog(onDismissRequest = { m.palette.value = false }) {
+        Surface(shape = RoundedCornerShape(16.dp), color = Cx.Panel) {
+            Column(Modifier.width(660.dp).height(720.dp).padding(18.dp).onPreviewKeyEvent { e ->
+                if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.Escape) { m.palette.value = false; true } else false
+            }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Actions rapides", fontSize = 20.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                    Text("↑ ↓ choisir   ·   Entrée lancer   ·   Échap fermer", fontSize = 11.sp, color = Cx.Dim)
+                }
+                Spacer(Modifier.height(10.dp))
+                com.superessence.cuttinx.actions.QuickActionsPanel(com.superessence.cuttinx.core.smart.EditContext(pr, sel.toList(), pos), LocalAccent.current,
+                    onRun = { a -> com.superessence.cuttinx.actions.QuickActionsMemory.used(a.id); m.runQuickAction(a) },
+                    modifier = Modifier.weight(1f), scroll = true, autoFocus = true, showCursor = true)
+            }
+        }
+    }
 }
 
 /** Thin bar at the bottom of the editor: save state on the left, project facts on the right. */
@@ -117,6 +145,12 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
             }
         }
         }
+        // the searchable list of every action, always in sight
+        Row(Modifier.padding(horizontal = 6.dp).clip(RoundedCornerShape(8.dp)).background(Cx.Panel2).clickable { m.palette.value = true }.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(CxIcons.Search, "Actions rapides", Modifier.size(16.dp), tint = Cx.Dim)
+            if (!compact) { Spacer(Modifier.width(8.dp)); Text("Actions rapides", color = Cx.Dim, fontSize = 13.sp, maxLines = 1); Spacer(Modifier.width(14.dp)) } else Spacer(Modifier.width(6.dp))
+            Text("Ctrl K", Modifier.clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.08f)).padding(horizontal = 6.dp, vertical = 1.dp), color = Cx.Dim, fontSize = 11.sp, maxLines = 1)
+        }
         // one-click keyframe (◇+) next to undo / redo, like the pro editors
         val sel by m.selection.collectAsState()
         m.player.position.collectAsState().value
@@ -127,7 +161,6 @@ private fun TopBar(m: EditorModel, onExport: () -> Unit) {
         IconButton({ m.saveWithMessage() }) { Icon(CxIcons.Save, "Enregistrer (Ctrl + S)") }
         TextButton({ m.undo() }, enabled = canUndo) { Icon(CxIcons.Undo, "Annuler", Modifier.size(18.dp)); if (!compact) { Spacer(Modifier.width(6.dp)); Text("Annuler") } }
         TextButton({ m.redo() }, enabled = canRedo) { Icon(CxIcons.Redo, "Rétablir", Modifier.size(18.dp)); if (!compact) { Spacer(Modifier.width(6.dp)); Text("Rétablir") } }
-        IconButton({ m.saveNow(); m.message.value = "Projet enregistré" }) { Icon(CxIcons.Check, "Enregistrer (Ctrl+S)") }
         var keys by remember { mutableStateOf(false) }
         IconButton({ keys = true }) { Icon(CxIcons.Keyboard, "Raccourcis clavier") }
         if (keys) ShortcutsDialog { keys = false }
@@ -275,6 +308,7 @@ private val shortcuts = listOf(
     "N" to "Aimant activé / désactivé",
     ", / ." to "Décaler la sélection d'une image (Maj : dix)",
     "Ctrl + S" to "Enregistrer",
+    "Ctrl + K" to "Actions rapides : chercher et lancer n'importe quel outil",
     "Suppr" to "Supprimer (Maj : supprimer et resserrer)",
     "Ctrl + D" to "Dupliquer",
     "M" to "Marqueur",

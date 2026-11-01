@@ -284,6 +284,7 @@ class AppState {
             ctrl && e.key == Key.Z -> m.undo()
             ctrl && e.key == Key.Y -> m.redo()
             ctrl && e.key == Key.D -> m.duplicateSelection()
+            ctrl && e.key == Key.K -> m.palette.value = !m.palette.value
             ctrl && e.key == Key.S -> m.saveWithMessage()
             e.key == Key.S && !ctrl -> m.splitAtPlayhead()
             e.key == Key.Q && !ctrl -> m.trimAtPlayhead(keepAfter = true)

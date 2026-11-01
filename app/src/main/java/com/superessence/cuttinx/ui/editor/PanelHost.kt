@@ -71,6 +71,9 @@ fun PanelHost(vm: EditorViewModel, panel: Panel, p: Project, sel: Clip?, track: 
                 Panel.PRESETS -> FiltersPanel(vm, sel)
                 Panel.MOTION -> MotionPanel(vm, sel!!)
                 Panel.PRO_TOOLS -> ProToolsPanel(vm, p, sel)
+                Panel.ACTIONS -> com.superessence.cuttinx.actions.QuickActionsPanel(
+                    com.superessence.cuttinx.core.smart.EditContext(p, vm.selection.collectAsStateWithLifecycle().value.toList(), vm.position),
+                    cx.accent, onRun = { vm.runQuickAction(it) })
                 Panel.VERSIONS -> com.superessence.cuttinx.versions.VersionsPanel(p, cx.accent,
                     list = { vm.c.versions.list(p.id) }, load = { vm.c.versions.load(it) },
                     onSaveNamed = { name -> vm.c.versions.snapshot(vm.current, name, auto = false); vm.message.value = "Version « $name » enregistrée" },

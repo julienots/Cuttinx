@@ -118,6 +118,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
                     Text(project.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${project.format.width}×${project.format.height} • ${project.format.frameRate} i/s", style = MaterialTheme.typography.labelSmall, color = cx.dim)
                 }
+                IconButton({ vm.panel.value = Panel.ACTIONS }) { Icon(Icons.Default.Search, "Actions rapides", tint = cx.accent) }
                 // one-tap keyframe (diamond + plus), next to undo / redo like the pro editors
                 val kfOn = selected != null && vm.anyKeyframeAtPlayhead()
                 IconButton(vm::toggleQuickKeyframe) {

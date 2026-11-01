@@ -36,6 +36,11 @@ object CxIcons {
     val Save by lazy { build(IconSet.Save) }
     val Grid by lazy { build(IconSet.Grid) }
     val Gear by lazy { build(IconSet.Gear) }
+    private val byNameCache = HashMap<String, ImageVector>()
+
+    /** Icon of the shared set by its name (used by lists driven by data, such as the quick actions). */
+    fun byName(name: String): ImageVector = byNameCache.getOrPut(name) { build(IconSet.all[name] ?: IconSet.Idea) }
+
     val ZoomIn by lazy { build(IconSet.ZoomIn) }
     val ZoomOut by lazy { build(IconSet.ZoomOut) }
     val Fit by lazy { build(IconSet.Fit) }

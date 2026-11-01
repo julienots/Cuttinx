@@ -292,6 +292,20 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
     val unsaved = MutableStateFlow(false)
     val savedAtMs = MutableStateFlow(0L)
 
+    // ------------------------------------------------------------------ quick actions (Ctrl + K)
+
+    /** Opens the searchable list of every editing action. */
+    val palette = MutableStateFlow(false)
+
+    /** Runs one action as a single undoable edit; a version is kept before it. */
+    fun runQuickAction(a: com.superessence.cuttinx.core.smart.QuickAction) {
+        val cur = current ?: return
+        val sel = selection.value.toList(); val at = playhead
+        if (!a.available(com.superessence.cuttinx.core.smart.EditContext(cur, sel, at))) { message.value = a.need.hint; return }
+        snapshot("Avant : ${a.label}", auto = true)
+        if (edit(a.label) { p -> a.run(com.superessence.cuttinx.core.smart.EditContext(p, sel, at)) }) { message.value = "${a.label} : fait (Ctrl + Z pour annuler)"; palette.value = false }
+    }
+
     /** Magnet while dragging clips (snaps to the playhead and to the edges of the other clips). */
     val snap = MutableStateFlow(true)
 

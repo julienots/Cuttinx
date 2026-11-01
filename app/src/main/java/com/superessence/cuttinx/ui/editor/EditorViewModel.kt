@@ -329,6 +329,17 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
     fun addMarker(label: String = "") = edit("Marqueur") { TimelineEditor.addMarker(it, position, label) }
     fun removeMarker(id: String) = edit("Supprimer le marqueur") { TimelineEditor.removeMarker(it, id) }
 
+    // ------------------------------------------------------------------ quick actions
+
+    /** Runs one action of the searchable list as a single undoable edit (a version is kept before it). */
+    fun runQuickAction(a: com.superessence.cuttinx.core.smart.QuickAction) {
+        val sel = selection.value.toList(); val at = position
+        if (!a.available(com.superessence.cuttinx.core.smart.EditContext(current, sel, at))) { message.value = a.need.hint; return }
+        com.superessence.cuttinx.actions.QuickActionsMemory.used(a.id)
+        snapshot("Avant : ${a.label}", auto = true)
+        if (edit(a.label) { p -> a.run(com.superessence.cuttinx.core.smart.EditContext(p, sel, at)) }) { message.value = "${a.label} : fait (annulable)"; panel.value = null; pruneSelection() }
+    }
+
     // ------------------------------------------------------------------ precision tools
 
     /** Selected shots crossing the playhead, or the main-track shot under it. */
