@@ -7,7 +7,11 @@ const BLOB_HOST = /\.blob\.vercel-storage\.com$/
 /** Never let the page wait on the storage: after [ms] the site shows « Bientôt disponible » instead. */
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))])
 
-export const storageReady = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN)
+/** A store connected the new way (OIDC) only sets BLOB_STORE_ID; older connections set a read-write token. */
+export const storageReady = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID)
+
+/** Client uploads: signed with the read-write token when there is one, otherwise through presigned URLs (OIDC). */
+export const uploadMode = () => (process.env.BLOB_READ_WRITE_TOKEN ? 'token' : 'presigned')
 
 export async function getRelease() {
   if (!storageReady()) return null

@@ -1,5 +1,5 @@
 'use client'
-import { upload } from '@vercel/blob/client'
+import { upload, uploadPresigned } from '@vercel/blob/client'
 import { useState } from 'react'
 import Icon from '@/components/Icon'
 
@@ -11,7 +11,7 @@ const KINDS = [
 
 function size(b) { if (!b) return ''; const mb = b / 1048576; return mb >= 1024 ? `${(mb / 1024).toFixed(2)} Go` : `${mb.toFixed(1)} Mo` }
 
-export default function AdminPanel({ token, initial, storage }) {
+export default function AdminPanel({ token, initial, storage, mode }) {
   const [current, setCurrent] = useState(initial)
   const [version, setVersion] = useState(initial?.version || '1.0.0')
   const [notes, setNotes] = useState(initial?.notes || '')
@@ -36,7 +36,8 @@ export default function AdminPanel({ token, initial, storage }) {
         const file = files[k.key]
         if (file) {
           const safe = file.name.replace(/[^A-Za-z0-9._-]+/g, '-')
-          const blob = await upload(`downloads/${k.folder}/${safe}`, file, {
+          const send = mode === 'presigned' ? uploadPresigned : upload
+          const blob = await send(`downloads/${k.folder}/${Date.now().toString(36)}-${safe}`, file, {
             access: 'public', handleUploadUrl: '/api/upload', clientPayload: token, contentType: k.type,
             multipart: file.size > 20 * 1024 * 1024,
             onUploadProgress: ({ percentage }) => setProgress((p) => ({ ...p, [k.key]: percentage })),
@@ -62,7 +63,7 @@ export default function AdminPanel({ token, initial, storage }) {
     <main className="admin">
       <div className="row"><Icon name="Lock" size={22} /><h1>Publier une version</h1></div>
       <p className="dim">Page privée : garde son adresse pour toi. Dépose les fichiers, choisis le numéro de version, puis publie. Les anciens fichiers remplacés sont supprimés automatiquement.</p>
-      {!storage ? <div className="msg err">Le stockage n'est pas encore connecté. Sur Vercel : Storage → Create → Blob (public) → Connect au projet, puis redéploie.</div> : null}
+      {!storage ? <div className="msg err">Le stockage n'est pas encore connecté. Sur Vercel : Storage → Create → Blob (public) → Connect au projet, puis redéploie (Deployments → ⋯ → Redeploy).</div> : null}
 
       <section className="panel current">
         <h2>En ligne actuellement</h2>

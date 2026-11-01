@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { isAdmin } from '@/lib/auth'
-import { getRelease, storageReady } from '@/lib/release'
+import { getRelease, storageReady, uploadMode } from '@/lib/release'
 import AdminPanel from './AdminPanel'
 
 export const dynamic = 'force-dynamic'
@@ -10,5 +10,5 @@ export const metadata = { title: 'Publication', robots: { index: false, follow: 
 export default async function AdminPage({ params }) {
   const { token } = await params
   if (!isAdmin(token)) notFound()
-  return <AdminPanel token={token} initial={await getRelease()} storage={storageReady()} />
+  return <AdminPanel token={token} initial={await getRelease()} storage={storageReady()} mode={uploadMode()} />
 }
