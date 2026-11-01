@@ -5,6 +5,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -24,10 +26,20 @@ jobs:
         with:
           name: cuttinx-apk
           path: app/build/outputs/apk/release/app-release.apk
+      # public download of the latest build (GitHub release « derniere-version », replaced at every push)
+      - name: Publier l'APK
+        if: github.event_name == 'push'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk CuttinxPRO.apk
+          gh release view derniere-version >/dev/null 2>&1 || gh release create derniere-version --prerelease --target "$GITHUB_SHA" --title "CUTTINX PRO : dernière version" --notes "Compilation automatique de la dernière version (Android et Windows)." || true
+          gh release upload derniere-version CuttinxPRO.apk --clobber
 
   # PC app (Twitch Studio + Identité) : installateur Windows
   desktop-windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -42,6 +54,16 @@ jobs:
           path: |
             desktop/build/compose/binaries/main/exe/*.exe
             desktop/build/compose/binaries/main/msi/*.msi
+      - name: Publier l'installeur Windows
+        if: github.event_name == 'push'
+        shell: bash
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cp desktop/build/compose/binaries/main/exe/*.exe CuttinxPRO-Windows.exe
+          cp desktop/build/compose/binaries/main/msi/*.msi CuttinxPRO-Windows.msi
+          sleep 20
+          gh release view derniere-version >/dev/null 2>&1 || gh release create derniere-version --prerelease --target "$GITHUB_SHA" --title "CUTTINX PRO : dernière version" --notes "Compilation automatique de la dernière version (Android et Windows)." || true
+          gh release upload derniere-version CuttinxPRO-Windows.exe CuttinxPRO-Windows.msi --clobber
 
   # Deuxième appli : WinPocket (logiciels Windows sur Android, moteur Winlator / Wine / Box64)
   winpocket:
