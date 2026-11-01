@@ -4,6 +4,7 @@ package com.superessence.cuttinx.desktop.editor
 
 import com.superessence.cuttinx.icons.CxIcons
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
