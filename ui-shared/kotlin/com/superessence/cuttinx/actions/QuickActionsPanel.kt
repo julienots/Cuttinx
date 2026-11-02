@@ -36,6 +36,8 @@ object QuickActionsMemory {
 
 private sealed interface Item {
     data class Header(val text: String) : Item
+    /** "Show the N other actions" of a folded group. */
+    data class More(val group: String, val hidden: Int, val open: Boolean) : Item
     data class Row(val action: QuickAction, val enabled: Boolean) : Item
 }
 
@@ -49,10 +51,12 @@ private sealed interface Item {
 fun QuickActionsPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> Unit, modifier: Modifier = Modifier, scroll: Boolean = false, autoFocus: Boolean = false, showCursor: Boolean = false) {
     var query by remember { mutableStateOf("") }
     var sel by remember { mutableIntStateOf(0) }
+    // groups are folded to their first actions so the list stays short (270 actions in 2.0)
+    val open = remember { mutableStateMapOf<String, Boolean>() }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (autoFocus) runCatching { focus.requestFocus() } }
 
-    val items: List<Item> = remember(query, ctx.project, ctx.selection, ctx.playheadUs, QuickActionsMemory.recent.toList()) {
+    val items: List<Item> = remember(query, ctx.project, ctx.selection, ctx.playheadUs, QuickActionsMemory.recent.toList(), open.toMap()) {
         if (query.isBlank()) buildList {
             val rec = QuickActionsMemory.recent.mapNotNull { QuickActions[it] }
             if (rec.isNotEmpty()) { add(Item.Header("RÉCENTES")); rec.forEach { add(Item.Row(it, it.available(ctx))) } }
@@ -60,9 +64,12 @@ fun QuickActionsPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> U
             for (g in QuickActions.groups) {
                 val inGroup = QuickActions.all.filter { it.group == g }
                 if (inGroup.isEmpty()) continue
-                add(Item.Header(g.uppercase()))
+                add(Item.Header("${g.uppercase()} · ${inGroup.size}"))
                 // available actions first inside each group
-                (inGroup.filter { it in usable } + inGroup.filter { it !in usable }).forEach { add(Item.Row(it, it in usable)) }
+                val ordered = inGroup.filter { it in usable } + inGroup.filter { it !in usable }
+                val unfolded = open[g] == true || ordered.size <= 6
+                (if (unfolded) ordered else ordered.take(4)).forEach { add(Item.Row(it, it in usable)) }
+                if (ordered.size > 6) add(Item.More(g, ordered.size - 4, unfolded))
             }
         } else QuickActions.search(query, ctx).map { Item.Row(it, it.available(ctx)) }
     }
@@ -80,7 +87,7 @@ fun QuickActionsPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> U
                 else -> false
             }
         }, singleLine = true, leadingIcon = { Icon(CxIcons.Search, null, Modifier.size(20.dp)) },
-            placeholder = { Text("Chercher : couper, boucle, tiktok, ralenti…") },
+            placeholder = { Text("Chercher : couper, écran partagé, karaoké, ralenti…") },
             trailingIcon = { if (query.isNotEmpty()) Icon(CxIcons.Close, "Effacer", Modifier.size(20.dp).clickable { query = "" }) })
         Spacer(Modifier.height(6.dp))
         val list: @Composable ColumnScope.() -> Unit = {
@@ -88,6 +95,9 @@ fun QuickActionsPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> U
             items.forEach { item ->
                 when (item) {
                     is Item.Header -> Text(item.text, Modifier.padding(top = 14.dp, bottom = 4.dp, start = 4.dp), color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                    is Item.More -> Text(if (item.open) "Réduire" else "Voir les ${item.hidden} autres actions",
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open[item.group] = !item.open }.padding(horizontal = 10.dp, vertical = 8.dp),
+                        color = accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     is Item.Row -> {
                         val hi = showCursor && item === current
                         val req = remember { BringIntoViewRequester() }

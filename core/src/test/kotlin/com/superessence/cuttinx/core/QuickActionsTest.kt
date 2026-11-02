@@ -88,7 +88,9 @@ class QuickActionsTest {
                 if (t.kind == TrackKind.VIDEO) s.zipWithNext().forEach { (x, y) -> assertTrue("${a.id} : plans superposés", y.startUs >= x.endUs - (y.transitionIn?.durationUs ?: 0) - 1_000) }
             }
         }
-        assertTrue("$ran actions lancées", ran >= 55)
+        assertTrue("$ran actions lancées", ran >= 200)
+        assertTrue("${QuickActions.all.size} actions", QuickActions.all.size >= 250)
+        assertTrue(QuickActions.all.all { it.group in QuickActions.groups })
         assertTrue(QuickActions.all.map { it.id }.toSet().size == QuickActions.all.size)      // unique ids
         assertTrue(QuickActions.all.all { IconSetLookup.exists(it.icon) })
     }

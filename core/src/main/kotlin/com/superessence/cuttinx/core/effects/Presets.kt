@@ -46,6 +46,19 @@ object Presets {
             preset("Clip musical", fx("rgb_split", "amount" to 6.0), fx("adjust", "contrast" to 0.2, "saturation" to 0.3)),
             preset("Coucher de soleil", fx("gradient_overlay", "hueA" to 25.0, "hueB" to 300.0, "opacity" to 0.25, "blend" to 1.0), fx("adjust", "temperature" to 0.3)),
             preset("Forêt", fx("adjust", "tint" to -0.3, "saturation" to 0.15, "shadows" to 0.1, "temperature" to 0.1)),
+            // ---- 2.0
+            preset("Pellicule cinéma", fx("film_look"), fx("halation"), fx("grain", "amount" to 0.12), fx("letterbox")),
+            preset("Bleu nuit", fx("adjust", "temperature" to -0.6, "exposure" to -0.3, "saturation" to -0.2, "contrast" to 0.15), fx("vignette", "amount" to 0.45)),
+            preset("Été", fx("adjust", "temperature" to 0.3, "saturation" to 0.3, "brightness" to 0.06, "vibrance" to 0.3)),
+            preset("Automne", fx("adjust", "temperature" to 0.4, "tint" to 0.1, "saturation" to -0.05, "shadows" to -0.1), fx("vignette", "amount" to 0.25)),
+            preset("Cyberpunk", fx("adjust", "tint" to 0.45, "temperature" to -0.35, "contrast" to 0.3, "saturation" to 0.35), fx("glow", "intensity" to 0.6), fx("chroma_aberration", "amount" to 2.0)),
+            preset("Noir intense", fx("bw", "contrast" to 0.7), fx("adjust", "shadows" to -0.3), fx("vignette", "amount" to 0.7)),
+            preset("Lumière douce", fx("dreamy"), fx("adjust", "contrast" to -0.1, "brightness" to 0.08, "saturation" to -0.05)),
+            preset("Mat", fx("adjust", "fade" to 0.25, "contrast" to -0.15, "saturation" to -0.1)),
+            preset("Chaud vintage", fx("vintage_warm")),
+            preset("Froid cinéma", fx("cool_cinema"), fx("letterbox")),
+            preset("Vidéo vintage", fx("vhs"), fx("adjust", "fade" to 0.2, "saturation" to -0.15), fx("scanlines")),
+            preset("Clip néon", fx("neon_edges"), fx("adjust", "contrast" to 0.2)),
         )
     }
 

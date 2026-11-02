@@ -42,14 +42,15 @@ class QuickAction(
  * run with Enter or a tap. Each action is one undoable edit.
  */
 object QuickActions {
-    val groups = listOf("Couper et découper", "Durée et rythme", "Ordre et répétition", "Son", "Style et mouvement", "Réglages", "Publication")
+    val groups = listOf("Modèles en un geste", "Couper et découper", "Durée et rythme", "Ordre et répétition", "Son", "Son pro", "Style et mouvement",
+        "Animation et caméra", "Textes et titres", "Disposition à l'écran", "Couleur et looks", "Transitions", "Vitesse", "Réglages", "Organisation", "Publication")
 
     val all: List<QuickAction> by lazy { build() }
 
     private fun build(): List<QuickAction> {
         val l = ArrayList<QuickAction>()
         fun act(id: String, label: String, group: String, kw: String, shortcut: String?, need: Need, icon: String, run: (EditContext) -> Project) { l += QuickAction(id, label, group, kw, shortcut, need, icon, run) }
-        val g = groups
+        val g = listOf("Couper et découper", "Durée et rythme", "Ordre et répétition", "Son", "Style et mouvement", "Réglages", "Publication")
 
         // ---- cut
         act("split", "Couper à la tête de lecture", g[0], "diviser trancher scinder cut", "S", Need.NONE, "Split") { c ->
@@ -113,6 +114,7 @@ object QuickActions {
         act("teaser", "Teaser du meilleur moment au début", g[6], "bande-annonce accroche", null, Need.NONE, "Hook") { c -> SmartTools.teaser(c.project) }
         act("perfect_loop", "Boucle parfaite", g[6], "replay raccord", null, Need.NONE, "Replay") { c -> SmartTools.perfectLoop(c.project) }
         act("magic", "Passe magique", g[6], "tout automatique optimiser", null, Need.NONE, "Pro") { c -> SmartTools.magic(c.project, c.platform) }
+        V2.add(::act)
         return l
     }
 
@@ -137,4 +139,126 @@ object QuickActions {
     }
 
     operator fun get(id: String): QuickAction? = all.firstOrNull { it.id == id }
+}
+
+/** The actions added by CUTTINX 2.0. */
+private object V2 {
+    private const val TPL = "Modèles en un geste"; private const val ANIM = "Animation et caméra"; private const val TXT = "Textes et titres"
+    private const val LAY = "Disposition à l'écran"; private const val SND = "Son pro"; private const val COL = "Couleur et looks"
+    private const val TRN = "Transitions"; private const val SPD = "Vitesse"; private const val ORG = "Organisation"
+
+    fun add(act: (String, String, String, String, String?, Need, String, (EditContext) -> Project) -> Unit) {
+        // ---- templates
+        for (t in Template.entries) act("tpl_${t.name.lowercase()}", "Modèle : ${t.label}", TPL, "recette automatique style ${t.description}", null, Need.NONE, "Studio") { c -> Templates.apply(c.project, t, c.platform) }
+
+        // ---- animation & camera
+        fun vis(c: EditContext) = Animator.targets(c.project, c.selection)
+        for (m in CameraMove.entries) act("cam_${m.name.lowercase()}", m.label, ANIM, "caméra mouvement images clés keyframe ken burns", null, Need.NONE, "Animation") { c -> Animator.camera(c.project, vis(c), m) }
+        act("zoom_hit", "Zoom choc à la tête de lecture", ANIM, "punch impact zoom rapide keyframe", null, Need.PLAYHEAD, "ZoomIn") { c -> Animator.zoomHit(c.project, c.trimTargets, c.playheadUs) }
+        act("shake_hit", "Secousse à la tête de lecture", ANIM, "tremblement impact caméra keyframe", null, Need.PLAYHEAD, "Move") { c -> Animator.shakeAt(c.project, c.trimTargets, c.playheadUs) }
+        for (bpm in listOf(100, 120, 128, 140)) act("pulse_$bpm", "Pulsation au tempo ($bpm BPM)", ANIM, "rythme beat musique zoom battement", null, Need.NONE, "Music") { c -> Animator.pulseOnBeats(c.project, vis(c), bpm.toDouble()) }
+        act("fade_edges", "Apparition et disparition en fondu", ANIM, "opacité transparence keyframe", null, Need.NONE, "Eye") { c -> Animator.fadeEdges(c.project, vis(c)) }
+        for (m in listOf(MotionPreset.POP, MotionPreset.ZOOM_IN, MotionPreset.SLIDE_UP, MotionPreset.SLIDE_LEFT, MotionPreset.ELASTIC, MotionPreset.WHIP, MotionPreset.DROP, MotionPreset.SPIN_ZOOM, MotionPreset.GLITCH, MotionPreset.FLIP_H))
+            act("in_${m.name.lowercase()}", "Entrée : ${m.label}", ANIM, "animation apparition début", null, Need.NONE, "Animation") { c -> Animator.motion(c.project, vis(c), animIn = m) }
+        for (m in listOf(MotionPreset.FADE, MotionPreset.ZOOM_OUT, MotionPreset.SLIDE_DOWN, MotionPreset.SLIDE_RIGHT, MotionPreset.SPIN, MotionPreset.FLICKER))
+            act("out_${m.name.lowercase()}", "Sortie : ${m.label}", ANIM, "animation disparition fin", null, Need.NONE, "Animation") { c -> Animator.motion(c.project, vis(c), animOut = m) }
+        for (m in listOf(LoopMotion.BREATHE, LoopMotion.FLOAT, LoopMotion.HEARTBEAT, LoopMotion.SHAKE, LoopMotion.WIGGLE, LoopMotion.ORBIT, LoopMotion.JELLY, LoopMotion.KEN_BURNS))
+            act("loop_${m.name.lowercase()}", "En continu : ${m.label}", ANIM, "animation boucle permanente", null, Need.NONE, "Replay") { c -> Animator.motion(c.project, vis(c), loop = m) }
+        act("anim_clear", "Retirer animations et images clés", ANIM, "supprimer mouvement keyframe effacer", null, Need.NONE, "KeyframeRemove") { c -> Animator.clear(c.project, vis(c)) }
+        act("reset_tr", "Réinitialiser position et taille", ANIM, "centrer transformation remise à zéro", null, Need.CLIP, "Fit") { c -> Animator.resetTransform(c.project, vis(c)) }
+        act("mirror_h", "Miroir horizontal", ANIM, "retourner inverser flip symétrie", null, Need.CLIP, "Mirror") { c -> Animator.mirror(c.project, vis(c), true) }
+        act("mirror_v", "Miroir vertical", ANIM, "retourner flip tête en bas", null, Need.CLIP, "Mirror") { c -> Animator.mirror(c.project, vis(c), false) }
+        act("rot_90", "Pivoter de 90°", ANIM, "rotation tourner", null, Need.CLIP, "Replay") { c -> Animator.rotate(c.project, vis(c), 90.0) }
+        act("zoom_120", "Agrandir de 20 %", ANIM, "zoom recadrer taille plus grand", null, Need.CLIP, "ZoomIn") { c -> Animator.zoom(c.project, vis(c), 1.2) }
+        act("zoom_80", "Réduire de 20 %", ANIM, "dézoom taille plus petit", null, Need.CLIP, "ZoomOut") { c -> Animator.zoom(c.project, vis(c), 0.8) }
+
+        // ---- texts & titles
+        for (lk in TextLook.entries) act("txt_${lk.name.lowercase()}", "Style de texte : ${lk.label}", TXT, "police titre sous-titres design", null, Need.NONE, "Text") { c -> Titles.applyLook(c.project, c.selection, lk) }
+        act("txt_bigger", "Textes plus grands", TXT, "taille police agrandir", null, Need.NONE, "ZoomIn") { c -> Titles.resize(c.project, c.selection, 1.15) }
+        act("txt_smaller", "Textes plus petits", TXT, "taille police réduire", null, Need.NONE, "ZoomOut") { c -> Titles.resize(c.project, c.selection, 1 / 1.15) }
+        act("txt_upper", "Textes en majuscules", TXT, "capitales casse", null, Need.NONE, "Text") { c -> Titles.uppercase(c.project, c.selection, true) }
+        act("txt_lower", "Textes en minuscules", TXT, "casse normale", null, Need.NONE, "Text") { c -> Titles.uppercase(c.project, c.selection, false) }
+        for ((a, lab) in listOf(TextAlign.LEFT to "à gauche", TextAlign.CENTER to "au centre", TextAlign.RIGHT to "à droite"))
+            act("txt_align_${a.name.lowercase()}", "Textes $lab", TXT, "aligner alignement position", null, Need.NONE, "Text") { c -> Titles.align(c.project, c.selection, a) }
+        for ((col, lab) in listOf(0xFFFFFFFF to "blanc", 0xFFFFD21F to "jaune", 0xFF111111 to "noir", 0xFFFF2BD6 to "rose", 0xFF2BD9FF to "cyan"))
+            act("txt_color_$lab", "Textes en $lab", TXT, "couleur police teinte", null, Need.NONE, "Text") { c -> Titles.recolor(c.project, c.selection, col) }
+        act("title_open", "Titre d'ouverture", TXT, "début nom vidéo intro", null, Need.NONE, "Text") { c -> Titles.opening(c.project) }
+        act("countdown", "Compte à rebours 3, 2, 1", TXT, "décompte chiffres départ", null, Need.NONE, "Progress") { c -> Titles.countdown(c.project, c.playheadUs) }
+        act("ranking", "Classement #5 à #1 sur les plans", TXT, "top numéros liste", null, Need.NONE, "Star") { c -> Titles.ranking(c.project, true) }
+        act("ranking_up", "Numéros 1, 2, 3 sur les plans", TXT, "étapes liste ordre", null, Need.NONE, "Star") { c -> Titles.ranking(c.project, false) }
+        act("lower_third", "Bandeau nom à la tête de lecture", TXT, "lower third présentation personne interview", null, Need.NONE, "Captions") { c -> Titles.lowerThird(c.project, c.playheadUs) }
+        act("end_card", "Carte de fin (merci + abonne-toi)", TXT, "outro fin abonnement appel action", null, Need.NONE, "Hook") { c -> Titles.endCard(c.project) }
+        act("chapters_titles", "Titre de chapitre à chaque marqueur", TXT, "partie section marqueur", null, Need.NONE, "Marker") { c -> Titles.chapterTitles(c.project) }
+        act("watermark", "Filigrane @compte", TXT, "signature pseudo logo protection", null, Need.NONE, "Watermark") { c -> Titles.watermark(c.project) }
+        act("karaoke", "Sous-titres karaoké (mot par mot)", TXT, "révélation sous-titres animés", null, Need.NONE, "Captions") { c -> Titles.karaoke(c.project) }
+
+        // ---- layout
+        act("split_screen", "Écran partagé avec la sélection", LAY, "côte à côte duo split screen comparaison", null, Need.TWO, "Grid") { c -> Layouts.splitScreen(c.project, c.selection) }
+        act("split_stacked", "Écran partagé haut / bas", LAY, "split screen vertical empilé", null, Need.TWO, "Grid") { c -> Layouts.splitScreen(c.project, c.selection, stacked = true) }
+        act("split_side", "Écran partagé gauche / droite", LAY, "split screen côte à côte", null, Need.TWO, "Grid") { c -> Layouts.splitScreen(c.project, c.selection, stacked = false) }
+        act("before_after", "Avant / Après", LAY, "comparaison split screen résultat", null, Need.TWO, "Grid") { c ->
+            val vertical = c.project.format.height > c.project.format.width
+            val np = Layouts.splitScreen(c.project, c.selection.take(2))
+            val a = np.findClip(c.selection[0])?.second; val b = np.findClip(c.selection[1])?.second
+            if (a == null || b == null) np else Titles.beforeAfter(np, a.startUs..a.endUs, b.startUs..b.endUs, vertical)
+        }
+        for (corner in Corner.entries) act("pip_${corner.name.lowercase()}", "Incrustation ${corner.label}", LAY, "pip picture in picture vignette réaction", null, Need.VIDEO, "Image") { c -> Layouts.pictureInPicture(c.project, c.firstVideo!!.id, corner) }
+        act("pip_round", "Incrustation ronde (réaction)", LAY, "pip bulle cercle webcam facecam", null, Need.VIDEO, "Image") { c -> Layouts.pictureInPicture(c.project, c.firstVideo!!.id, Corner.BOTTOM_RIGHT, round = true) }
+        act("blur_bg", "Fond flou (vidéo horizontale en vertical)", LAY, "arrière-plan flou bandes noires remplir", null, Need.NONE, "Background") { c -> Layouts.blurredBackground(c.project) }
+        act("full_screen", "Tout en plein écran", LAY, "réinitialiser disposition centrer", null, Need.NONE, "Fit") { c -> Layouts.fullScreen(c.project) }
+
+        // ---- sound pro
+        fun snd(c: EditContext) = AudioPro.targets(c.project, c.selection)
+        act("voice_podcast", "Voix de podcast (radio)", SND, "voix broadcast compresseur clarté micro", null, Need.NONE, "Voice") { c -> AudioPro.podcastVoice(c.project, AudioPro.voices(c.project, c.selection)) }
+        act("denoise", "Réduire le bruit de fond", SND, "souffle bruit débruiter nettoyer", null, Need.NONE, "NoiseOff") { c -> AudioPro.denoise(c.project, AudioPro.voices(c.project, c.selection)) }
+        for (e in EqPreset.entries) act("eq_${e.name.lowercase()}", "Égaliseur : ${e.label}", SND, "eq fréquences basses aigus", null, Need.NONE, "Volume") { c -> AudioPro.eq(c.project, snd(c), e) }
+        for ((id, lab) in listOf("v_robot" to "robot", "v_radio" to "radio", "v_telephone" to "téléphone", "v_helium" to "hélium", "v_deep" to "grave", "v_monster" to "monstre", "v_cave" to "caverne", "v_underwater" to "sous l'eau"))
+            act("vfx_$id", "Voix $lab", SND, "effet voix transformer", null, Need.NONE, "Voice") { c -> AudioPro.voiceEffect(c.project, AudioPro.voices(c.project, c.selection), id) }
+        act("audio_fx_clear", "Retirer les effets audio", SND, "supprimer égaliseur voix normal", null, Need.NONE, "Delete") { c -> AudioPro.removeAudioEffects(c.project, snd(c)) }
+        act("mute_videos", "Couper le son des vidéos", SND, "muet silence garder musique", null, Need.NONE, "VolumeOff") { c -> AudioPro.muteVideos(c.project, true) }
+        act("unmute_videos", "Remettre le son des vidéos", SND, "activer son original", null, Need.NONE, "Volume") { c -> AudioPro.muteVideos(c.project, false) }
+        for (db in listOf(-6, -12, -18)) act("music_$db", "Musique à $db dB", SND, "volume baisser fond", null, Need.NONE, "Music") { c -> AudioPro.level(c.project, AudioPro.music(c.project), db.toDouble()) }
+        act("balance", "Mixage équilibré automatique", SND, "niveaux volume uniforme", null, Need.NONE, "Equalize") { c -> AudioPro.balance(c.project) }
+        act("soft_edges", "Fondus doux sur tous les sons", SND, "clic début fin progressif", null, Need.NONE, "Volume") { c -> AudioPro.softEdges(c.project, snd(c)) }
+        act("crossfade", "Fondu enchaîné entre les musiques", SND, "crossfade transition audio", null, Need.NONE, "Music") { c -> AudioPro.crossfadeMusic(c.project) }
+        act("stereo_alt", "Stéréo alternée gauche / droite", SND, "pan spatial largeur", null, Need.NONE, "Volume") { c -> AudioPro.stereoAlternate(c.project, snd(c)) }
+        act("stereo_center", "Tout au centre (mono)", SND, "pan centrer", null, Need.NONE, "Volume") { c -> AudioPro.center(c.project, snd(c)) }
+
+        // ---- colour looks (every built-in look on all the shots)
+        for (pr in com.superessence.cuttinx.core.effects.Presets.builtIn) {
+            val slug = SmartTools.norm(pr.name).replace(Regex("[^a-z0-9]+"), "_")
+            act("look2_$slug", "Look ${pr.name}", COL, "couleur filtre étalonnage ambiance", null, Need.NONE, "Effects") { c -> SmartTools.applyLook(c.project, pr.name) }
+        }
+        act("fx_clear", "Retirer tous les effets", COL, "supprimer filtre original", null, Need.NONE, "Delete") { c -> Organizer.removeEffects(c.project) }
+
+        // ---- transitions on every cut
+        for (id in listOf("fade", "fade_black", "fade_white", "dissolve", "slide", "zoom_in", "whip", "spin_zoom", "glitch", "flash_zoom", "swipe_up", "push_zoom", "blur", "light", "heart_wipe", "pixelate"))
+            com.superessence.cuttinx.core.effects.TransitionRegistry[id]?.let { d ->
+                act("tr_$id", "Transition ${d.name} partout", TRN, "enchaînement coupe raccord", null, Need.NONE, "Transitions") { c -> SmartTools.transitionsEverywhere(c.project, id) }
+            }
+        act("tr_clear", "Retirer toutes les transitions", TRN, "supprimer coupe franche cut", null, Need.NONE, "Delete") { c -> Organizer.removeTransitions(c.project) }
+
+        // ---- speed
+        for ((sp, lab) in listOf(0.25 to "Super ralenti (x0,25)", 0.5 to "Ralenti (x0,5)", 0.75 to "Légèrement ralenti (x0,75)", 1.5 to "Accéléré (x1,5)", 2.0 to "Rapide (x2)", 4.0 to "Très rapide (x4)", 8.0 to "Timelapse (x8)"))
+            act("speed_${(sp * 100).toInt()}", "Vitesse : $lab", SPD, "slow motion accélérer vitesse", null, Need.VIDEO, "ZoomSlow") { c -> Animator.speed(c.project, c.selection, sp) }
+        act("speed_reset", "Vitesse normale partout", SPD, "x1 réinitialiser", null, Need.NONE, "Replay") { c -> Organizer.normalSpeed(c.project) }
+
+        // ---- organisation
+        act("labels_type", "Couleurs par type d'élément", ORG, "étiquettes ranger trier", null, Need.NONE, "Grid") { c -> Organizer.labelByType(c.project) }
+        act("labels_clear", "Retirer les couleurs d'étiquette", ORG, "étiquettes", null, Need.NONE, "Grid") { c -> Organizer.clearLabels(c.project) }
+        act("number_shots", "Numéroter les plans", ORG, "renommer nom ordre", null, Need.NONE, "Marker") { c -> Organizer.numberShots(c.project) }
+        act("group", "Grouper la sélection", ORG, "lier ensemble", null, Need.TWO, "Duplicate") { c -> Organizer.group(c.project, c.selection) }
+        act("ungroup", "Dégrouper", ORG, "délier séparer", null, Need.CLIP, "Split") { c -> Organizer.ungroup(c.project, c.selection) }
+        act("toggle_enabled", "Activer / désactiver la sélection", ORG, "masquer cacher ignorer", null, Need.CLIP, "EyeOff") { c -> Organizer.toggleEnabled(c.project, c.selection) }
+        act("enable_all", "Tout réactiver", ORG, "afficher désactivés", null, Need.NONE, "Eye") { c -> Organizer.enableAll(c.project) }
+        act("lock_all", "Verrouiller toutes les pistes", ORG, "bloquer protéger", null, Need.NONE, "Lock") { c -> Organizer.lockAll(c.project, true) }
+        act("unlock_all", "Déverrouiller toutes les pistes", ORG, "débloquer", null, Need.NONE, "Unlock") { c -> Organizer.lockAll(c.project, false) }
+        act("show_all", "Afficher et réactiver le son de toutes les pistes", ORG, "visible solo muet", null, Need.NONE, "Eye") { c -> Organizer.showAll(c.project) }
+        act("empty_tracks", "Supprimer les pistes vides", ORG, "nettoyer ranger", null, Need.NONE, "Delete") { c -> Organizer.removeEmptyTracks(c.project) }
+        act("unused_media", "Retirer les médias inutilisés", ORG, "nettoyer bibliothèque", null, Need.NONE, "Delete") { c -> Organizer.removeUnusedMedia(c.project) }
+        act("anims_clear_all", "Retirer toutes les animations du projet", ORG, "supprimer mouvement", null, Need.NONE, "KeyframeRemove") { c -> Organizer.removeAnimations(c.project) }
+        for (s in listOf(5, 10, 30)) act("markers_$s", "Marqueur toutes les $s secondes", ORG, "repère régulier", null, Need.NONE, "Marker") { c -> Organizer.markersEvery(c.project, s * 1_000_000L) }
+        act("markers_beats", "Marqueurs sur les mesures (120 BPM)", ORG, "tempo rythme beat", null, Need.NONE, "Music") { c -> Organizer.markersOnBeats(c.project, 120.0) }
+        act("markers_clear", "Supprimer tous les marqueurs", ORG, "effacer repères", null, Need.NONE, "Delete") { c -> Organizer.clearMarkers(c.project) }
+    }
 }
