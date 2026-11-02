@@ -13,6 +13,41 @@ export const storageReady = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN || p
 /** Client uploads: signed with the read-write token when there is one, otherwise through presigned URLs (OIDC). */
 export const uploadMode = () => (process.env.BLOB_READ_WRITE_TOKEN ? 'token' : 'presigned')
 
+/**
+ * Files built automatically by GitHub (release « derniere-version » of the public repository).
+ * Used while nothing has been published from the private page, so the site always offers the app.
+ */
+const GITHUB_RELEASE = 'https://api.github.com/repos/julienots/Cuttinx/releases/tags/derniere-version'
+
+export async function getGithubRelease() {
+  try {
+    const r = await fetch(GITHUB_RELEASE, { headers: { Accept: 'application/vnd.github+json' }, next: { revalidate: 300 }, signal: AbortSignal.timeout(4000) })
+    if (!r.ok) return null
+    const d = await r.json()
+    const asset = (name) => {
+      const a = (d.assets || []).find((x) => x.name === name)
+      return a ? { url: a.browser_download_url, name: a.name, size: a.size } : null
+    }
+    const release = {
+      version: (String(d.name || '').match(/\d+\.\d+(\.\d+)?/) || [])[0] || '',
+      notes: '',
+      android: asset('CuttinxPRO.apk'),
+      windowsExe: asset('CuttinxPRO-Windows.exe'),
+      windowsMsi: asset('CuttinxPRO-Windows.msi'),
+      publishedAt: d.published_at || d.created_at || null,
+      source: 'github',
+    }
+    return release.android || release.windowsExe || release.windowsMsi ? release : null
+  } catch {
+    return null
+  }
+}
+
+/** What the public pages offer: the version published from the private page, else the automatic GitHub build. */
+export async function getPublicRelease() {
+  return (await getRelease()) || (await getGithubRelease())
+}
+
 export async function getRelease() {
   if (!storageReady()) return null
   try {

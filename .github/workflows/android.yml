@@ -34,6 +34,8 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk CuttinxPRO.apk
           gh release view derniere-version >/dev/null 2>&1 || gh release create derniere-version --prerelease --target "$GITHUB_SHA" --title "CUTTINX PRO : dernière version" --notes "Compilation automatique de la dernière version (Android et Windows)." || true
           gh release upload derniere-version CuttinxPRO.apk --clobber
+          VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          gh release edit derniere-version --title "CUTTINX PRO $VER" || true
 
   # PC app (Twitch Studio + Identité) : installateur Windows
   desktop-windows:

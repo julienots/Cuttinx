@@ -78,7 +78,7 @@ export default function AdminPanel({ token, initial, storage, mode }) {
             ) : null)}
             <p className="dim">Liens à partager (toujours la dernière version) : <code>/telecharger/android</code> et <code>/telecharger/windows</code></p>
           </>
-        ) : <p className="dim">Rien n'est encore publié : les boutons du site affichent « Bientôt disponible ».</p>}
+        ) : <p className="dim">Rien n'est encore publié ici : en attendant, le site propose les fichiers compilés automatiquement sur GitHub (dernière version).</p>}
       </section>
 
       <section className="panel">

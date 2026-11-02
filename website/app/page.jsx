@@ -1,7 +1,7 @@
 import Icon from '@/components/Icon'
 import Mark from '@/components/Mark'
 import PromoVideo from '@/components/PromoVideo'
-import { formatDate, formatSize, getRelease } from '@/lib/release'
+import { formatDate, formatSize, getPublicRelease } from '@/lib/release'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,7 +55,7 @@ function DownloadCard({ platform, title, sub, file, extra, steps }) {
 }
 
 export default async function Home() {
-  const r = await getRelease()
+  const r = await getPublicRelease()
   const version = r?.version
   return (
     <>
