@@ -19,9 +19,19 @@ export const uploadMode = () => (process.env.BLOB_READ_WRITE_TOKEN ? 'token' : '
  */
 const GITHUB_RELEASE = 'https://api.github.com/repos/julienots/Cuttinx/releases/tags/derniere-version'
 
+let ghCache = { at: 0, value: null }
+
 export async function getGithubRelease() {
+  // GitHub allows 60 anonymous calls an hour per address: keep the answer 5 minutes per server instance
+  if (Date.now() - ghCache.at < 5 * 60 * 1000) return ghCache.value
+  const value = await fetchGithubRelease()
+  if (value || Date.now() - ghCache.at > 30 * 60 * 1000) ghCache = { at: Date.now(), value }
+  return value || ghCache.value
+}
+
+async function fetchGithubRelease() {
   try {
-    const r = await fetch(GITHUB_RELEASE, { headers: { Accept: 'application/vnd.github+json' }, next: { revalidate: 300 }, signal: AbortSignal.timeout(4000) })
+    const r = await fetch(GITHUB_RELEASE, { headers: { Accept: 'application/vnd.github+json' }, cache: 'no-store', signal: AbortSignal.timeout(4000) })
     if (!r.ok) return null
     const d = await r.json()
     const asset = (name) => {
