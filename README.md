@@ -105,5 +105,8 @@ espaces de l'accueil Android, en onglets en haut de la fenêtre : **Éditeur** �
 Installateurs `.exe` / `.msi` produits par la CI (artefact `cuttinx-pro-windows`) ;
 en local : `./gradlew :desktop:run` ou `./gradlew :desktop:packageExe`.
 
+- **Claude (MCP)** : connecte Claude à CUTTINX ; il regarde les médias que tu lui partages, monte
+  un vrai projet modifiable (coupes sur le rythme, transitions, effets) et l'exporte. Voir [docs/CLAUDE.md](docs/CLAUDE.md).
+
 Documentation : [docs/BUILD.md](docs/BUILD.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 [docs/TESTS.md](docs/TESTS.md) · [docs/LIMITATIONS.md](docs/LIMITATIONS.md) · [docs/LICENSES.md](docs/LICENSES.md) · [docs/PLAN.md](docs/PLAN.md)

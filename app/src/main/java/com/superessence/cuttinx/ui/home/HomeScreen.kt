@@ -50,8 +50,12 @@ import java.util.Date
 @UnstableApi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit) {
+fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit, openClaude: () -> Unit = {}) {
     val vm: HomeViewModel = viewModel()
+    // Projets créés par Claude : rafraîchir la liste quand il en crée un
+    val claude by com.superessence.cuttinx.claude.ClaudeLink.state.collectAsStateWithLifecycle()
+    val claudeOn = claude.enabled && claude.relay == "online"
+    LaunchedEffect(claude.revision) { if (claude.revision > 0) vm.refresh() }
     val projects by vm.projects.collectAsStateWithLifecycle()
     val recoveries by vm.recoveries.collectAsStateWithLifecycle()
     val msg by vm.message.collectAsStateWithLifecycle()
@@ -94,10 +98,12 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
         topBar = {
             TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { CuttinxMark(30.dp); Spacer(Modifier.width(8.dp)); CuttinxWordmark(24.sp); Spacer(Modifier.width(6.dp)); ProBadge() } },
                 actions = {
+                    IconButton(openClaude) { Icon(Icons.Outlined.AutoAwesome, "Claude", tint = if (claudeOn) androidx.compose.ui.graphics.Color(0xFF30A46C) else androidx.compose.material3.LocalContentColor.current) }
                     // one menu instead of a row of icons
                     Box {
                         IconButton({ menuOpen = true }) { Icon(Icons.Default.MoreVert, "Menu") }
                         DropdownMenu(menuOpen, { menuOpen = false }) {
+                            DropdownMenuItem({ Text("Claude (montage par l'IA)") }, { menuOpen = false; openClaude() }, leadingIcon = { Icon(Icons.Outlined.AutoAwesome, null) })
                             DropdownMenuItem({ Text("Aide & tutos vidéo") }, { menuOpen = false; openHelp() }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) })
                             DropdownMenuItem({ Text("Paramètres") }, { menuOpen = false; openSettings() }, leadingIcon = { Icon(Icons.Outlined.Settings, null) })
                             DropdownMenuItem({ Text("Importer un projet") }, { menuOpen = false; importDoc.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }, leadingIcon = { Icon(Icons.Default.FileOpen, null) })
