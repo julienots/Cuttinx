@@ -68,7 +68,9 @@ class ProjectSpecsTest {
         assertEquals(2_000_000, music[0].sourceInUs)
         assertEquals(p.tracks.first { it.kind == TrackKind.VIDEO }.endUs.toDouble(), music.last().endUs.toDouble(), 60_000.0)
         assertEquals("NO LIMITS", p.tracks.first { it.kind == TrackKind.TEXT }.clips.single().text?.text)
-        assertEquals(2, p.tracks.first { it.kind == TrackKind.EFFECT }.clips.size)
+        // calques superposés : chacun sur sa piste, la durée du projet ne s'allonge pas
+        assertEquals(2, p.tracks.filter { it.kind == TrackKind.EFFECT }.sumOf { it.clips.size })
+        assertEquals(p.tracks.first { it.kind == TrackKind.VIDEO }.endUs, p.durationUs)
         // sérialisable par le ProjectStore
         val back = ProjectStore.decode(ProjectStore.encode(p))
         assertEquals(p.durationUs, back.durationUs)

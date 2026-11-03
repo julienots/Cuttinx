@@ -92,6 +92,13 @@ object ProjectSpecs {
         }
     }
 
+
+    /** Piste du type demandé libre sur [s, e[ ; sinon une nouvelle piste (les calques superposés ne se décalent pas). */
+    private fun freeTrack(p: Project, kind: TrackKind, s: Long, e: Long): Pair<Project, com.superessence.cuttinx.core.model.Track> {
+        p.tracks.firstOrNull { t -> t.kind == kind && t.clips.none { it.startUs < e && s < it.endUs } }?.let { return p to it }
+        return TimelineEditor.addTrack(p, kind)
+    }
+
     fun build(spec: JSONObject, lib: ClaudeLibrary, existing: Project? = null): Pair<Project, List<String>> {
         val warnings = mutableListOf<String>()
         val now = System.currentTimeMillis()
@@ -186,7 +193,6 @@ object ProjectSpecs {
         // ---------------- textes
         spec.optJSONArray("texts")?.let { arr ->
             if (arr.length() == 0) return@let
-            val (p2, track) = TimelineEditor.ensureTrack(p, TrackKind.TEXT); p = p2
             for (i in 0 until arr.length()) {
                 val t = arr.getJSONObject(i)
                 val s = us(t.optDouble("start", 0.0)); val e = us(t.optDouble("end", sec(videoEnd)))
@@ -203,6 +209,7 @@ object ProjectSpecs {
                 var clip = TimelineEditor.textClip(t.getString("text"), s, e - s, style)
                 clip = clip.copy(transform = clip.transform.copy(posY = y.coerceIn(0.0, 1.0)),
                     text = clip.text!!.copy(animIn = anim(t.optString("anim_in"), TextAnimation.POP), animOut = anim(t.optString("anim_out"), TextAnimation.FADE)))
+                val (p3, track) = freeTrack(p, TrackKind.TEXT, s, e); p = p3
                 p = TimelineEditor.insertClip(p, track.id, clip)
             }
         }
@@ -210,13 +217,13 @@ object ProjectSpecs {
         // ---------------- calques d'effets (au-dessus de tout, sur un intervalle)
         spec.optJSONArray("effect_layers")?.let { arr ->
             if (arr.length() == 0) return@let
-            val (p2, track) = TimelineEditor.ensureTrack(p, TrackKind.EFFECT); p = p2
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
                 val fx = effects(JSONArray().put(JSONObject().put("id", o.optString("effect_id", o.optString("id"))).put("params", o.optJSONObject("params") ?: JSONObject())), warnings, "Calque ${i + 1}")
                 if (fx.isEmpty()) continue
                 val s = us(o.optDouble("start", 0.0)); val e = us(o.optDouble("end", sec(videoEnd)))
                 if (e - s < 50_000) continue
+                val (p3, track) = freeTrack(p, TrackKind.EFFECT, s, e); p = p3
                 p = TimelineEditor.insertClip(p, track.id, TimelineEditor.adjustmentClip(s, e - s).copy(effects = fx))
             }
         }
