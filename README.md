@@ -35,5 +35,8 @@ fois, sur demande.
 - **Projets** : autosave, 5 versions de secours, récupération après crash, duplication, archivage,
   export/import `.cuttinx` (avec ou sans médias), détection et remplacement des médias manquants.
 
+- **Claude (MCP)** : connecte Claude à CUTTINX ; il regarde les médias que tu lui partages, monte
+  un vrai projet modifiable (coupes sur le rythme, transitions, effets) et l'exporte. Voir [docs/CLAUDE.md](docs/CLAUDE.md).
+
 Documentation : [docs/BUILD.md](docs/BUILD.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) ·
 [docs/TESTS.md](docs/TESTS.md) · [docs/LIMITATIONS.md](docs/LIMITATIONS.md) · [docs/LICENSES.md](docs/LICENSES.md) · [docs/PLAN.md](docs/PLAN.md)

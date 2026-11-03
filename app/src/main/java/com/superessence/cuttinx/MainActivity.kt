@@ -34,6 +34,7 @@ sealed interface Screen {
     data object Settings : Screen
     data object Help : Screen
     data object Licenses : Screen
+    data object Claude : Screen
 }
 
 @UnstableApi
@@ -46,6 +47,8 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
         val c = (application as CuttinxApp).container
         if (Build.VERSION.SDK_INT >= 33) runCatching { requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1) }
+        // Reconnexion automatique à Claude si l'utilisateur l'avait activée
+        if (com.superessence.cuttinx.claude.ClaudeLink.isEnabled(this)) window.decorView.postDelayed({ runCatching { com.superessence.cuttinx.claude.ClaudeService.start(this) } }, 1500)
         setContent {
             val settings by c.settings.state.collectAsStateWithLifecycle()
             CuttinxTheme(settings) {
@@ -68,7 +71,7 @@ class MainActivity : ComponentActivity() {
                 }
                 when (val s = stack.last()) {
                     Screen.Splash -> SplashScreen { replace(Screen.Home) }
-                    Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) })
+                    Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) }, openClaude = { push(Screen.Claude) })
                     is Screen.Editor -> key(s.id) {
                         val vm: EditorViewModel = viewModel(key = s.id, factory = EditorViewModel.Factory(application, s.id))
                         EditorScreen(vm, onBack = { pop() }, openProject = { id -> replace(Screen.Editor(id)) })
@@ -79,6 +82,7 @@ class MainActivity : ComponentActivity() {
                         val p = t.build(t.list.last()); c.store.save(p); replace(Screen.Editor(p.id))
                     } }
                     Screen.Licenses -> { BackHandler { pop() }; LicensesScreen { pop() } }
+                    Screen.Claude -> { BackHandler { pop() }; com.superessence.cuttinx.claude.ClaudeScreen { pop() } }
                 }
             }
         }

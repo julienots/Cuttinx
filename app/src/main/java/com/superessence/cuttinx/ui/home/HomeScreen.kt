@@ -45,8 +45,12 @@ import java.util.Date
 @UnstableApi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit) {
+fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit, openClaude: () -> Unit = {}) {
     val vm: HomeViewModel = viewModel()
+    // Projets créés par Claude : rafraîchir la liste quand il en crée un
+    val claude by com.superessence.cuttinx.claude.ClaudeLink.state.collectAsStateWithLifecycle()
+    val claudeOn = claude.enabled && claude.relay == "online"
+    LaunchedEffect(claude.revision) { if (claude.revision > 0) vm.refresh() }
     val projects by vm.projects.collectAsStateWithLifecycle()
     val recoveries by vm.recoveries.collectAsStateWithLifecycle()
     val msg by vm.message.collectAsStateWithLifecycle()
@@ -86,6 +90,7 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
         topBar = {
             TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { CuttinxMark(30.dp); Spacer(Modifier.width(8.dp)); CuttinxWordmark(24.sp) } },
                 actions = {
+                    IconButton(openClaude) { Icon(Icons.Outlined.AutoAwesome, "Claude", tint = if (claudeOn) androidx.compose.ui.graphics.Color(0xFF30A46C) else androidx.compose.material3.LocalContentColor.current) }
                     IconButton(openResources) { Icon(Icons.Outlined.LibraryMusic, "Ressources gratuites") }
                     IconButton(openHelp) { Icon(Icons.AutoMirrored.Outlined.HelpOutline, "Aide") }
                     IconButton(openSettings) { Icon(Icons.Outlined.Settings, "Paramètres") }
