@@ -48,6 +48,12 @@ class CuttinxApp : Application() {
         com.superessence.cuttinx.engine.TextRenderer.assets = assets
         com.superessence.cuttinx.engine.TextRenderer.defaultFontFile = { id -> File(filesDir, "fonts/$id.ttf") }
         installCrashProtection()
+        // Labo CUTTINX: unlock times survive restarts
+        val labPrefs = getSharedPreferences("cuttinx_lab", MODE_PRIVATE)
+        com.superessence.cuttinx.core.smart.TechVault.store = object : com.superessence.cuttinx.core.smart.TechVault.Store {
+            override fun get(key: String) = labPrefs.getLong(key, 0L)
+            override fun put(key: String, value: Long) { labPrefs.edit().putLong(key, value).apply() }
+        }
     }
 
     /**

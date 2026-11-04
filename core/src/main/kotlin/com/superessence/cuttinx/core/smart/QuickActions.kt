@@ -3,6 +3,8 @@ package com.superessence.cuttinx.core.smart
 import com.superessence.cuttinx.core.autoedit.ProTools
 import com.superessence.cuttinx.core.model.*
 import com.superessence.cuttinx.core.timeline.TimelineEditor
+import com.superessence.cuttinx.core.effects.EffectRegistry
+import com.superessence.cuttinx.core.effects.TransitionRegistry
 
 /** What an action needs before it can run. */
 enum class Need(val hint: String) {
@@ -25,8 +27,14 @@ class EditContext(val project: Project, val selection: List<String>, val playhea
 class QuickAction(
     val id: String, val label: String, val group: String, val keywords: String, val shortcut: String?, val need: Need,
     /** Name of an icon of the shared icon set. */
-    val icon: String, val run: (EditContext) -> Project,
+    val icon: String,
+    /** Labo CUTTINX technology this action belongs to (unlocked by watching an advert), null = free. */
+    val tech: Tech? = null,
+    val run: (EditContext) -> Project,
 ) {
+    /** True while the technology of this action is still locked. */
+    val locked: Boolean get() = tech != null && !TechVault.isUnlocked(tech)
+
     fun available(c: EditContext): Boolean = when (need) {
         Need.NONE -> true
         Need.CLIP -> c.first != null
@@ -42,14 +50,14 @@ class QuickAction(
  * run with Enter or a tap. Each action is one undoable edit.
  */
 object QuickActions {
-    val groups = listOf("Modèles en un geste", "Couper et découper", "Durée et rythme", "Ordre et répétition", "Son", "Son pro", "Style et mouvement",
-        "Animation et caméra", "Textes et titres", "Disposition à l'écran", "Couleur et looks", "Transitions", "Vitesse", "Réglages", "Organisation", "Publication")
+    val groups = listOf("Labo CUTTINX (technologies)", "Modèles en un geste", "Couper et découper", "Durée et rythme", "Ordre et répétition", "Son", "Son pro", "Style et mouvement",
+        "Animation et caméra", "Textes et titres", "Disposition à l'écran", "Couleur et looks", "Effets vidéo", "Effets audio", "Transitions", "Vitesse", "Réglages", "Organisation", "Publication")
 
     val all: List<QuickAction> by lazy { build() }
 
     private fun build(): List<QuickAction> {
         val l = ArrayList<QuickAction>()
-        fun act(id: String, label: String, group: String, kw: String, shortcut: String?, need: Need, icon: String, run: (EditContext) -> Project) { l += QuickAction(id, label, group, kw, shortcut, need, icon, run) }
+        fun act(id: String, label: String, group: String, kw: String, shortcut: String?, need: Need, icon: String, run: (EditContext) -> Project) { l += QuickAction(id, label, group, kw, shortcut, need, icon, run = run) }
         val g = listOf("Couper et découper", "Durée et rythme", "Ordre et répétition", "Son", "Style et mouvement", "Réglages", "Publication")
 
         // ---- cut
@@ -115,8 +123,12 @@ object QuickActions {
         act("perfect_loop", "Boucle parfaite", g[6], "replay raccord", null, Need.NONE, "Replay") { c -> SmartTools.perfectLoop(c.project) }
         act("magic", "Passe magique", g[6], "tout automatique optimiser", null, Need.NONE, "Pro") { c -> SmartTools.magic(c.project, c.platform) }
         V2.add(::act)
+        V3.add(l)
         return l
     }
+
+    /** Every technology of the Labo with its actions. */
+    fun byTech(t: Tech): List<QuickAction> = all.filter { it.tech == t }
 
     /** Actions matching [query] (all tokens must match, accents ignored), best first; available ones before the others. */
     fun search(query: String, c: EditContext): List<QuickAction> {
@@ -260,5 +272,101 @@ private object V2 {
         for (s in listOf(5, 10, 30)) act("markers_$s", "Marqueur toutes les $s secondes", ORG, "repère régulier", null, Need.NONE, "Marker") { c -> Organizer.markersEvery(c.project, s * 1_000_000L) }
         act("markers_beats", "Marqueurs sur les mesures (120 BPM)", ORG, "tempo rythme beat", null, Need.NONE, "Music") { c -> Organizer.markersOnBeats(c.project, 120.0) }
         act("markers_clear", "Supprimer tous les marqueurs", ORG, "effacer repères", null, Need.NONE, "Delete") { c -> Organizer.clearMarkers(c.project) }
+    }
+}
+
+/** CUTTINX 2.2: the Labo technologies (unlocked by an advert) and the full effect / transition catalogue. */
+private object V3 {
+    private const val LAB = "Labo CUTTINX (technologies)"; private const val VFX = "Effets vidéo"; private const val AFX = "Effets audio"
+    private const val TRN = "Transitions"; private const val CUT = "Couper et découper"; private const val DUR = "Durée et rythme"
+
+    fun add(l: MutableList<QuickAction>) {
+        fun tech(t: Tech, id: String, label: String, kw: String, need: Need = Need.NONE, run: (EditContext) -> Project) {
+            l += QuickAction("lab_$id", label, LAB, "${t.label} ${t.pitch} technologie labo $kw", null, need, t.icon, t, run)
+        }
+        fun free(id: String, label: String, group: String, kw: String, need: Need, icon: String, run: (EditContext) -> Project) {
+            l += QuickAction(id, label, group, kw, null, need, icon, run = run)
+        }
+
+        // ---- Labo (locked until an advert is watched)
+        tech(Tech.KINETIC, "kinetic", "Texte cinétique (mot par mot)", "typographie animée kinetic") { c -> Lab.kinetic(c.project, c.selection) }
+        tech(Tech.ECHO, "echo", "Traînée temporelle", "écho trail fantôme pose longue", Need.NONE) { c -> Lab.echo(c.project, c.selection) }
+        tech(Tech.ECHO, "echo_long", "Traînée temporelle longue", "écho trail fantôme", Need.NONE) { c -> Lab.echo(c.project, c.selection, 150_000) }
+        tech(Tech.CLONES, "clones", "Clones x3", "multiplier copie triple") { c -> Lab.clones(c.project, c.selection) }
+        tech(Tech.WALL, "wall", "Mur de clips en ouverture", "mosaïque grille intro") { c -> Lab.wall(c.project) }
+        tech(Tech.IMPACT, "impacts", "Impacts sur les coupes", "flou vitesse rvb choc coupe") { c -> Lab.impacts(c.project) }
+        tech(Tech.ZOOM_FLOW, "zoom_flow", "Zoom infini entre les plans", "transition zoom fluide plongée") { c -> Lab.zoomFlow(c.project) }
+        for (bpm in listOf(100, 120, 128, 140)) tech(Tech.BEAT_FX, "beat_$bpm", "Flashs et secousses à $bpm BPM", "tempo beat musique flash") { c -> Lab.beatFx(c.project, bpm.toDouble()) }
+        tech(Tech.BEAT_FX, "beat_flash_120", "Flashs seuls à 120 BPM", "tempo beat flash") { c -> Lab.beatFx(c.project, 120.0, shake = false) }
+        for (m in Pacing.entries) tech(Tech.PACING, "pacing_${m.name.lowercase()}", "Rythme ${m.label}", "durée plans accélération montage") { c -> Lab.pacing(c.project, m) }
+        tech(Tech.VELOCITY, "velocity", "Velocity sur tous les plans", "vitesse rampe edit ralenti accéléré") { c -> Lab.velocity(c.project) }
+        for (seed in 1..5) tech(Tech.REMIX, "remix_$seed", "Remix IA : variante $seed", "version nouvelle aléatoire montage automatique") { c -> Lab.remix(c.project, seed) }
+        tech(Tech.TAP_TEMPO, "tap_tempo", "Monter sur le tempo de mes marqueurs", "bpm tap rythme beat marqueur") { c -> Lab.tapTempo(c.project) }
+        tech(Tech.REWIND, "rewind", "Rembobinage VHS à la fin", "retour arrière cassette fin") { c -> Lab.rewind(c.project) }
+        for ((n, lab) in listOf(3 to "légère", 6 to "moyenne", 12 to "intense")) tech(Tech.GLITCH_STORM, "glitch_$n", "Tempête glitch $lab", "datamosh rvb éclats") { c -> Lab.glitchStorm(c.project, n) }
+        tech(Tech.CREDITS, "credits", "Générique de fin déroulant", "crédits fin film cinéma") { c -> Lab.credits(c.project) }
+
+        // ---- every video effect: on the selection, else as an effects layer over the whole video
+        for (d in EffectRegistry.video().filter { !it.id.startsWith("_") }) {
+            free("vfx_${d.id}", "Effet : ${d.name}", VFX, "filtre ${d.category.label} ${d.description}", Need.NONE, "Effects") { c -> Catalog.videoEffect(c.project, c.selection, d.id) }
+        }
+        free("vfx_layer", "Calque d'effets sur toute la vidéo", VFX, "adjustment calque vide", Need.NONE, "Effects") { c -> Catalog.layer(c.project) }
+
+        // ---- every audio effect (the voice changers already have their own actions)
+        val voices = setOf("v_robot", "v_radio", "v_telephone", "v_helium", "v_deep", "v_monster", "v_cave", "v_underwater")
+        for (d in EffectRegistry.audio().filter { it.id !in voices }) {
+            free("afx_${d.id}", "Effet audio : ${d.name}", AFX, "son ${d.category.label} ${d.description}", Need.NONE, "Volume") { c -> AudioPro.voiceEffect(c.project, AudioPro.targets(c.project, c.selection), d.id) }
+        }
+
+        // ---- the transitions not offered yet
+        val offered = setOf("fade", "fade_black", "fade_white", "dissolve", "slide", "zoom_in", "whip", "spin_zoom", "glitch", "flash_zoom", "swipe_up", "push_zoom", "blur", "light", "heart_wipe", "pixelate")
+        for (d in TransitionRegistry.all.filter { it.id !in offered }) {
+            free("tr_${d.id}", "Transition ${d.name} partout", TRN, "enchaînement coupe raccord", Need.NONE, "Transitions") { c -> SmartTools.transitionsEverywhere(c.project, d.id) }
+        }
+
+        // ---- more cutting and timing
+        for (n in listOf(8, 10, 12)) free("split_$n", "Découper en $n parties égales", CUT, "diviser tranches morceaux", Need.CLIP, "Split") { c -> ClipOps.splitEqual(c.project, c.first!!.id, n) }
+        free("every_half", "Découper toutes les demi-secondes", CUT, "diviser rapide intervalle", Need.CLIP, "Split") { c -> ClipOps.splitEvery(c.project, c.first!!.id, 500_000) }
+        free("black_1s", "Insérer 1 s de noir à la tête de lecture", CUT, "pause écran noir respiration", Need.NONE, "Add") { c -> Catalog.insertColor(c.project, c.playheadUs, 0xFF000000, 1_000_000) }
+        free("white_flash", "Flash blanc à la tête de lecture", CUT, "éclair lumière impact", Need.NONE, "Add") { c -> Catalog.flash(c.project, c.playheadUs) }
+        for (s in listOf(10, 20, 90, 120)) free("fit_$s", "Raccourcir à $s secondes", DUR, "durée couper intelligent réduire", Need.NONE, "Fit") { c -> SmartTools.fitToDuration(c.project, s * 1_000_000L) }
+        for (s in listOf(1)) free("equal_$s", "Plans de $s s chacun (milieu conservé)", DUR, "durée égale uniforme rafale", Need.NONE, "Equalize") { c -> ClipOps.equalShots(c.project, c.mainTrackId ?: "", s * 1_000_000L) }
+    }
+}
+
+/** Effect catalogue helpers. */
+object Catalog {
+    /** Adds the effect [effectId] to the selected visual clips (once), or an effects layer with it over the whole video. */
+    fun videoEffect(p: Project, selection: List<String>, effectId: String): Project {
+        val d = EffectRegistry[effectId] ?: return p
+        val sel = selection.mapNotNull { p.findClip(it)?.second }.filter { Kit.isVisual(p, it) || it.kind == ClipKind.ADJUSTMENT }
+        if (sel.isNotEmpty()) return Kit.editAll(p, sel.map { it.id }) { c ->
+            if (c.effects.any { it.effectId == effectId }) c else c.copy(effects = c.effects + EffectInstance(com.superessence.cuttinx.core.util.Ids.new("fx"), effectId, d.defaults()))
+        }
+        val dur = p.durationUs.coerceAtLeast(TimelineEditor.DEFAULT_IMAGE_DURATION_US)
+        val clip = TimelineEditor.adjustmentClip(0, dur).copy(name = d.name, effects = listOf(EffectInstance(com.superessence.cuttinx.core.util.Ids.new("fx"), effectId, d.defaults())))
+        return Kit.place(p, TrackKind.EFFECT, "Effets", clip)
+    }
+
+    fun layer(p: Project): Project = Kit.place(p, TrackKind.EFFECT, "Effets", TimelineEditor.adjustmentClip(0, p.durationUs.coerceAtLeast(TimelineEditor.DEFAULT_IMAGE_DURATION_US)))
+
+    /** A colour card inserted on the main track at [atUs] (the shot under the playhead is cut in two). */
+    fun insertColor(p: Project, atUs: Long, color: Long, durUs: Long): Project {
+        val (q, main) = TimelineEditor.mainTrack(p)
+        if (main.locked) return p
+        var np = q
+        val under = main.clips.firstOrNull { atUs > it.startUs + 50_000 && atUs < it.endUs - 50_000 }
+        if (under != null) np = runCatching { TimelineEditor.split(np, under.id, atUs).first }.getOrDefault(np)
+        val at = if (under != null) atUs else (main.clips.filter { it.startUs >= atUs }.minOfOrNull { it.startUs } ?: main.endUs)
+        return runCatching { TimelineEditor.insertClip(np, main.id, TimelineEditor.colorClip(color, at, durUs), ripple = true) }.getOrDefault(np)
+    }
+
+    /** White flash at [atUs]: an effects layer whose white overlay fades out in 0.25 s. */
+    fun flash(p: Project, atUs: Long): Project {
+        val d = EffectRegistry["color_overlay"] ?: return p
+        val e = EffectInstance(com.superessence.cuttinx.core.util.Ids.new("fx"), "color_overlay", d.defaults() + mapOf("opacity" to 0.9, "saturation" to 0.0))
+        val clip = TimelineEditor.adjustmentClip(atUs.coerceAtLeast(0), 250_000).copy(name = "Flash", effects = listOf(e),
+            keyframes = mapOf(Prop.effect(e.id, "opacity") to KeyframeTrack(listOf(Keyframe(0, 0.9, Easing.EaseOut), Keyframe(250_000, 0.0, Easing.Smooth)))))
+        return Kit.place(p, TrackKind.EFFECT, "Flashs", clip)
     }
 }

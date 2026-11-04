@@ -17,7 +17,18 @@ import java.awt.datatransfer.DataFlavor
 import java.io.File
 
 @OptIn(ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
-fun main() = application {
+fun main() {
+    // Labo CUTTINX: unlock times kept between launches
+    val labPrefs = java.util.prefs.Preferences.userRoot().node("superessence/cuttinx/lab")
+    com.superessence.cuttinx.core.smart.TechVault.store = object : com.superessence.cuttinx.core.smart.TechVault.Store {
+        override fun get(key: String) = labPrefs.getLong(key, 0L)
+        override fun put(key: String, value: Long) { labPrefs.putLong(key, value); runCatching { labPrefs.flush() } }
+    }
+    app()
+}
+
+@OptIn(ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
+private fun app() = application {
     val state = remember { AppState() }
     Window(
         onCloseRequest = { state.shutdown(); exitApplication() },
@@ -37,6 +48,9 @@ fun main() = application {
                 }
             }
         }
-        Box(Modifier.fillMaxSize().dragAndDropTarget(shouldStartDragAndDrop = { true }, target = drop)) { App(state) }
+        Box(Modifier.fillMaxSize().dragAndDropTarget(shouldStartDragAndDrop = { true }, target = drop)) {
+            App(state)
+            SponsorOverlay(Cx.Yellow)
+        }
     }
 }

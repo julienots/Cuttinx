@@ -31,6 +31,9 @@
         android:hardwareAccelerated="true"
         android:theme="@style/Theme.Cuttinx">
 
+        <!-- AdMob : pubs plein écran qui débloquent les technologies du Labo CUTTINX -->
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${admobAppId}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

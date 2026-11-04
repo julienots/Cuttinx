@@ -172,7 +172,10 @@ class ClaudeTools(private val ctx: Context) {
     private fun grab(r: MediaMetadataRetriever, tS: Double, w: Int, h: Int, exact: Boolean): Bitmap? {
         val us = (tS * 1e6).toLong()
         val opt = if (exact) MediaMetadataRetriever.OPTION_CLOSEST else MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-        return r.getScaledFrameAtTime(us, opt, w, h) ?: r.getFrameAtTime(us, opt)
+        // getScaledFrameAtTime exists from Android 8.1 (API 27); on 8.0 the full frame is scaled here
+        if (android.os.Build.VERSION.SDK_INT >= 27) return r.getScaledFrameAtTime(us, opt, w, h) ?: r.getFrameAtTime(us, opt)
+        val full = r.getFrameAtTime(us, opt) ?: return null
+        return if (full.width == w && full.height == h) full else Bitmap.createScaledBitmap(full, w, h, true).also { if (it !== full) full.recycle() }
     }
 
     private fun <T> retriever(m: SharedMedia, f: (MediaMetadataRetriever) -> T): T {

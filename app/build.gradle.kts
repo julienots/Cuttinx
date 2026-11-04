@@ -15,9 +15,15 @@ android {
         applicationId = "com.superessence.cuttinx"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "2.1.1"
+        versionCode = 5
+        versionName = "2.2.0"
         vectorDrawables.useSupportLibrary = true
+        // AdMob (pubs plein écran du Labo CUTTINX). Par défaut : identifiants de TEST de Google.
+        // Pour gagner de l'argent : -Pcuttinx.admobAppId=… -Pcuttinx.admobRewardedId=… (ou gradle.properties / secrets CI).
+        val admobAppId = (project.findProperty("cuttinx.admobAppId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_APP_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-3940256099942544~3347511713"
+        val admobRewarded = (project.findProperty("cuttinx.admobRewardedId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_REWARDED_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-3940256099942544/5224354917"
+        manifestPlaceholders["admobAppId"] = admobAppId
+        buildConfigField("String", "ADMOB_REWARDED_ID", "\"$admobRewarded\"")
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
@@ -48,7 +54,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/*.kotlin_module")
         jniLibs.useLegacyPackaging = false
@@ -94,6 +100,9 @@ dependencies {
     // Vosk + JNA (AAR with Android natives, as recommended by the Vosk project)
     implementation(libs.vosk.android) { exclude(group = "net.java.dev.jna") }
     implementation("net.java.dev.jna:jna:5.18.1@aar")
+    // Pubs récompensées (Labo CUTTINX) + consentement RGPD
+    implementation("com.google.android.gms:play-services-ads:23.6.0")
+    implementation("com.google.android.ump:user-messaging-platform:3.1.0")
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("androidx.test:core:1.6.1")

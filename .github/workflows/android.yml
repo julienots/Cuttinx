@@ -21,6 +21,10 @@ jobs:
       - name: Lint
         run: ./gradlew :app:lintDebug --no-daemon
       - name: Build APK
+        # identifiants AdMob de l'éditeur (secrets du dépôt) ; sans eux, les pubs de test de Google
+        env:
+          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+          ADMOB_REWARDED_ID: ${{ secrets.ADMOB_REWARDED_ID }}
         run: ./gradlew :app:assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:

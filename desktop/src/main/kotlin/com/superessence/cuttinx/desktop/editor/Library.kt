@@ -37,7 +37,7 @@ import java.io.File
 import javax.sound.sampled.AudioSystem
 
 private enum class Lib(val label: String, val icon: () -> androidx.compose.ui.graphics.vector.ImageVector) {
-    SMART("Studio", { CxIcons.Idea }), VERSIONS("Versions", { CxIcons.Replay }), MEDIA("Médias", { CxIcons.Media }), TEXT("Textes", { CxIcons.Text }), MUSIC("Musique", { CxIcons.Music }), SFX("Bruitages", { CxIcons.Sfx }), FX("Effets", { CxIcons.Effects }),
+    LAB("Labo", { CxIcons.Rocket }), SMART("Studio", { CxIcons.Idea }), VERSIONS("Versions", { CxIcons.Replay }), MEDIA("Médias", { CxIcons.Media }), TEXT("Textes", { CxIcons.Text }), MUSIC("Musique", { CxIcons.Music }), SFX("Bruitages", { CxIcons.Sfx }), FX("Effets", { CxIcons.Effects }),
     TRANSITIONS("Transitions", { CxIcons.Transitions }), MOTION("Animations", { CxIcons.Animation }), VOICE("Voix", { CxIcons.Voice }), PRO("Outils pro", { CxIcons.Pro }),
 }
 
@@ -58,6 +58,18 @@ fun Library(m: EditorModel, modifier: Modifier) {
             Text(tab.label, fontSize = 17.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(6.dp))
             when (tab) {
+                Lib.LAB -> {
+                    val p by m.project.collectAsState()
+                    val sel by m.selection.collectAsState()
+                    val pos by m.player.position.collectAsState()
+                    p?.let { pr ->
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                            com.superessence.cuttinx.lab.LabPanel(com.superessence.cuttinx.core.smart.EditContext(pr, sel.toList(), pos), LocalAccent.current,
+                                onRun = { a -> m.runQuickAction(a) })
+                            Spacer(Modifier.height(20.dp))
+                        }
+                    }
+                }
                 Lib.SMART -> {
                     val p by m.project.collectAsState()
                     val sel by m.selection.collectAsState()

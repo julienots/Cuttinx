@@ -49,6 +49,9 @@ private sealed interface Item {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun QuickActionsPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> Unit, modifier: Modifier = Modifier, scroll: Boolean = false, autoFocus: Boolean = false, showCursor: Boolean = false) {
+    // Labo technologies still locked go through the advert first, then run
+    val run: (QuickAction) -> Unit = { a -> com.superessence.cuttinx.lab.TechGate.runOrRequest(a) { onRun(a) } }
+    val unlocks = com.superessence.cuttinx.lab.TechGate.version
     var query by remember { mutableStateOf("") }
     var sel by remember { mutableIntStateOf(0) }
     // groups are folded to their first actions so the list stays short (270 actions in 2.0)
@@ -56,7 +59,7 @@ fun QuickActionsPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> U
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (autoFocus) runCatching { focus.requestFocus() } }
 
-    val items: List<Item> = remember(query, ctx.project, ctx.selection, ctx.playheadUs, QuickActionsMemory.recent.toList(), open.toMap()) {
+    val items: List<Item> = remember(query, ctx.project, ctx.selection, ctx.playheadUs, QuickActionsMemory.recent.toList(), open.toMap(), unlocks) {
         if (query.isBlank()) buildList {
             val rec = QuickActionsMemory.recent.mapNotNull { QuickActions[it] }
             if (rec.isNotEmpty()) { add(Item.Header("RÉCENTES")); rec.forEach { add(Item.Row(it, it.available(ctx))) } }
@@ -83,7 +86,7 @@ fun QuickActionsPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> U
             when (e.key) {
                 Key.DirectionDown -> { sel = (sel + 1).coerceAtMost((runnable.size - 1).coerceAtLeast(0)); true }
                 Key.DirectionUp -> { sel = (sel - 1).coerceAtLeast(0); true }
-                Key.Enter, Key.NumPadEnter -> { current?.let { onRun(it.action) }; true }
+                Key.Enter, Key.NumPadEnter -> { current?.let { run(it.action) }; true }
                 else -> false
             }
         }, singleLine = true, leadingIcon = { Icon(CxIcons.Search, null, Modifier.size(20.dp)) },
@@ -102,7 +105,7 @@ fun QuickActionsPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> U
                         val hi = showCursor && item === current
                         val req = remember { BringIntoViewRequester() }
                         LaunchedEffect(hi, sel) { if (hi) runCatching { req.bringIntoView() } }
-                        ActionRow(item.action, item.enabled, hi, accent, Modifier.bringIntoViewRequester(req)) { if (item.enabled) onRun(item.action) }
+                        ActionRow(item.action, item.enabled, hi, accent, Modifier.bringIntoViewRequester(req)) { if (item.enabled) run(item.action) }
                     }
                 }
             }
@@ -122,6 +125,11 @@ private fun ActionRow(a: QuickAction, enabled: Boolean, highlighted: Boolean, ac
             Text(a.label, fontSize = 14.sp, fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal, color = if (enabled) Color.White else Dim.copy(alpha = 0.55f), maxLines = 1)
             if (!enabled) Text(a.need.hint, fontSize = 11.sp, color = Dim.copy(alpha = 0.5f), maxLines = 1)
         }
+        if (a.locked) Row(Modifier.clip(RoundedCornerShape(6.dp)).background(accent.copy(alpha = 0.18f)).padding(horizontal = 7.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(CxIcons.Lock, null, Modifier.size(11.dp), tint = accent)
+            Spacer(Modifier.width(4.dp))
+            Text("Pub · 24 h", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold)
+        } else if (a.tech != null) Text("Labo", fontSize = 11.sp, color = accent)
         a.shortcut?.let { Text(it, Modifier.clip(RoundedCornerShape(5.dp)).background(Color.White.copy(alpha = 0.08f)).padding(horizontal = 7.dp, vertical = 2.dp), fontSize = 11.sp, color = Dim) }
     }
 }

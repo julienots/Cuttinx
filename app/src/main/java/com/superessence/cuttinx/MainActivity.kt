@@ -45,6 +45,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handleIntent(intent)
         val c = (application as CuttinxApp).container
+        // pubs du Labo CUTTINX : consentement (RGPD) puis démarrage du SDK, sans bloquer l'appli
+        window.decorView.postDelayed({ runCatching { com.superessence.cuttinx.ads.Ads.init(this) } }, 2500)
         if (Build.VERSION.SDK_INT >= 33) runCatching { requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1) }
         // Reconnexion automatique à Claude si l'utilisateur l'avait activée
         if (com.superessence.cuttinx.claude.ClaudeLink.isEnabled(this)) window.decorView.postDelayed({ runCatching { com.superessence.cuttinx.claude.ClaudeService.start(this) } }, 1500)
@@ -52,6 +54,19 @@ class MainActivity : ComponentActivity() {
             val settings by c.settings.state.collectAsStateWithLifecycle()
             CuttinxTheme(settings) {
                 val ctx = androidx.compose.ui.platform.LocalContext.current
+                // Labo CUTTINX: a locked technology was asked for -> full-screen advert, then unlock for 24 h
+                com.superessence.cuttinx.lab.TechGate.pending?.let { req ->
+                    var busy by remember(req) { mutableStateOf(false) }
+                    var err by remember(req) { mutableStateOf<String?>(null) }
+                    com.superessence.cuttinx.lab.TechUnlockDialog(req, com.superessence.cuttinx.ui.theme.LocalCx.current.accent, "une courte pub", busy, err,
+                        onWatch = {
+                            busy = true; err = null
+                            com.superessence.cuttinx.ads.Ads.showRewarded(this@MainActivity,
+                                onReward = { busy = false; com.superessence.cuttinx.lab.TechGate.grant(req.tech); android.widget.Toast.makeText(ctx, "${req.tech.label} débloqué pour 24 h", android.widget.Toast.LENGTH_SHORT).show() },
+                                onError = { busy = false; err = it })
+                        },
+                        onDismiss = { com.superessence.cuttinx.lab.TechGate.cancel() })
+                }
                 // a task that failed was contained: tell the user, nothing else happens
                 LaunchedEffect(Unit) { CuttinxApp.backgroundError.collect { m -> if (m != null) { android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_LONG).show(); CuttinxApp.backgroundError.value = null } } }
                 var crashReport by remember { mutableStateOf(c.crashLog.unseen()) }

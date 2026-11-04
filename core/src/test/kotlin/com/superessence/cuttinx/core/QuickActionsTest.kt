@@ -89,7 +89,7 @@ class QuickActionsTest {
             }
         }
         assertTrue("$ran actions lancées", ran >= 200)
-        assertTrue("${QuickActions.all.size} actions", QuickActions.all.size >= 250)
+        assertTrue("${QuickActions.all.size} actions", QuickActions.all.size >= 400)
         assertTrue(QuickActions.all.all { it.group in QuickActions.groups })
         assertTrue(QuickActions.all.map { it.id }.toSet().size == QuickActions.all.size)      // unique ids
         assertTrue(QuickActions.all.all { IconSetLookup.exists(it.icon) })
