@@ -15,8 +15,8 @@ android {
         applicationId = "com.superessence.cuttinx"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "2.2.1"
+        versionCode = 7
+        versionName = "2.2.2"
         vectorDrawables.useSupportLibrary = true
         // AdMob (pubs vidéo récompensées plein écran du Labo CUTTINX) : identifiants réels de l'éditeur.
         // Remplaçables par -Pcuttinx.admobAppId=… -Pcuttinx.admobRewardedId=… ou par les secrets CI
@@ -25,7 +25,7 @@ android {
         val admobAppId = if (admobTest) "ca-app-pub-3940256099942544~3347511713"
             else (project.findProperty("cuttinx.admobAppId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_APP_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-2847478731079395~6383993130"
         val admobRewarded = if (admobTest) "ca-app-pub-3940256099942544/5224354917"
-            else (project.findProperty("cuttinx.admobRewardedId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_REWARDED_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-2847478731079395/2333067486"
+            else (project.findProperty("cuttinx.admobRewardedId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_REWARDED_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-2847478731079395/6775087406"
         manifestPlaceholders["admobAppId"] = admobAppId
         buildConfigField("String", "ADMOB_REWARDED_ID", "\"$admobRewarded\"")
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
