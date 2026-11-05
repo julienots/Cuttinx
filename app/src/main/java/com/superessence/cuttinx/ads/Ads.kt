@@ -16,7 +16,7 @@ import com.superessence.cuttinx.BuildConfig
 /**
  * Full-screen rewarded adverts (Google AdMob) that unlock the Labo CUTTINX technologies.
  * The consent form (RGPD) is shown first when the law requires it. The ad unit comes from the
- * build (gradle property cuttinx.admobRewardedId); Google's test unit is used by default.
+ * build: the publisher's rewarded unit by default, Google's test unit with -Pcuttinx.admobTest=true.
  */
 object Ads {
     @Volatile private var started = false
