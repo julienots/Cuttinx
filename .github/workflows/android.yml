@@ -25,6 +25,8 @@ jobs:
         env:
           ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
           ADMOB_REWARDED_ID: ${{ secrets.ADMOB_REWARDED_ID }}
+          UNITY_GAME_ID: ${{ secrets.UNITY_GAME_ID }}
+          UNITY_REWARDED_ID: ${{ secrets.UNITY_REWARDED_ID }}
         run: ./gradlew :app:assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:

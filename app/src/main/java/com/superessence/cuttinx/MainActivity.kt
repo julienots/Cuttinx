@@ -63,6 +63,8 @@ class MainActivity : ComponentActivity() {
                             busy = true; err = null
                             com.superessence.cuttinx.ads.Ads.showRewarded(this@MainActivity,
                                 onReward = { busy = false; com.superessence.cuttinx.lab.TechGate.grant(req.tech); android.widget.Toast.makeText(ctx, "${req.tech.label} débloqué pour 24 h", android.widget.Toast.LENGTH_SHORT).show() },
+                                // no advert anywhere right now: the user is not punished for it
+                                onNoAd = { busy = false; com.superessence.cuttinx.lab.TechGate.grant(req.tech); android.widget.Toast.makeText(ctx, "Pas de pub disponible : ${req.tech.label} offert pour 24 h", android.widget.Toast.LENGTH_LONG).show() },
                                 onError = { busy = false; err = it })
                         },
                         onDismiss = { com.superessence.cuttinx.lab.TechGate.cancel() })

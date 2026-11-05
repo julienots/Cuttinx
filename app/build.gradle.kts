@@ -15,8 +15,8 @@ android {
         applicationId = "com.superessence.cuttinx"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "2.2.2"
+        versionCode = 8
+        versionName = "2.3.0"
         vectorDrawables.useSupportLibrary = true
         // AdMob (pubs vidéo récompensées plein écran du Labo CUTTINX) : identifiants réels de l'éditeur.
         // Remplaçables par -Pcuttinx.admobAppId=… -Pcuttinx.admobRewardedId=… ou par les secrets CI
@@ -28,6 +28,12 @@ android {
             else (project.findProperty("cuttinx.admobRewardedId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_REWARDED_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-2847478731079395/6775087406"
         manifestPlaceholders["admobAppId"] = admobAppId
         buildConfigField("String", "ADMOB_REWARDED_ID", "\"$admobRewarded\"")
+        // Unity Ads : 2e régie, essayée quand AdMob n'a pas de pub (APK hors Google Play). Vide = désactivé.
+        // -Pcuttinx.unityGameId=… / secret CI UNITY_GAME_ID ; bloc récompensé : cuttinx.unityRewardedId (Rewarded_Android).
+        val unityGameId = (project.findProperty("cuttinx.unityGameId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("UNITY_GAME_ID")?.takeIf { it.isNotBlank() } ?: ""
+        val unityRewarded = (project.findProperty("cuttinx.unityRewardedId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("UNITY_REWARDED_ID")?.takeIf { it.isNotBlank() } ?: "Rewarded_Android"
+        buildConfigField("String", "UNITY_GAME_ID", "\"$unityGameId\"")
+        buildConfigField("String", "UNITY_REWARDED_ID", "\"$unityRewarded\"")
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
@@ -107,6 +113,7 @@ dependencies {
     // Pubs récompensées (Labo CUTTINX) + consentement RGPD
     implementation("com.google.android.gms:play-services-ads:23.6.0")
     implementation("com.google.android.ump:user-messaging-platform:3.1.0")
+    implementation("com.unity3d.ads:unity-ads:4.16.6")
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("androidx.test:core:1.6.1")
