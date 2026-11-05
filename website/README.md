@@ -39,3 +39,11 @@ L'ancien code ne marche plus. Une mauvaise adresse affiche simplement « page in
 - L'offre gratuite de Vercel a des quotas de stockage et de bande passante : avec beaucoup de téléchargements,
   surveille l'onglet *Usage* (ou passe à l'offre Pro).
 - En local : `npm install` puis `npm run dev` (sans `BLOB_READ_WRITE_TOKEN`, les boutons affichent « Bientôt disponible »).
+
+## Publicité (Google AdSense + AdMob)
+- Le site charge les **annonces automatiques AdSense** du compte `ca-pub-2847478731079395` (le même compte Google qu'AdMob).
+  Autre compte : variable Vercel `NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-…` ; `off` pour retirer les pubs. Redéployer ensuite.
+- `public/ads.txt` (AdSense) et `public/app-ads.txt` (AdMob, appli Android) déclarent l'éditeur autorisé à vendre les pubs.
+- Dans AdSense : **Sites → Ajouter un site**, saisis ton domaine (un vrai nom de domaine, pas `*.vercel.app`), puis
+  demande l'examen. Les pubs apparaissent toutes seules une fois le site validé.
+- Dans la fiche Google Play de l'appli, indique ce même domaine comme site du développeur : AdMob y lit `app-ads.txt`.
