@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.ui.components
 
 import androidx.compose.animation.core.*
+import com.superessence.cuttinx.design.cxChip
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -64,9 +65,23 @@ fun CuttinxWordmark(fontSize: TextUnit = 34.sp, modifier: Modifier = Modifier) {
 @Composable
 fun AccentButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true) {
     val cx = LocalCx.current
-    Button(onClick, modifier, enabled = enabled, colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent), shape = RoundedCornerShape(14.dp), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp)) {
-        if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)) }
-        Text(text, fontWeight = FontWeight.Bold)
+    Button(onClick, modifier.heightIn(min = 40.dp), enabled = enabled, colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent),
+        shape = com.superessence.cuttinx.design.CxDesign.Button, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp)) {
+        if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
+        Text(text, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp)
+    }
+}
+
+/** Secondary action: hairline outline, no fill. */
+@Composable
+fun GhostButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, enabled: Boolean = true) {
+    val cx = LocalCx.current
+    OutlinedButton(onClick, modifier.heightIn(min = 40.dp), enabled = enabled, shape = com.superessence.cuttinx.design.CxDesign.Button,
+        border = BorderStroke(1.dp, cx.line), contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
+        if (icon != null) { Icon(icon, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
+        Text(text, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -117,8 +132,8 @@ fun format(v: Float, decimals: Int): String = if (decimals == 0) v.roundToInt().
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier, action: (@Composable () -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().padding(top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = LocalCx.current.dim, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp, modifier = Modifier.weight(1f))
+    Row(modifier.fillMaxWidth().padding(top = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, style = MaterialTheme.typography.labelLarge, color = LocalCx.current.dim, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         action?.invoke()
     }
 }
@@ -129,8 +144,8 @@ fun <T> ChoiceChips(options: List<T>, selected: T?, label: (T) -> String, onSele
     Row(modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEach { o ->
             val sel = o == selected
-            Text(label(o), modifier = Modifier.clip(RoundedCornerShape(50)).background(if (sel) cx.accent else cx.panel2).clickable { onSelect(o) }.padding(horizontal = 14.dp, vertical = 8.dp),
-                color = if (sel) cx.onAccent else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+            Text(label(o), modifier = Modifier.cxChip(sel, cx.accent) { onSelect(o) },
+                color = if (sel) cx.accent else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
         }
     }
 }

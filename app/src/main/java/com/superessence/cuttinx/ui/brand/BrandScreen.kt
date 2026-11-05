@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.ui.brand
 
 import com.superessence.cuttinx.icons.CxIcons
+import com.superessence.cuttinx.design.cxChip
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -42,8 +43,8 @@ private fun <T> PinkChips(options: List<T>, selected: (T) -> Boolean, label: (T)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEach { o ->
             val sel = selected(o)
-            Text(label(o), Modifier.clip(RoundedCornerShape(50)).background(if (sel) IdPink else cx.panel2).clickable { onClick(o) }.padding(horizontal = 12.dp, vertical = 7.dp),
-                color = if (sel) Color.White else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+            Text(label(o), Modifier.cxChip(sel, IdPink) { onClick(o) },
+                color = if (sel) IdPink else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
         }
     }
 }
@@ -101,7 +102,7 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
             }
             OutlinedTextField(keywords, { keywords = it }, Modifier.fillMaxWidth(), label = { Text("Mots-clés (jeux, thèmes…)") })
             Spacer(Modifier.height(12.dp))
-            Button({ seed = 0; generate() }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = IdPink, contentColor = Color.White)) { Text("Créer mon identité") }
+            Button({ seed = 0; generate() }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = IdPink, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Créer mon identité") }
             if (kit != null) TextButton({ showForm = false }, Modifier.fillMaxWidth()) { Text("Voir mon identité actuelle", color = IdPink) }
             return@Column
         }
@@ -118,8 +119,8 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
         }
         Text(k.archetypeDescription, color = LocalCx.current.dim, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
         Row(Modifier.padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ seed++; generate() }, colors = ButtonDefaults.buttonColors(containerColor = IdPink, contentColor = Color.White)) { Text("Autre proposition") }
-            OutlinedButton({ showForm = true }) { Text("Modifier mes réponses") }
+            Button({ seed++; generate() }, colors = ButtonDefaults.buttonColors(containerColor = IdPink, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Autre proposition") }
+            OutlinedButton({ showForm = true }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Modifier mes réponses") }
         }
         Label("TES VISUELS PRÊTS À PUBLIER")
         val visuals = remember(k) {
@@ -194,14 +195,14 @@ fun BrandScreen(vm: StudioViewModel, openTwitch: () -> Unit) {
         Text(k.logoIdea, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
         IconLine(CxIcons.Calendar, k.postingRhythm, IdPink)
         Spacer(Modifier.height(14.dp))
-        Button({ vm.useBrand(k); openTwitch() }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3D8BFF), contentColor = Color.White)) {
+        Button({ vm.useBrand(k); openTwitch() }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3D8BFF), contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) {
             Text("Utiliser pour mes overlays Twitch (${OverlayThemes[k.overlayThemeId].name})")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton({ boardLauncher.launch("identite-${k.brief.name}.png") }, Modifier.weight(1f)) { Text("Planche PNG") }
+            OutlinedButton({ boardLauncher.launch("identite-${k.brief.name}.png") }, Modifier.weight(1f), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Planche PNG") }
             OutlinedButton({
                 ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, guideText(k)), "Partager mon identité"))
-            }, Modifier.weight(1f)) { Text("Partager le guide") }
+            }, Modifier.weight(1f), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Partager le guide") }
         }
         Spacer(Modifier.height(24.dp))
     }

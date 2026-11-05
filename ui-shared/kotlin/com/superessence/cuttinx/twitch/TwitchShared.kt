@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.twitch
 
 import androidx.compose.foundation.background
+import com.superessence.cuttinx.design.cxChip
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -72,8 +73,8 @@ fun TwitchChips(options: List<String>, selected: Int?, onClick: (Int) -> Unit) {
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEachIndexed { i, o ->
             val sel = i == selected
-            Text(o, Modifier.clip(RoundedCornerShape(50)).background(if (sel) TwitchAccent else Color.White.copy(alpha = 0.08f)).clickable { onClick(i) }.padding(horizontal = 12.dp, vertical = 7.dp),
-                color = if (sel) Color.White else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+            Text(o, Modifier.cxChip(sel, TwitchAccent) { onClick(i) },
+                color = if (sel) TwitchAccent else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
         }
     }
 }
@@ -103,10 +104,10 @@ fun AiPanel(cfg: OverlayConfig, onApply: (OverlayConfig) -> Unit, preview: @Comp
     TwitchChips(examples, null) { i -> prompt = examples[i]; seed = 0; run() }
     Spacer(Modifier.height(8.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button({ seed = 0; run() }, Modifier.weight(1f), enabled = prompt.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White)) {
+        Button({ seed = 0; run() }, Modifier.weight(1f), enabled = prompt.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) {
             Icon(CxIcons.Idea, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Générer", fontWeight = FontWeight.Bold)
         }
-        if (results.isNotEmpty()) OutlinedButton({ seed++; run() }) { Icon(CxIcons.Replay, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Autres idées") }
+        if (results.isNotEmpty()) OutlinedButton({ seed++; run() }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Icon(CxIcons.Replay, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Autres idées") }
     }
     results.forEach { r ->
         Spacer(Modifier.height(10.dp))
@@ -117,7 +118,7 @@ fun AiPanel(cfg: OverlayConfig, onApply: (OverlayConfig) -> Unit, preview: @Comp
             r.reasons.forEach { Text("• $it", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)) }
             Text("Accroche : « ${r.config.tagline} » · Emotes : ${r.config.emotes.joinToString(" ")}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
             Spacer(Modifier.height(6.dp))
-            Button({ onApply(r.config.copy(width = cfg.width, height = cfg.height)) }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White)) { Text("Utiliser ce style partout") }
+            Button({ onApply(r.config.copy(width = cfg.width, height = cfg.height)) }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Utiliser ce style partout") }
         }
     }
 }
@@ -135,7 +136,7 @@ private val speeds = listOf("Lent", "Normal", "Rapide", "Turbo")
 
 @Composable
 private fun SmallButton(label: String, onClick: () -> Unit, enabled: Boolean = true, danger: Boolean = false) =
-    OutlinedButton(onClick, enabled = enabled, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp), modifier = Modifier.heightIn(min = 36.dp)) {
+    OutlinedButton(onClick, enabled = enabled, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp), modifier = Modifier.heightIn(min = 36.dp), shape = com.superessence.cuttinx.design.CxDesign.Button) {
         Text(label, fontSize = 12.sp, color = if (danger) Color(0xFFFF6B6B) else Color.Unspecified)
     }
 
@@ -180,11 +181,11 @@ fun ElementsPanel(cfg: OverlayConfig, scene: SceneKind?, sel: Sel?, onSelect: (S
     val home: SceneKind? = if (canvasOnly) null else scene
     Heading(if (canvasOnly) "AJOUTER" else "AJOUTER SUR « ${scene.label.uppercase()} »")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Button({ onPickImages(null) }, colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White)) {
+        Button({ onPickImages(null) }, colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) {
             Icon(CxIcons.Image, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Images")
         }
         Button({ val t = OverlayItems.text(cfg, home); onChange(OverlayItems.add(cfg, t), null); onSelect(Sel.Item(t.id)) },
-            colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White)) {
+            colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) {
             Icon(CxIcons.Text, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("Texte")
         }
     }
@@ -391,10 +392,10 @@ fun LogoPanel(cfg: OverlayConfig, onPick: () -> Unit, onChange: (OverlayConfig) 
         fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
     Spacer(Modifier.height(6.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Button(onPick, colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White)) {
+        Button(onPick, colors = ButtonDefaults.buttonColors(containerColor = TwitchAccent, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) {
             Icon(CxIcons.Upload, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(if (cfg.logo == null) "Importer un logo" else "Changer le logo")
         }
-        if (cfg.logo != null) OutlinedButton({ onChange(cfg.copy(logo = null)) }) { Text("Retirer") }
+        if (cfg.logo != null) OutlinedButton({ onChange(cfg.copy(logo = null)) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Retirer") }
     }
     if (cfg.logo != null) Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Logo sur les scènes et cadres", Modifier.weight(1f), fontSize = 13.sp)

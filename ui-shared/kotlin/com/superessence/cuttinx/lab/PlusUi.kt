@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.superessence.cuttinx.core.smart.Plus
 import com.superessence.cuttinx.core.smart.Tech
 import com.superessence.cuttinx.icons.CxIcons
+import com.superessence.cuttinx.design.cxTag
 
 private val Dim = Color.White.copy(alpha = 0.6f)
 
@@ -29,20 +30,22 @@ private val Dim = Color.White.copy(alpha = 0.6f)
 fun PlusBanner(accent: Color, modifier: Modifier = Modifier) {
     @Suppress("UNUSED_VARIABLE") val v = TechGate.version
     val l = Plus.license?.takeIf { Plus.isValid(it) }
-    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-        .background(Brush.horizontalGradient(listOf(accent.copy(alpha = 0.28f), accent.copy(alpha = 0.06f))))
-        .border(1.dp, accent.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
-        .clickable { TechGate.openPlus() }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(CxIcons.Star, null, Modifier.size(28.dp), tint = accent)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text("CUTTINX Plus", fontWeight = FontWeight.Black, fontSize = 17.sp, color = Color.White)
-            Text(if (l != null) "Actif jusqu'au ${Plus.until(l)} · zéro pub · tout est débloqué"
-                else "Zéro pub, tout le Labo pour toujours et ${Tech.entries.count { it.plus }} technologies de pointe", fontSize = 12.sp, color = Dim)
+    val shape = com.superessence.cuttinx.design.CxDesign.Card
+    Row(modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(shape).background(Color.White.copy(alpha = 0.04f))
+        .border(1.dp, Color.White.copy(alpha = 0.10f), shape).clickable { TechGate.openPlus() }, verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(3.dp).fillMaxHeight().background(accent))
+        Column(Modifier.weight(1f).padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("CUTTINX Plus", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = Color.White)
+                if (l != null) { Spacer(Modifier.width(8.dp)); Text("Actif", Modifier.cxTag(accent), color = accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) }
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(if (l != null) "Jusqu'au ${Plus.until(l)}. Zéro pub, tout est débloqué."
+                else "Zéro pub, tout le Labo pour toujours et ${Tech.entries.count { it.plus }} technologies exclusives.", fontSize = 12.sp, color = Dim)
         }
-        Spacer(Modifier.width(8.dp))
-        Text(if (l != null) "Gérer" else "Découvrir", Modifier.clip(RoundedCornerShape(20.dp)).background(accent).padding(horizontal = 12.dp, vertical = 6.dp),
-            color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        Text(if (l != null) "Gérer" else "Voir l'offre", Modifier.padding(end = 12.dp).clip(com.superessence.cuttinx.design.CxDesign.Button)
+            .border(1.dp, accent.copy(alpha = 0.7f), com.superessence.cuttinx.design.CxDesign.Button).padding(horizontal = 12.dp, vertical = 7.dp),
+            color = accent, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
     }
 }
 
@@ -75,7 +78,7 @@ fun PlusDialog(accent: Color, onDismiss: () -> Unit) {
                     Text(perk, fontSize = 14.sp, color = Color.White)
                 }
                 Spacer(Modifier.height(10.dp))
-                Text("TECHNOLOGIES PLUS", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                Text("Technologies Plus", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 for (t in Tech.entries.filter { it.plus }) Column(Modifier.padding(top = 6.dp)) {
                     Text(t.label, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
                     Text(t.pitch, fontSize = 12.sp, color = Dim)
@@ -84,7 +87,7 @@ fun PlusDialog(accent: Color, onDismiss: () -> Unit) {
                     Spacer(Modifier.height(14.dp))
                     if (Plus.siteUrl.isNotBlank()) {
                         Button({ runCatching { uri.openUri(Plus.siteUrl.trimEnd('/') + "/plus") } }, Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) { Text("S'abonner à CUTTINX Plus", fontWeight = FontWeight.Bold) }
+                            colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("S'abonner à CUTTINX Plus", fontWeight = FontWeight.Bold) }
                         Spacer(Modifier.height(10.dp))
                     }
                     if (Plus.siteUrl.isBlank()) { Text("Abonne-toi sur le site CUTTINX PRO, page « Plus » : tu reçois aussitôt ton code d'activation.", color = Color.White, fontSize = 13.sp); Spacer(Modifier.height(10.dp)) }
@@ -97,8 +100,8 @@ fun PlusDialog(accent: Color, onDismiss: () -> Unit) {
         },
         confirmButton = {
             if (l == null) Button({ msg = Plus.activate(code); if (msg == null) TechGate.plusChanged() }, enabled = code.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) { Text("Activer") }
-            else Button(onDismiss, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) { Text("Super") }
+                colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Activer") }
+            else Button(onDismiss, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Super") }
         },
         dismissButton = {
             if (l == null) TextButton(onDismiss) { Text("Plus tard") }

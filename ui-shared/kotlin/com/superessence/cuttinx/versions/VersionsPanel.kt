@@ -53,7 +53,7 @@ fun VersionsPanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(name, { name = it.take(40) }, Modifier.weight(1f), singleLine = true, label = { Text("Nom de la version") }, placeholder = { Text("ex. Avant le montage final") })
             Spacer(Modifier.width(8.dp))
-            Button({ onSaveNamed(name.ifBlank { "Version du ${fmt.format(Date())}" }); name = ""; tick++ }, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) { Text("Enregistrer", fontWeight = FontWeight.Bold) }
+            Button({ onSaveNamed(name.ifBlank { "Version du ${fmt.format(Date())}" }); name = ""; tick++ }, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Enregistrer", fontWeight = FontWeight.Bold) }
         }
         Spacer(Modifier.height(6.dp))
         if (versions.isEmpty()) Text("Aucune version pour l'instant.", color = Dim, modifier = Modifier.padding(vertical = 12.dp))

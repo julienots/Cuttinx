@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.ui.editor
 
 import android.Manifest
+import com.superessence.cuttinx.design.cxChip
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -140,8 +141,8 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Workspace.entries.forEach { w ->
                     val sel = w == workspace
-                    Text(w.label, Modifier.clip(RoundedCornerShape(50)).background(if (sel) cx.accent else cx.panel2).clickable { vm.workspace.value = w; vm.panel.value = workspacePanel(w) }.padding(horizontal = 12.dp, vertical = 5.dp),
-                        color = if (sel) cx.onAccent else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+                    Text(w.label, Modifier.cxChip(sel, cx.accent) { vm.workspace.value = w; vm.panel.value = workspacePanel(w) },
+                        color = if (sel) cx.accent else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
                 }
             }
             // ---------------- timeline (resizable)

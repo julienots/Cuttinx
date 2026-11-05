@@ -226,8 +226,8 @@ fun TransformPanel(vm: EditorViewModel, p: Project, c: Clip) {
     AnimSlider(vm, c, "Rotation", Prop.ROTATION, 0.0, -360f..360f, "°", 0) { cl, v -> cl.copy(transform = cl.transform.copy(rotation = v)) }
     AnimSlider(vm, c, "Opacité", Prop.OPACITY, 1.0, 0f..1f) { cl, v -> cl.copy(transform = cl.transform.copy(opacity = v)) }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedButton({ vm.updateClip("Miroir horizontal") { it.copy(transform = it.transform.copy(flipH = !it.transform.flipH)) } }) { Icon(Icons.Default.Flip, null); Text(" Horizontal") }
-        OutlinedButton({ vm.updateClip("Miroir vertical") { it.copy(transform = it.transform.copy(flipV = !it.transform.flipV)) } }) { Text("Vertical") }
+        OutlinedButton({ vm.updateClip("Miroir horizontal") { it.copy(transform = it.transform.copy(flipH = !it.transform.flipH)) } }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Icon(Icons.Default.Flip, null); Text(" Horizontal") }
+        OutlinedButton({ vm.updateClip("Miroir vertical") { it.copy(transform = it.transform.copy(flipV = !it.transform.flipV)) } }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Vertical") }
     }
     if (c.text == null) LabeledSwitch("Remplir le cadre (recadrer)", c.transform.fill, { f -> vm.updateClip("Ajustement au cadre") { it.copy(transform = it.transform.copy(fill = f)) } }, description = "Sinon l'image est entière avec des bandes")
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

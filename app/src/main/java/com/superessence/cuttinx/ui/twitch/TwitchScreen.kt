@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.ui.twitch
 
 import com.superessence.cuttinx.icons.CxIcons
+import com.superessence.cuttinx.design.cxChip
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -66,8 +67,8 @@ private fun <T> BlueChips(options: List<T>, selected: (T) -> Boolean, label: (T)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEach { o ->
             val sel = selected(o)
-            Text(label(o), Modifier.clip(RoundedCornerShape(50)).background(if (sel) TwitchBlue else cx.panel2).clickable { onClick(o) }.padding(horizontal = 12.dp, vertical = 7.dp),
-                color = if (sel) Color.White else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+            Text(label(o), Modifier.cxChip(sel, TwitchBlue) { onClick(o) },
+                color = if (sel) TwitchBlue else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
         }
     }
 }
@@ -431,7 +432,7 @@ private fun StyleEditor(vm: StudioViewModel, cfg: OverlayConfig) {
     Label("BADGE")
     OutlinedTextField(cfg.badge ?: "", { v -> vm.update { it.copy(badge = v) } }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(th.badge) }, label = { Text("Texte du badge (LIVE, EN DIRECT, 配信中…)") })
     Spacer(Modifier.height(10.dp))
-    OutlinedButton({ vm.resetStyle() }, Modifier.fillMaxWidth()) { Text("Revenir au style du thème", color = TwitchBlue) }
+    OutlinedButton({ vm.resetStyle() }, Modifier.fillMaxWidth(), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Revenir au style du thème", color = TwitchBlue) }
 }
 
 // ---------------------------------------------------------------------- export
@@ -461,17 +462,17 @@ private fun ExportPanel(vm: StudioViewModel, target: Target, minutes: Int, progr
     Spacer(Modifier.height(6.dp))
     BlueChips(listOf(24, 30), { it == fps }, { "$it i/s" }, { fps = it })
     Spacer(Modifier.height(12.dp))
-    Button({ pack.launch("CuttinxPRO_${cfg.channel}_${vm.theme.id}.zip") }, Modifier.fillMaxWidth(), enabled = progress == null, colors = ButtonDefaults.buttonColors(containerColor = TwitchBlue, contentColor = Color.White)) { Text("Exporter le pack OBS / Streamlabs animé (.zip)") }
+    Button({ pack.launch("CuttinxPRO_${cfg.channel}_${vm.theme.id}.zip") }, Modifier.fillMaxWidth(), enabled = progress == null, colors = ButtonDefaults.buttonColors(containerColor = TwitchBlue, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Exporter le pack OBS / Streamlabs animé (.zip)") }
     val animatedTarget = target is Target.Scene || target is Target.Stinger
     val sceneOf = (target as? Target.Scene)?.kind; val stingerOf = (target as? Target.Stinger)?.style
     val elementZip = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> if (uri != null) vm.exportElement(uri, sceneOf, stingerOf, hd, fps, minutes) }
     val gif = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/gif")) { uri -> if (uri != null) vm.exportGif(uri, sceneOf, stingerOf) }
     if (animatedTarget) {
-        Button({ elementZip.launch("$elementName (animé).zip") }, Modifier.fillMaxWidth(), enabled = progress == null, colors = ButtonDefaults.buttonColors(containerColor = TwitchBlue, contentColor = Color.White)) { Text("Exporter « $elementName » animé (.zip)") }
-        OutlinedButton({ gif.launch("$elementName.gif") }, Modifier.fillMaxWidth(), enabled = progress == null) { Text("Enregistrer « $elementName » en GIF animé") }
+        Button({ elementZip.launch("$elementName (animé).zip") }, Modifier.fillMaxWidth(), enabled = progress == null, colors = ButtonDefaults.buttonColors(containerColor = TwitchBlue, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Exporter « $elementName » animé (.zip)") }
+        OutlinedButton({ gif.launch("$elementName.gif") }, Modifier.fillMaxWidth(), enabled = progress == null, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Enregistrer « $elementName » en GIF animé") }
         Text("Animé dans OBS et Streamlabs : .html (source Navigateur), .gif (source Image, Alert Box Streamlabs), PNG animé (source Média). Les vidéos WebM transparentes se font avec l'appli PC.", color = LocalCx.current.dim, fontSize = 11.sp)
     }
-    OutlinedButton({ png.launch("$elementName.png") }, Modifier.fillMaxWidth()) { Text("Enregistrer « $elementName » en PNG (image fixe)") }
+    OutlinedButton({ png.launch("$elementName.png") }, Modifier.fillMaxWidth(), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Enregistrer « $elementName » en PNG (image fixe)") }
     progress?.let {
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator({ it.fraction }, Modifier.fillMaxWidth(), color = TwitchBlue)

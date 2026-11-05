@@ -182,7 +182,7 @@ private fun SpeechSection(vm: EditorViewModel, p: Project, sel: Clip?, back: () 
                 if (installed) {
                     AccentButton("Transcrire", { EditorAi.autoSubtitles(vm, m, targets, maxChars) }, enabled = targets.isNotEmpty())
                     IconButton({ vm.c.speech.delete(m); refresh++ }) { Icon(Icons.Default.Delete, "Supprimer le modèle") }
-                } else OutlinedButton({ EditorAi.downloadModel(vm, m) }) { Text("Télécharger") }
+                } else OutlinedButton({ EditorAi.downloadModel(vm, m) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Télécharger") }
             }
         }
     }

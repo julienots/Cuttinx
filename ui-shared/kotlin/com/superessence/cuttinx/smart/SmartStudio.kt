@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.smart
 
 import androidx.compose.foundation.Canvas
+import com.superessence.cuttinx.design.cxChip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -72,8 +73,8 @@ private fun Pills(options: List<String>, selected: Int, accent: Color, onClick: 
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         options.forEachIndexed { i, o ->
             val sel = i == selected
-            Text(o, Modifier.clip(RoundedCornerShape(50)).background(if (sel) accent else CardBg).clickable { onClick(i) }.padding(horizontal = 12.dp, vertical = 7.dp),
-                color = if (sel) Color.Black else Color.White, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+            Text(o, Modifier.cxChip(sel, accent) { onClick(i) },
+                color = if (sel) accent else Color.White, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
         }
     }
 }
@@ -104,7 +105,7 @@ private fun Director(project: Project, accent: Color, onEdit: (String, (Project)
         }
     }
     Spacer(Modifier.height(8.dp))
-    Button({ prepare() }, Modifier.fillMaxWidth(), enabled = prompt.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) {
+    Button({ prepare() }, Modifier.fillMaxWidth(), enabled = prompt.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black), shape = com.superessence.cuttinx.design.CxDesign.Button) {
         Icon(CxIcons.Idea, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Préparer le plan", fontWeight = FontWeight.Bold)
     }
     val pl = plan ?: return
@@ -122,7 +123,7 @@ private fun Director(project: Project, accent: Color, onEdit: (String, (Project)
     }
     val chosen = pl.steps.filterIndexed { i, _ -> i !in off }
     Button({ onEdit("Réalisateur IA : ${chosen.size} étapes") { p -> DirectorPlan(chosen, pl.platform, emptyList()).apply(p) }; plan = null },
-        Modifier.fillMaxWidth(), enabled = chosen.isNotEmpty(), colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) {
+        Modifier.fillMaxWidth(), enabled = chosen.isNotEmpty(), colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black), shape = com.superessence.cuttinx.design.CxDesign.Button) {
         Icon(CxIcons.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Appliquer ${chosen.size} étape(s)", fontWeight = FontWeight.Bold)
     }
 }
@@ -158,7 +159,7 @@ private fun Quality(project: Project, platform: Platform, accent: Color, onEdit:
     val fixable = report.items.count { it.fix != null }
     if (fixable > 0) {
         Spacer(Modifier.height(8.dp))
-        Button({ onEdit("Contrôle qualité : tout corriger") { QualityCoach.fixAll(it, platform) } }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) {
+        Button({ onEdit("Contrôle qualité : tout corriger") { QualityCoach.fixAll(it, platform) } }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black), shape = com.superessence.cuttinx.design.CxDesign.Button) {
             Icon(CxIcons.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Tout corriger automatiquement", fontWeight = FontWeight.Bold)
         }
     }

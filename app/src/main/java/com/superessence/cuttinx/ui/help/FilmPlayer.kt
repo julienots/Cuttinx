@@ -119,7 +119,7 @@ fun FilmPlayerDialog(start: Film, onDismiss: () -> Unit) {
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton({ time = 0.0; playing = true }) { Icon(CxIcons.Replay, "Revoir", tint = Color.White) }
-                Button({ if (time >= film.duration) time = 0.0; playing = !playing }, colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = if (film.space == TutoSpace.EDITOR) Color.Black else Color.White)) {
+                Button({ if (time >= film.duration) time = 0.0; playing = !playing }, colors = ButtonDefaults.buttonColors(containerColor = acc, contentColor = if (film.space == TutoSpace.EDITOR) Color.Black else Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) {
                     Icon(if (playing) CxIcons.Pause else CxIcons.Play, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
                     Text(if (playing) "Pause" else "Lecture", fontWeight = FontWeight.Bold)
                 }

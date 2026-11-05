@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.creator
 
 import androidx.compose.foundation.Canvas
+import com.superessence.cuttinx.design.cxChip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -147,8 +148,8 @@ private fun Head(text: String) = Text(text, Modifier.padding(top = 14.dp, bottom
 
 @Composable
 private fun Pill(label: String, selected: Boolean, onClick: () -> Unit) =
-    Text(label, Modifier.clip(RoundedCornerShape(50)).background(if (selected) CreatorAccent else Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp),
-        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+    Text(label, Modifier.cxChip(selected, CreatorAccent, onClick = onClick),
+        color = if (selected) CreatorAccent else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -279,7 +280,7 @@ private fun Editor(state: CreatorState, d: CreatorDesign, kit: BrandKit?, previe
                 IconButton({ state.redo() }, enabled = state.canRedo) { Icon(CxIcons.Redo, "Rétablir") }
                 if (!narrow) Text(state.saveStatus, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), maxLines = 1)
                 IconButton({ state.saveNow() }) { Icon(CxIcons.Check, "Enregistrer", tint = CreatorAccent) }
-                Button({ export(d) }, colors = ButtonDefaults.buttonColors(containerColor = CreatorAccent, contentColor = Color.White), contentPadding = PaddingValues(horizontal = 12.dp)) {
+                Button({ export(d) }, colors = ButtonDefaults.buttonColors(containerColor = CreatorAccent, contentColor = Color.White), contentPadding = PaddingValues(horizontal = 12.dp), shape = com.superessence.cuttinx.design.CxDesign.Button) {
                     Icon(CxIcons.Download, null, Modifier.size(16.dp)); if (!narrow) { Spacer(Modifier.width(6.dp)); Text("Exporter PNG", fontWeight = FontWeight.Bold) }
                 }
             }
@@ -318,7 +319,7 @@ private fun BackgroundTab(state: CreatorState, d: CreatorDesign, pickBackground:
     Pills(BgKind.entries.toList(), d.bg.kind, { it.label }) { k -> if (k == BgKind.IMAGE && d.bg.image.isEmpty()) pickBackground() else up(null) { it.copy(kind = k) } }
     if (d.bg.kind == BgKind.IMAGE) {
         Spacer(Modifier.height(8.dp))
-        Button(pickBackground, colors = ButtonDefaults.buttonColors(containerColor = CreatorAccent, contentColor = Color.White)) {
+        Button(pickBackground, colors = ButtonDefaults.buttonColors(containerColor = CreatorAccent, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) {
             Icon(CxIcons.Image, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text(if (d.bg.image.isEmpty()) "Choisir une photo" else "Changer la photo")
         }
         Text("Assombrir la photo : ${(d.bg.dim * 100).roundToInt()} %", fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
@@ -346,7 +347,7 @@ private fun BackgroundTab(state: CreatorState, d: CreatorDesign, pickBackground:
 private fun ColorsTab(state: CreatorState, d: CreatorDesign, kit: BrandKit?) {
     val pal = d.pal
     if (kit != null) Button({ state.set(d.copy(themeId = kit.overlayThemeId, palette = kit.overlayPalette()), null) }, Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(containerColor = CreatorAccent, contentColor = Color.White)) { Text("Mettre les couleurs de mon ID Influenceur") }
+        colors = ButtonDefaults.buttonColors(containerColor = CreatorAccent, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Mettre les couleurs de mon ID Influenceur") }
     OverlayLabels.paletteRoles.forEachIndexed { i, role ->
         val cur = OverlayLabels.get(pal, i)
         Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -386,7 +387,7 @@ private fun TemplatesTab(state: CreatorState, d: CreatorDesign, kit: BrandKit?, 
 private fun ExportTab(d: CreatorDesign, guides: Boolean, setGuides: (Boolean) -> Unit, onExport: () -> Unit) {
     Text("Image PNG en ${d.format.width} × ${d.format.height} px, la taille exacte demandée par ${d.format.platform}.", fontSize = 13.sp)
     Spacer(Modifier.height(10.dp))
-    Button(onExport, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = CreatorAccent, contentColor = Color.White)) { Text("Exporter en PNG", fontWeight = FontWeight.Bold) }
+    Button(onExport, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = CreatorAccent, contentColor = Color.White), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Exporter en PNG", fontWeight = FontWeight.Bold) }
     if (d.format.safe != null) Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text("Afficher la zone sûre (${d.format.safeLabel})", Modifier.weight(1f), fontSize = 13.sp)
         Switch(guides, setGuides, colors = SwitchDefaults.colors(checkedTrackColor = CreatorAccent))

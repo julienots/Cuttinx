@@ -95,7 +95,7 @@ fun TechUnlockDialog(req: TechGate.Request, accent: Color, adLabel: String, busy
             }
         },
         confirmButton = {
-            Button(onWatch, enabled = !busy, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black)) {
+            Button(onWatch, enabled = !busy, colors = ButtonDefaults.buttonColors(containerColor = accent, contentColor = Color.Black), shape = com.superessence.cuttinx.design.CxDesign.Button) {
                 if (busy) { CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.Black); Spacer(Modifier.width(8.dp)) }
                 Text(if (error != null) "Réessayer" else "Regarder et débloquer")
             }
@@ -115,12 +115,12 @@ fun LabPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> Unit, modi
     val unlockedCount = free.count { TechVault.isUnlocked(it) }
     val body: @Composable ColumnScope.() -> Unit = {
         PlusBanner(accent)
-        Text("LABO CUTTINX", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 14.dp))
+        Text("Labo CUTTINX", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp))
         Text(if (Plus.active) "${free.size} technologies, toutes débloquées avec CUTTINX Plus."
             else "${free.size} technologies exclusives. Une pub plein écran débloque une technologie pendant ${TechVault.UNLOCK_HOURS} h. Débloquées : $unlockedCount.",
             color = Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
         for (t in free) TechCard(t, ctx, accent, onRun)
-        Text("TECHNOLOGIES PLUS", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 14.dp))
+        Text("Technologies Plus", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp))
         Text("Réservées aux abonnés CUTTINX Plus : précision à l'image et outils de pointe.", color = Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
         for (t in Tech.entries.filter { it.plus }) TechCard(t, ctx, accent, onRun)
     }
@@ -131,8 +131,8 @@ fun LabPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> Unit, modi
 private fun TechCard(t: Tech, ctx: EditContext, accent: Color, onRun: (QuickAction) -> Unit) {
     val open = TechVault.isUnlocked(t)
     val actions = remember(t) { QuickActions.byTech(t) }
-    Column(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(14.dp))
-        .border(1.dp, if (open) accent.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(com.superessence.cuttinx.design.CxDesign.Card)
+        .border(1.dp, if (open) accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.10f), com.superessence.cuttinx.design.CxDesign.Card)
         .background(Color.White.copy(alpha = 0.04f)).padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(CxIcons.byName(t.icon), null, Modifier.size(22.dp), tint = if (open) accent else Color.White)
@@ -143,19 +143,20 @@ private fun TechCard(t: Tech, ctx: EditContext, accent: Color, onRun: (QuickActi
             }
             Spacer(Modifier.width(8.dp))
             if (open) Text(TechVault.remaining(t) ?: "", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold)
-            else Row(Modifier.clip(RoundedCornerShape(20.dp)).background(accent).clickable { TechGate.request(t) }.padding(horizontal = 10.dp, vertical = 6.dp),
+            else Row(Modifier.clip(com.superessence.cuttinx.design.CxDesign.Button).border(1.dp, accent.copy(alpha = 0.7f), com.superessence.cuttinx.design.CxDesign.Button)
+                .clickable { TechGate.request(t) }.padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Icon(CxIcons.Lock, null, Modifier.size(14.dp), tint = Color.Black)
-                Spacer(Modifier.width(4.dp))
-                Text(if (t.plus) "Plus" else "Pub", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Icon(CxIcons.Lock, null, Modifier.size(13.dp), tint = accent)
+                Spacer(Modifier.width(5.dp))
+                Text(if (t.plus) "Plus" else "Pub", color = accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         Spacer(Modifier.height(8.dp))
         FlowRowCompat {
             for (a in actions) {
                 val ok = a.available(ctx)
-                Text(a.label, Modifier.padding(end = 6.dp, bottom = 6.dp).clip(RoundedCornerShape(8.dp))
-                    .background(if (open && ok) accent.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f))
+                Text(a.label, Modifier.padding(end = 6.dp, bottom = 6.dp).clip(com.superessence.cuttinx.design.CxDesign.Chip)
+                    .border(1.dp, if (open && ok) accent.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f), com.superessence.cuttinx.design.CxDesign.Chip)
                     .clickable(enabled = ok) { if (open) onRun(a) else TechGate.request(t) { onRun(a) } }
                     .padding(horizontal = 9.dp, vertical = 6.dp),
                     fontSize = 12.sp, color = if (ok) Color.White else Dim.copy(alpha = 0.5f))

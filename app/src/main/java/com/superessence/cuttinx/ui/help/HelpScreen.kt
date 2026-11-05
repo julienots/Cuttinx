@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.ui.help
 
 import androidx.compose.foundation.background
+import com.superessence.cuttinx.design.cxChip
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -63,8 +64,8 @@ fun HelpScreen(onBack: () -> Unit, startTutorial: () -> Unit) {
         Scaffold(topBar = { TopAppBar(title = { Text("Guide d'utilisation") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") } }) }) { pad ->
             Column(Modifier.padding(pad).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button({ tutorial = true }, Modifier.weight(1f)) { Text("Tutoriel pas à pas") }
-                    OutlinedButton(startTutorial, Modifier.weight(1f)) { Text("Projet d'exemple") }
+                    Button({ tutorial = true }, Modifier.weight(1f), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Tutoriel pas à pas") }
+                    OutlinedButton(startTutorial, Modifier.weight(1f), shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Projet d'exemple") }
                 }
                 SectionTitle("Tutos vidéo (${com.superessence.cuttinx.core.tutorial.Tutorials.all.size})")
                 Text("Des petits films qui montrent chaque outil en vrai, étape par étape.", style = MaterialTheme.typography.bodySmall, color = cx.dim)
@@ -74,8 +75,8 @@ fun HelpScreen(onBack: () -> Unit, startTutorial: () -> Unit) {
                 Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (listOf<String?>(null) + topics.map { it.category }.distinct()).forEach { c ->
                         val sel = c == category
-                        Text(c ?: "Tout", Modifier.clip(RoundedCornerShape(50)).background(if (sel) cx.accent else cx.panel2).clickable { category = c }.padding(horizontal = 14.dp, vertical = 7.dp),
-                            color = if (sel) cx.onAccent else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium)
+                        Text(c ?: "Tout", Modifier.cxChip(sel, cx.accent) { category = c },
+                            color = if (sel) cx.accent else MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 val q = query.trim().lowercase()

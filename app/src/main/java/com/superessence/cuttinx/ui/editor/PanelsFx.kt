@@ -132,7 +132,7 @@ fun FiltersPanel(vm: EditorViewModel, sel: Clip?) {
             TextButton({ exportDoc.launch("cuttinx-presets.json") }, enabled = user.isNotEmpty()) { Text("Exporter") }
         }
     })
-    if (sel != null && sel.effects.isNotEmpty()) OutlinedButton({ saveDialog = true }) { Icon(Icons.Default.Save, null); Text(" Enregistrer les effets de ce plan") }
+    if (sel != null && sel.effects.isNotEmpty()) OutlinedButton({ saveDialog = true }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Icon(Icons.Default.Save, null); Text(" Enregistrer les effets de ce plan") }
     user.forEach { pr ->
         Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(10.dp)).background(LocalCx.current.panel2).clickable { vm.applyPreset(pr) }.padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(pr.name, Modifier.weight(1f)); Text("${pr.effects.size} effet(s)", color = LocalCx.current.dim, style = MaterialTheme.typography.labelSmall)
@@ -179,7 +179,7 @@ fun AdjustLayerPanel(vm: EditorViewModel) {
     InfoCard("Un calque d'effets applique ses effets à toute l'image (toutes les pistes) pendant sa durée. Déplacez-le et étirez-le sur la timeline comme un clip.")
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
         AccentButton("Calque vide", { vm.addAdjustmentLayer(emptyList()); vm.panel.value = Panel.EFFECTS })
-        OutlinedButton({ vm.addAdjustmentLayer(listOf(EffectInstance(Ids.new("fx"), "adjust", EffectRegistry["adjust"]!!.defaults()))); vm.panel.value = Panel.ADJUST }) { Text("Correction couleur") }
+        OutlinedButton({ vm.addAdjustmentLayer(listOf(EffectInstance(Ids.new("fx"), "adjust", EffectRegistry["adjust"]!!.defaults()))); vm.panel.value = Panel.ADJUST }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Correction couleur") }
     }
     SectionTitle("Avec un filtre")
     ChoiceChips(Presets.builtIn, null, { it.name }, { pr -> vm.select(null); vm.applyPreset(pr) })
@@ -225,8 +225,8 @@ fun AudioPanel(vm: EditorViewModel, p: Project, c: Clip) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 // one tap presets: background noise reduction and "studio" voice, both live and non destructive
-                OutlinedButton({ chain("Réducteur de bruit de fond", "a_highpass" to mapOf("freq" to 80.0), "a_denoise" to mapOf("amount" to 0.75), "a_gate" to mapOf("threshold" to -50.0)) }) { Text("Réduire le bruit de fond") }
-                OutlinedButton({ chain("Voix studio", "a_highpass" to mapOf("freq" to 90.0), "a_deesser" to emptyMap(), "a_compressor" to mapOf("threshold" to -20.0, "ratio" to 3.0), "a_limiter" to emptyMap()) }) { Text("Voix studio") }
+                OutlinedButton({ chain("Réducteur de bruit de fond", "a_highpass" to mapOf("freq" to 80.0), "a_denoise" to mapOf("amount" to 0.75), "a_gate" to mapOf("threshold" to -50.0)) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Réduire le bruit de fond") }
+                OutlinedButton({ chain("Voix studio", "a_highpass" to mapOf("freq" to 90.0), "a_deesser" to emptyMap(), "a_compressor" to mapOf("threshold" to -20.0, "ratio" to 3.0), "a_limiter" to emptyMap()) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Voix studio") }
             }
             ChoiceChips(EffectRegistry.audio().filter { it.category == EffectCategory.VOICE }, null, { it.name }, { d -> vm.updateClip("Voix ${d.name}") { it.copy(audio = it.audio.copy(effects = it.audio.effects + EffectInstance(Ids.new("fx"), d.id, d.defaults()))) } })
             AppliedEffects(vm, c, audio = true)
@@ -234,16 +234,16 @@ fun AudioPanel(vm: EditorViewModel, p: Project, c: Clip) {
         else -> {
             Text("Traitements locaux : un nouveau fichier est créé, l'original reste intact.", style = MaterialTheme.typography.bodySmall, color = LocalCx.current.dim)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton({ EditorAi.processAudio(vm, c.id, "denoise") }) { Text("Réduire le bruit") }
-                OutlinedButton({ EditorAi.audioReport(vm, c.id); vm.panel.value = Panel.AI }) { Text("Analyser") }
+                OutlinedButton({ EditorAi.processAudio(vm, c.id, "denoise") }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Réduire le bruit") }
+                OutlinedButton({ EditorAi.audioReport(vm, c.id); vm.panel.value = Panel.AI }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Analyser") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton({ EditorAi.processAudio(vm, c.id, "voice") }) { Text("Isoler la voix") }
-                OutlinedButton({ EditorAi.processAudio(vm, c.id, "karaoke") }) { Text("Retirer la voix") }
+                OutlinedButton({ EditorAi.processAudio(vm, c.id, "voice") }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Isoler la voix") }
+                OutlinedButton({ EditorAi.processAudio(vm, c.id, "karaoke") }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Retirer la voix") }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton({ EditorAi.detectSilences(vm, c.id) }) { Text("Couper les silences") }
-                OutlinedButton({ EditorAi.beats(vm, c.id); vm.panel.value = Panel.AI }) { Text("Détecter le rythme") }
+                OutlinedButton({ EditorAi.detectSilences(vm, c.id) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Couper les silences") }
+                OutlinedButton({ EditorAi.beats(vm, c.id); vm.panel.value = Panel.AI }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Détecter le rythme") }
             }
             InfoCard("Isolation/suppression de voix : méthode spectrale locale (efficace sur les musiques stéréo avec voix centrée). Elle n'égale pas les modèles neuronaux lourds.")
         }
@@ -266,8 +266,8 @@ fun MixerPanel(vm: EditorViewModel, p: Project) {
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedButton({ EditorAi.normalize(vm, p.allClips.filter { c -> p.asset(c.assetId)?.hasAudio == true }.map { it.id }) }) { Text("Normaliser tout") }
-        OutlinedButton({ vm.addTrack(TrackKind.AUDIO, AudioRole.AMBIENCE) }) { Text("+ Piste d'ambiance") }
+        OutlinedButton({ EditorAi.normalize(vm, p.allClips.filter { c -> p.asset(c.assetId)?.hasAudio == true }.map { it.id }) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Normaliser tout") }
+        OutlinedButton({ vm.addTrack(TrackKind.AUDIO, AudioRole.AMBIENCE) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("+ Piste d'ambiance") }
     }
     vm.selectedClip()?.let { s -> if (p.asset(s.assetId)?.hasAudio == true) TextButton({ EditorAi.audioReport(vm, s.id); vm.panel.value = Panel.AI }) { Text("Crêtes et saturations de « ${s.name} »") } }
 }
