@@ -9,6 +9,33 @@ const KINDS = [
   { key: 'windowsMsi', label: 'Windows · MSI (facultatif)', ext: '.msi', folder: 'windows', type: 'application/x-msi', hint: 'Fichier .msi (dans cuttinx-pro-windows.zip)' },
 ]
 
+/** CUTTINX Plus codes offered for a number of days (tests, partners, giveaways). */
+function GiftPanel({ token }) {
+  const [days, setDays] = useState('30')
+  const [email, setEmail] = useState('')
+  const [out, setOut] = useState(null)
+  const [busy, setBusy] = useState(false)
+  async function create() {
+    setBusy(true); setOut(null)
+    try {
+      const res = await fetch('/api/plus/gift', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, days, email }) })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Impossible de créer le code')
+      setOut({ code: data.code, text: `Code valable jusqu'au ${new Date(data.exp).toLocaleDateString('fr-FR')}` })
+    } catch (e) { setOut({ err: true, text: e.message }) } finally { setBusy(false) }
+  }
+  return (
+    <section className="panel">
+      <h2>Offrir CUTTINX Plus</h2>
+      <p className="dim">Crée un code d'activation gratuit (pour tester, pour un partenaire, un concours…). Il marche sur Android et PC, et s'arrête tout seul à la date choisie.</p>
+      <label className="field">Durée (jours)<input value={days} onChange={(e) => setDays(e.target.value)} inputMode="numeric" maxLength={4} /></label>
+      <label className="field">Pour (facultatif)<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e-mail ou nom" maxLength={120} /></label>
+      <button className="btn btn-primary" onClick={create} disabled={busy}>{busy ? 'Création…' : 'Créer un code Plus'}</button>
+      {out ? <div className={`msg ${out.err ? 'err' : 'ok'}`}>{out.text}{out.code ? <><br /><code style={{ wordBreak: 'break-all' }}>{out.code}</code></> : null}</div> : null}
+    </section>
+  )
+}
+
 function size(b) { if (!b) return ''; const mb = b / 1048576; return mb >= 1024 ? `${(mb / 1024).toFixed(2)} Go` : `${mb.toFixed(1)} Mo` }
 
 export default function AdminPanel({ token, initial, storage, mode }) {
@@ -100,6 +127,8 @@ export default function AdminPanel({ token, initial, storage, mode }) {
         </button>
         {msg ? <div className={`msg ${msg.err ? 'err' : 'ok'}`}>{msg.text}</div> : null}
       </section>
+
+      <GiftPanel token={token} />
     </main>
   )
 }

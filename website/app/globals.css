@@ -107,3 +107,15 @@ details p { margin-top: 10px; }
 .link-btn { background: none; border: 0; color: var(--dim); cursor: pointer; text-decoration: underline; font: inherit; padding: 0; }
 code { background: var(--panel2); padding: 2px 6px; border-radius: 6px; font-size: 0.9em; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* CUTTINX Plus */
+.plus-hero { padding: 64px 0 8px; display: flex; flex-direction: column; gap: 20px; max-width: 820px; }
+.plus-card { border-color: rgba(255, 204, 31, 0.35); }
+.offers { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 340px)); gap: 14px; }
+.offer { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.offer.best { border: 2px solid var(--yellow); }
+.price { font-size: 2rem; font-weight: 800; }
+.plus-steps { margin-top: 22px; max-width: 760px; }
+.code-box { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.code-box code { flex: 1 1 100%; word-break: break-all; padding: 12px; font-size: 0.82rem; }
+main > .msg { margin-top: 18px; }

@@ -40,6 +40,7 @@ object Ads {
 
     /** Asks for consent when needed (once), then starts the advert SDKs. Call it from the activity. */
     fun init(activity: Activity) {
+        if (com.superessence.cuttinx.core.smart.Plus.active) return   // CUTTINX Plus: no advert at all
         val ci = consent(activity)
         runCatching {
             ci.requestConsentInfoUpdate(activity, ConsentRequestParameters.Builder().build(), {

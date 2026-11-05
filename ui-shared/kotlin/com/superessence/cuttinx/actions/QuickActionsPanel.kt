@@ -128,8 +128,8 @@ private fun ActionRow(a: QuickAction, enabled: Boolean, highlighted: Boolean, ac
         if (a.locked) Row(Modifier.clip(RoundedCornerShape(6.dp)).background(accent.copy(alpha = 0.18f)).padding(horizontal = 7.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(CxIcons.Lock, null, Modifier.size(11.dp), tint = accent)
             Spacer(Modifier.width(4.dp))
-            Text("Pub · 24 h", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold)
-        } else if (a.tech != null) Text("Labo", fontSize = 11.sp, color = accent)
+            Text(if (a.tech?.plus == true) "Plus" else "Pub · 24 h", fontSize = 11.sp, color = accent, fontWeight = FontWeight.Bold)
+        } else if (a.tech != null) Text(if (a.tech.plus) "Plus" else "Labo", fontSize = 11.sp, color = accent)
         a.shortcut?.let { Text(it, Modifier.clip(RoundedCornerShape(5.dp)).background(Color.White.copy(alpha = 0.08f)).padding(horizontal = 7.dp, vertical = 2.dp), fontSize = 11.sp, color = Dim) }
     }
 }

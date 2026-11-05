@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.superessence.cuttinx.core.smart.EditContext
+import com.superessence.cuttinx.core.smart.Plus
 import com.superessence.cuttinx.core.smart.QuickAction
 import com.superessence.cuttinx.core.smart.QuickActions
 import com.superessence.cuttinx.core.smart.Tech
@@ -39,8 +40,29 @@ object TechGate {
     var pending by mutableStateOf<Request?>(null)
         private set
 
-    fun request(tech: Tech, then: (() -> Unit)? = null) { pending = Request(tech, then) }
+    /** The CUTTINX Plus window is open (with what to run once Plus is on). */
+    var plusOpen by mutableStateOf(false)
+        private set
+    private var plusThen: (() -> Unit)? = null
+
+    /** Plus technologies open the Plus window; the others ask for an advert. */
+    fun request(tech: Tech, then: (() -> Unit)? = null) {
+        if (Plus.active) { runCatching { then?.invoke() }; return }
+        if (tech.plus) openPlus(then) else pending = Request(tech, then)
+    }
     fun cancel() { pending = null }
+
+    /** Redraws the screens (e.g. after a licence was renewed in the background). */
+    fun refresh() { version++ }
+
+    fun openPlus(then: (() -> Unit)? = null) { plusThen = then; plusOpen = true }
+    fun closePlus() { plusOpen = false; plusThen = null }
+
+    /** Plus was just switched on (or off): refresh the screens and run what was waiting. */
+    fun plusChanged() {
+        version++
+        if (Plus.active) { val t = plusThen; plusThen = null; plusOpen = false; pending = null; runCatching { t?.invoke() } }
+    }
 
     /** The advert was watched to the end: unlock for 24 h and run what was asked. */
     fun grant(tech: Tech) {
@@ -89,12 +111,18 @@ fun TechUnlockDialog(req: TechGate.Request, accent: Color, adLabel: String, busy
 @Composable
 fun LabPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> Unit, modifier: Modifier = Modifier, scroll: Boolean = false) {
     @Suppress("UNUSED_VARIABLE") val v = TechGate.version   // recompose after an unlock
-    val unlockedCount = Tech.entries.count { TechVault.isUnlocked(it) }
+    val free = Tech.entries.filter { !it.plus }
+    val unlockedCount = free.count { TechVault.isUnlocked(it) }
     val body: @Composable ColumnScope.() -> Unit = {
-        Text("LABO CUTTINX", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-        Text("${Tech.entries.size} technologies exclusives. Une pub plein écran débloque une technologie pendant ${TechVault.UNLOCK_HOURS} h. Débloquées : $unlockedCount.",
+        PlusBanner(accent)
+        Text("LABO CUTTINX", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 14.dp))
+        Text(if (Plus.active) "${free.size} technologies, toutes débloquées avec CUTTINX Plus."
+            else "${free.size} technologies exclusives. Une pub plein écran débloque une technologie pendant ${TechVault.UNLOCK_HOURS} h. Débloquées : $unlockedCount.",
             color = Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
-        for (t in Tech.entries) TechCard(t, ctx, accent, onRun)
+        for (t in free) TechCard(t, ctx, accent, onRun)
+        Text("TECHNOLOGIES PLUS", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 14.dp))
+        Text("Réservées aux abonnés CUTTINX Plus : précision à l'image et outils de pointe.", color = Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+        for (t in Tech.entries.filter { it.plus }) TechCard(t, ctx, accent, onRun)
     }
     if (scroll) Column(modifier.verticalScroll(rememberScrollState()), content = body) else Column(modifier, content = body)
 }
@@ -119,7 +147,7 @@ private fun TechCard(t: Tech, ctx: EditContext, accent: Color, onRun: (QuickActi
                 verticalAlignment = Alignment.CenterVertically) {
                 Icon(CxIcons.Lock, null, Modifier.size(14.dp), tint = Color.Black)
                 Spacer(Modifier.width(4.dp))
-                Text("Pub", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(if (t.plus) "Plus" else "Pub", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(8.dp))

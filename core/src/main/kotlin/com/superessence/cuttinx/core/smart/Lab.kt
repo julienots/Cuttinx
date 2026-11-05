@@ -13,12 +13,12 @@ enum class Pacing(val label: String) { CRESCENDO("crescendo (de plus en plus cou
 
 /** The technologies of the Labo CUTTINX (see [Tech]). Everything produces ordinary, editable clips. */
 object Lab {
-    private fun fx(id: String, vararg params: Pair<String, Double>): EffectInstance? =
+    internal fun fx(id: String, vararg params: Pair<String, Double>): EffectInstance? =
         EffectRegistry[id]?.let { d -> EffectInstance(Ids.new("fx"), id, d.defaults() + params.toMap().filterKeys { k -> d.params.any { it.key == k } }) }
 
     private fun mainShots(p: Project) = SmartTools.mainTrack(p)?.takeUnless { it.locked }?.sortedClips().orEmpty()
 
-    private fun firstVideo(p: Project, selection: List<String>): Clip? =
+    internal fun firstVideo(p: Project, selection: List<String>): Clip? =
         selection.mapNotNull { p.findClip(it)?.second }.firstOrNull { it.kind == ClipKind.MEDIA && p.asset(it.assetId)?.type == MediaType.VIDEO }
             ?: mainShots(p).firstOrNull { it.kind == ClipKind.MEDIA && p.asset(it.assetId)?.type == MediaType.VIDEO }
 
@@ -135,7 +135,7 @@ object Lab {
     // ------------------------------------------------------------------ cut effects
 
     /** One effects layer (adjustment clip) on an effects track, with its effects fading out. */
-    private fun burst(p: Project, trackName: String, atUs: Long, durUs: Long, effects: List<EffectInstance>, fade: Map<String, String> = emptyMap()): Project {
+    internal fun burst(p: Project, trackName: String, atUs: Long, durUs: Long, effects: List<EffectInstance>, fade: Map<String, String> = emptyMap()): Project {
         if (effects.isEmpty()) return p
         val start = atUs.coerceAtLeast(0)
         val kf = HashMap<String, KeyframeTrack>()

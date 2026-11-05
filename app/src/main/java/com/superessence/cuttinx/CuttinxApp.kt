@@ -53,7 +53,13 @@ class CuttinxApp : Application() {
         com.superessence.cuttinx.core.smart.TechVault.store = object : com.superessence.cuttinx.core.smart.TechVault.Store {
             override fun get(key: String) = labPrefs.getLong(key, 0L)
             override fun put(key: String, value: Long) { labPrefs.edit().putLong(key, value).apply() }
+            override fun getText(key: String): String? = labPrefs.getString(key, null)
+            override fun putText(key: String, value: String) { labPrefs.edit().putString(key, value).apply() }
         }
+        // CUTTINX Plus: renew the licence before it ends, redraw when it changes
+        BuildConfig.CUTTINX_SITE.takeIf { it.isNotBlank() }?.let { com.superessence.cuttinx.core.smart.Plus.siteUrl = it }
+        com.superessence.cuttinx.core.smart.Plus.onChange = { com.superessence.cuttinx.lab.TechGate.refresh() }
+        com.superessence.cuttinx.core.smart.Plus.renewInBackground()
     }
 
     /**

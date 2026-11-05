@@ -15,8 +15,8 @@ android {
         applicationId = "com.superessence.cuttinx"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "2.3.0"
+        versionCode = 9
+        versionName = "2.4.0"
         vectorDrawables.useSupportLibrary = true
         // AdMob (pubs vidéo récompensées plein écran du Labo CUTTINX) : identifiants réels de l'éditeur.
         // Remplaçables par -Pcuttinx.admobAppId=… -Pcuttinx.admobRewardedId=… ou par les secrets CI
@@ -28,6 +28,9 @@ android {
             else (project.findProperty("cuttinx.admobRewardedId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_REWARDED_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-2847478731079395/6775087406"
         manifestPlaceholders["admobAppId"] = admobAppId
         buildConfigField("String", "ADMOB_REWARDED_ID", "\"$admobRewarded\"")
+        // Adresse du site CUTTINX (page /plus pour s'abonner à CUTTINX Plus) : -Pcuttinx.siteUrl=https://…
+        val siteUrl = (project.findProperty("cuttinx.siteUrl") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("CUTTINX_SITE_URL")?.takeIf { it.isNotBlank() } ?: ""
+        buildConfigField("String", "CUTTINX_SITE", "\"$siteUrl\"")
         // Unity Ads : 2e régie, essayée quand AdMob n'a pas de pub (APK hors Google Play). Vide = désactivé.
         // -Pcuttinx.unityGameId=… / secret CI UNITY_GAME_ID ; bloc récompensé : cuttinx.unityRewardedId (Rewarded_Android).
         val unityGameId = (project.findProperty("cuttinx.unityGameId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("UNITY_GAME_ID")?.takeIf { it.isNotBlank() } ?: ""

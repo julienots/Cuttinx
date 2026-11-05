@@ -69,6 +69,7 @@ export default async function Home() {
           <a href="#fonctions">Fonctions</a>
           <a href="#espaces">Espaces</a>
           <a href="#faq">Questions</a>
+          <a href="/plus">Plus</a>
           <a href="#telecharger" className="btn btn-primary btn-small">Télécharger</a>
         </nav>
       </header>
@@ -132,6 +133,15 @@ export default async function Home() {
               extra={r?.windowsExe && r?.windowsMsi ? <a className="alt" href={r.windowsMsi.url}>Version MSI (entreprise) · {formatSize(r.windowsMsi.size)}</a> : null}
               steps={['Télécharge l’installeur.', 'Lance-le. Si Windows protège ton PC : « Informations complémentaires » puis « Exécuter quand même ».', 'Ouvre CUTTINX PRO depuis le menu Démarrer.']} />
           </div>
+        </section>
+
+        <section id="plus" className="block">
+          <p className="kicker">CUTTINX PLUS</p>
+          <h2>Envie d’aller encore plus loin ?</h2>
+          <div className="notes">
+            <p>L’appli reste gratuite. Avec <strong>CUTTINX Plus</strong> : zéro pub, tout le Labo débloqué pour toujours et 8 technologies de pointe exclusives (précision à l’image, étalonnage cinéma, mastering broadcast…).</p>
+          </div>
+          <a className="btn btn-primary" href="/plus">Découvrir CUTTINX Plus</a>
         </section>
 
         <section id="faq" className="block">

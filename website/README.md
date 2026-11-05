@@ -47,3 +47,25 @@ L'ancien code ne marche plus. Une mauvaise adresse affiche simplement « page in
 - Dans AdSense : **Sites → Ajouter un site**, saisis ton domaine (un vrai nom de domaine, pas `*.vercel.app`), puis
   demande l'examen. Les pubs apparaissent toutes seules une fois le site validé.
 - Dans la fiche Google Play de l'appli, indique ce même domaine comme site du développeur : AdMob y lit `app-ads.txt`.
+
+## CUTTINX Plus (abonnement)
+Page publique : `/plus`. Paiement par **Stripe** (carte, Apple Pay, Google Pay), sans Google Play.
+Après paiement, la page `/plus/merci` donne le **code d'activation** (bouton « Ouvrir dans CUTTINX » sur Android,
+code à coller sur PC). Le code est signé par le site et vérifié hors ligne par l'appli ; l'appli le renouvelle
+toute seule via `/api/plus/refresh` tant que l'abonnement Stripe est payé.
+
+Variables à ajouter dans Vercel (*Settings → Environment Variables*), puis redéployer :
+| Variable | Valeur |
+|---|---|
+| `PLUS_SIGNING_KEY` | La clé privée de signature (fichier `plus-signing-key.pem` fourni à part, **jamais dans le dépôt**). Sans elle, aucun code ne peut être créé. |
+| `STRIPE_SECRET_KEY` | Clé secrète Stripe (`sk_live_…`, ou `sk_test_…` pour essayer) |
+| `STRIPE_PRICE_MONTHLY` | ID du prix mensuel Stripe (`price_…`) |
+| `STRIPE_PRICE_YEARLY` | (facultatif) ID du prix annuel |
+| `PLUS_PRICE_MONTHLY_LABEL` / `PLUS_PRICE_YEARLY_LABEL` | (facultatif) prix affichés, ex. `4,99 € / mois` |
+| `NEXT_PUBLIC_SITE_URL` | (conseillé) adresse du site, ex. `https://cuttinx.xyz` |
+
+Dans Stripe : *Catalogue de produits → Ajouter un produit* « CUTTINX Plus », prix **récurrent** mensuel (et annuel),
+puis copie les `price_…`. Sans Stripe configuré, la page affiche « Bientôt disponible ».
+
+**Codes offerts** : la page privée `/admin/<code>` a une section « Offrir CUTTINX Plus » (durée en jours). Pratique
+pour tester tout de suite, sans Stripe.

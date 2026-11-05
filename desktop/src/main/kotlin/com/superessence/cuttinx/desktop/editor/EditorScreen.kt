@@ -72,7 +72,8 @@ private fun ActionsDialog(m: EditorModel) {
     val pr = project ?: return
     // a locked Labo technology was chosen: close the list so the sponsor screen is visible
     val pendingTech = com.superessence.cuttinx.lab.TechGate.pending
-    LaunchedEffect(pendingTech) { if (pendingTech != null) m.palette.value = false }
+    val plusOpen = com.superessence.cuttinx.lab.TechGate.plusOpen
+    LaunchedEffect(pendingTech, plusOpen) { if (pendingTech != null || plusOpen) m.palette.value = false }
     androidx.compose.ui.window.Dialog(onDismissRequest = { m.palette.value = false }) {
         Surface(shape = RoundedCornerShape(16.dp), color = Cx.Panel) {
             Column(Modifier.width(660.dp).height(720.dp).padding(18.dp).onPreviewKeyEvent { e ->

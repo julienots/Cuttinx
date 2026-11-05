@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onDismiss = { com.superessence.cuttinx.lab.TechGate.cancel() })
                 }
+                com.superessence.cuttinx.lab.PlusHost(com.superessence.cuttinx.ui.theme.LocalCx.current.accent)
                 // a task that failed was contained: tell the user, nothing else happens
                 LaunchedEffect(Unit) { CuttinxApp.backgroundError.collect { m -> if (m != null) { android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_LONG).show(); CuttinxApp.backgroundError.value = null } } }
                 var crashReport by remember { mutableStateOf(c.crashLog.unseen()) }
@@ -123,6 +124,15 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(i: Intent?) {
         i ?: return
+        // cuttinx://plus?code=CXP1.… (button of the site's confirmation page): switch CUTTINX Plus on
+        val d = i.data
+        if (i.action == Intent.ACTION_VIEW && d?.scheme == "cuttinx" && d.host == "plus") {
+            val code = d.getQueryParameter("code").orEmpty()
+            val err = com.superessence.cuttinx.core.smart.Plus.activate(code)
+            if (err == null) com.superessence.cuttinx.lab.TechGate.plusChanged()
+            android.widget.Toast.makeText(this, err ?: "CUTTINX Plus est activé. Merci !", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         val uris = when (i.action) {
             Intent.ACTION_SEND -> listOfNotNull(if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else @Suppress("DEPRECATION") i.getParcelableExtra(Intent.EXTRA_STREAM))
             Intent.ACTION_SEND_MULTIPLE -> (if (Build.VERSION.SDK_INT >= 33) i.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java) else @Suppress("DEPRECATION") i.getParcelableArrayListExtra(Intent.EXTRA_STREAM)).orEmpty()

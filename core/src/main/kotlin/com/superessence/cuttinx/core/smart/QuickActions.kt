@@ -28,7 +28,7 @@ class QuickAction(
     val id: String, val label: String, val group: String, val keywords: String, val shortcut: String?, val need: Need,
     /** Name of an icon of the shared icon set. */
     val icon: String,
-    /** Labo CUTTINX technology this action belongs to (unlocked by watching an advert), null = free. */
+    /** Labo CUTTINX technology this action belongs to (unlocked by watching an advert, or CUTTINX Plus for [Tech.plus]), null = free. */
     val tech: Tech? = null,
     val run: (EditContext) -> Project,
 ) {
@@ -50,7 +50,7 @@ class QuickAction(
  * run with Enter or a tap. Each action is one undoable edit.
  */
 object QuickActions {
-    val groups = listOf("Labo CUTTINX (technologies)", "Modèles en un geste", "Couper et découper", "Durée et rythme", "Ordre et répétition", "Son", "Son pro", "Style et mouvement",
+    val groups = listOf("CUTTINX Plus", "Labo CUTTINX (technologies)", "Modèles en un geste", "Couper et découper", "Durée et rythme", "Ordre et répétition", "Son", "Son pro", "Style et mouvement",
         "Animation et caméra", "Textes et titres", "Disposition à l'écran", "Couleur et looks", "Effets vidéo", "Effets audio", "Transitions", "Vitesse", "Réglages", "Organisation", "Publication")
 
     val all: List<QuickAction> by lazy { build() }
@@ -305,6 +305,22 @@ private object V3 {
         tech(Tech.REWIND, "rewind", "Rembobinage VHS à la fin", "retour arrière cassette fin") { c -> Lab.rewind(c.project) }
         for ((n, lab) in listOf(3 to "légère", 6 to "moyenne", 12 to "intense")) tech(Tech.GLITCH_STORM, "glitch_$n", "Tempête glitch $lab", "datamosh rvb éclats") { c -> Lab.glitchStorm(c.project, n) }
         tech(Tech.CREDITS, "credits", "Générique de fin déroulant", "crédits fin film cinéma") { c -> Lab.credits(c.project) }
+
+        // ---- CUTTINX Plus (subscribers only)
+        fun plus(t: Tech, id: String, label: String, kw: String, need: Need = Need.NONE, run: (EditContext) -> Project) {
+            l += QuickAction("plus_$id", label, "CUTTINX Plus", "${t.label} ${t.pitch} plus abonnement premium $kw", null, need, t.icon, t, run)
+        }
+        plus(Tech.FRAME_LOCK, "frame_lock", "Tout caler à l'image près", "précision frame image exacte trous chevauchements") { c -> PlusLab.frameLock(c.project) }
+        for (bpm in listOf(90, 100, 110, 120, 128, 140, 150)) plus(Tech.BEAT_LOCK, "beat_lock_$bpm", "Synchro au temps près à $bpm BPM", "tempo beat musique coupe précise") { c -> PlusLab.beatLock(c.project, bpm.toDouble()) }
+        plus(Tech.BEAT_LOCK, "beat_lock_markers", "Synchro au temps près (tempo de mes marqueurs)", "tempo beat marqueurs tap") { c -> PlusLab.beatLock(c.project, 120.0) }
+        plus(Tech.BEAT_LOCK, "beat_lock_every", "Synchro au temps près : une coupe par temps", "tempo beat rapide") { c -> PlusLab.beatLock(c.project, 120.0, everyBeats = 1) }
+        for (g in Grade.entries) plus(Tech.CINE_GRADE, "grade_${g.name.lowercase()}", "Étalonnage cinéma : ${g.label}", "couleur look film lut étalonnage") { c -> PlusLab.cineGrade(c.project, g) }
+        plus(Tech.MASTERING, "mastering", "Mastering broadcast de tout le son", "audio son mixage loudness compression limiteur voix musique") { c -> PlusLab.mastering(c.project, c.selection) }
+        plus(Tech.RACK_FOCUS, "rack_up", "Mise au point : du bas vers le haut", "flou net focus profondeur") { c -> PlusLab.rackFocus(c.project, c.selection, true) }
+        plus(Tech.RACK_FOCUS, "rack_down", "Mise au point : du haut vers le bas", "flou net focus profondeur") { c -> PlusLab.rackFocus(c.project, c.selection, false) }
+        plus(Tech.SMOOTH_SLOWMO, "slowmo", "Super ralenti lissé", "ralenti slow motion vitesse courbe", Need.VIDEO) { c -> PlusLab.smoothSlowmo(c.project, c.selection) }
+        plus(Tech.PARALLAX, "parallax", "Caméra virtuelle sur toutes les photos", "ken burns mouvement photo zoom travelling") { c -> PlusLab.parallax(c.project) }
+        plus(Tech.VOLUMETRIC, "volumetric", "Lumière volumétrique", "rayons lumière halo glow") { c -> PlusLab.volumetric(c.project) }
 
         // ---- every video effect: on the selection, else as an effects layer over the whole video
         for (d in EffectRegistry.video().filter { !it.id.startsWith("_") }) {

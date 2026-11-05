@@ -23,7 +23,13 @@ fun main() {
     com.superessence.cuttinx.core.smart.TechVault.store = object : com.superessence.cuttinx.core.smart.TechVault.Store {
         override fun get(key: String) = labPrefs.getLong(key, 0L)
         override fun put(key: String, value: Long) { labPrefs.putLong(key, value); runCatching { labPrefs.flush() } }
+        override fun getText(key: String): String? = labPrefs.get(key, null)
+        override fun putText(key: String, value: String) { labPrefs.put(key, value); runCatching { labPrefs.flush() } }
     }
+    // CUTTINX Plus: renew the licence before it ends, redraw when it changes
+    System.getProperty("cuttinx.site")?.takeIf { it.isNotBlank() }?.let { com.superessence.cuttinx.core.smart.Plus.siteUrl = it }
+    com.superessence.cuttinx.core.smart.Plus.onChange = { com.superessence.cuttinx.lab.TechGate.refresh() }
+    com.superessence.cuttinx.core.smart.Plus.renewInBackground()
     app()
 }
 
@@ -51,6 +57,7 @@ private fun app() = application {
         Box(Modifier.fillMaxSize().dragAndDropTarget(shouldStartDragAndDrop = { true }, target = drop)) {
             App(state)
             SponsorOverlay(Cx.Yellow)
+            com.superessence.cuttinx.lab.PlusHost(Cx.Yellow)
         }
     }
 }
