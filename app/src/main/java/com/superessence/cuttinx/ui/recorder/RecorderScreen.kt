@@ -271,17 +271,16 @@ fun RecorderScreen(onClose: () -> Unit, onDone: (RecordedTakes) -> Unit) {
             }
         }
 
-        // ---- right: exposure
-        if (camera != null) Column(Modifier.align(Alignment.CenterEnd).padding(end = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Default.WbSunny, "Exposition", tint = Color.White, modifier = Modifier.size(18.dp))
-            Slider(exposure, { exposure = it }, Modifier.width(150.dp).graphicsRotate(), valueRange = -1f..1f,
-                colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = Color.White.copy(alpha = 0.6f), inactiveTrackColor = Color.White.copy(alpha = 0.25f)))
-        }
-
         // ---- bottom: zoom, record, flip, finish
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.35f)).navigationBarsPadding().padding(bottom = 14.dp, top = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {
             error?.let { Text(it, color = Color(0xFFFF8A80), fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp)) }
+            // exposure, just above the zoom
+            if (camera != null && recording == null) Row(Modifier.padding(horizontal = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.WbSunny, "Exposition", tint = Color.White, modifier = Modifier.size(18.dp))
+                Slider(exposure, { exposure = it }, Modifier.weight(1f).padding(start = 8.dp).height(28.dp), valueRange = -1f..1f,
+                    colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = Color.White.copy(alpha = 0.6f), inactiveTrackColor = Color.White.copy(alpha = 0.25f)))
+            }
             val zs = camera?.cameraInfo?.zoomState?.value
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (z in listOf(0.5f, 1f, 2f, 5f).filter { zs == null || it in zs.minZoomRatio..zs.maxZoomRatio }) {
@@ -318,15 +317,6 @@ fun RecorderScreen(onClose: () -> Unit, onDone: (RecordedTakes) -> Unit) {
         }
     }
 }
-
-private fun Modifier.graphicsRotate() = this.then(Modifier.layoutRotate270())
-
-/** Vertical slider: rotated -90°, with its layout size swapped. */
-private fun Modifier.layoutRotate270(): Modifier = this
-    .layout { m, c ->
-        val p = m.measure(c.copy(minWidth = c.minHeight, maxWidth = c.maxHeight, minHeight = c.minWidth, maxHeight = c.maxWidth))
-        layout(p.height, p.width) { p.placeWithLayer(-(p.width - p.height) / 2, (p.width - p.height) / 2) { rotationZ = -90f } }
-    }
 
 @Composable
 private fun Opt(icon: ImageVector, label: String, on: Boolean, accent: Color, onClick: () -> Unit) {

@@ -10,7 +10,7 @@ rec_end() { wait $RECPID 2>/dev/null; sleep 1; adb pull "/sdcard/$1.mp4" "$OUT/$
 tap() { $UI tap "$@"; local r=$?; sleep "${WAIT:-2}"; return $r; }
 # waits until a text is on screen; relaunches the app when the launcher shows up
 wait_for() { for i in $(seq 1 ${2:-12}); do $UI list > /tmp/ui.txt; grep -q "$1" /tmp/ui.txt && return 0; grep -q "Predicted app" /tmp/ui.txt && { echo "app gone, relaunch"; adb logcat -d > "$OUT/logcat_gone_$i.txt"; adb shell am start -n $PKG/.MainActivity; }; dismiss; sleep 4; done; return 1; }
-dismiss() { for t in "Passer" "Plus tard" "Fermer" "Compris" "OK"; do $UI tap "$t" exact >/dev/null 2>&1 && sleep 1; done; true; }
+dismiss() { for t in "Passer" "Plus tard" "Compris"; do $UI tap "$t" exact >/dev/null 2>&1 && sleep 1; done; true; }
 
 adb install -r -g "$APK"
 for p in CAMERA RECORD_AUDIO POST_NOTIFICATIONS; do adb shell pm grant $PKG android.permission.$p 2>/dev/null; done
@@ -26,7 +26,7 @@ $UI list > "$OUT/home.txt"
 
 # camera: two takes, with the prompter
 adb logcat -c
-tap "Filmer"; sleep 1; shot camera_open; sleep 4; dismiss
+tap "Filmer"; sleep 1; shot camera_open; sleep 4
 shot camera
 $UI list > "$OUT/camera.txt"
 WAIT=1 tap "Prompteur"
