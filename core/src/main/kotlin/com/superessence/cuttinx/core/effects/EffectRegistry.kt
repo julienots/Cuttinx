@@ -1117,6 +1117,170 @@ object EffectRegistry {
             """
         })
 
+        // ------------------------------------------------------------------ 2.5: pro colour, portrait, film
+        register(video("lift_gamma_gain", "Roues chromatiques", C.COLOR, listOf(p("lift", "Noirs (lift)", -0.3, 0.3, 0.0), p("gamma", "Tons moyens (gamma)", 0.5, 2.0, 1.0),
+            p("gain", "Blancs (gain)", 0.5, 1.8, 1.0), hue("liftHue", "Teinte des noirs", 210.0), p("liftSat", "Couleur des noirs", 0.0, 1.0, 0.0),
+            hue("gainHue", "Teinte des blancs", 35.0), p("gainSat", "Couleur des blancs", 0.0, 1.0, 0.0)),
+            desc = "Étalonnage à trois roues comme en postproduction : noirs, tons moyens et blancs, chacun avec sa teinte") {
+            """
+            vec4 c = tex(uv);
+            vec3 lt = (hueColor(uP[3]) - 0.5) * uP[4] * 0.25;
+            vec3 gt = (hueColor(uP[5]) - 0.5) * uP[6] * 0.25;
+            vec3 col = c.rgb * (uP[2] + gt) + (uP[0] + lt) * (1.0 - c.rgb);
+            col = pow(clamp(col, 0.0, 1.0), vec3(1.0 / uP[1]));
+            return vec4(col, c.a);
+            """
+        })
+        register(video("split_tone", "Virage partiel", C.COLOR, listOf(hue("shadowHue", "Teinte des ombres", 215.0), hue("highlightHue", "Teinte des lumières", 40.0),
+            p("amount", "Intensité", 0.0, 1.0, 0.5), p("balance", "Équilibre", -1.0, 1.0, 0.0)),
+            desc = "Une couleur dans les ombres, une autre dans les lumières") {
+            """
+            vec4 c = tex(uv);
+            float l = luma(c.rgb);
+            float b = 0.5 + uP[3] * 0.25;
+            float sh = 1.0 - smoothstep(0.0, b, l);
+            float hi = smoothstep(b, 1.0, l);
+            vec3 col = c.rgb + (hueColor(uP[0]) - 0.5) * sh * uP[2] * 0.35 + (hueColor(uP[1]) - 0.5) * hi * uP[2] * 0.35;
+            return vec4(clamp(col, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("selective_hue", "Teinte sélective", C.COLOR, listOf(hue("target", "Couleur visée", 210.0), p("range", "Plage", 5.0, 90.0, 35.0, "°"),
+            p("shift", "Décalage de teinte", -180.0, 180.0, 0.0, "°"), p("saturation", "Saturation", -1.0, 1.0, 0.3), p("lightness", "Luminosité", -1.0, 1.0, 0.0)),
+            desc = "Modifie une seule couleur (ciel, feuillage, peau…) sans toucher au reste") {
+            """
+            vec4 c = tex(uv);
+            vec3 h = rgb2hsv(c.rgb);
+            float d = abs(mod(h.x * 360.0 - uP[0] + 540.0, 360.0) - 180.0);
+            float w = (1.0 - smoothstep(uP[1] * 0.5, uP[1], d)) * smoothstep(0.05, 0.2, h.y);
+            h.x = fract(h.x + uP[2] / 360.0 * w);
+            h.y = clamp(h.y * (1.0 + uP[3] * w), 0.0, 1.0);
+            h.z = clamp(h.z * (1.0 + uP[4] * 0.6 * w), 0.0, 1.0);
+            return vec4(hsv2rgb(h), c.a);
+            """
+        })
+        register(video("bleach_bypass", "Sans blanchiment", C.CINEMA, listOf(p("amount", "Intensité", 0.0, 1.0, 0.6)),
+            desc = "Couleurs désaturées et contraste métallique des films de guerre et thrillers") {
+            """
+            vec4 c = tex(uv);
+            vec3 bw = vec3(luma(c.rgb));
+            vec3 blend = mix(2.0 * c.rgb * bw, 1.0 - 2.0 * (1.0 - c.rgb) * (1.0 - bw), step(0.5, bw));
+            return vec4(clamp(mix(c.rgb, blend, uP[0]), 0.0, 1.0), c.a);
+            """
+        })
+        register(video("anamorphic_streak", "Flare anamorphique", C.LIGHT, listOf(p("amount", "Intensité", 0.0, 1.0, 0.6), p("length", "Longueur", 0.05, 1.0, 0.4), hue("hue", "Teinte", 210.0)),
+            desc = "Longues traînées horizontales sur les lumières, comme les objectifs de cinéma") {
+            """
+            vec4 c = tex(uv);
+            vec3 s = vec3(0.0);
+            for (int i = 1; i <= 16; i++) {
+              float f = float(i) / 16.0;
+              vec2 o = vec2(f * uP[1] * 0.5, 0.0);
+              s += (max(tex(uv + o).rgb - 0.75, 0.0) + max(tex(uv - o).rgb - 0.75, 0.0)) * (1.0 - f);
+            }
+            vec3 tint = mix(vec3(1.0), hueColor(uP[2]), 0.7);
+            return vec4(clamp(c.rgb + luma(s) * tint * uP[0] * 0.9, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("clarity", "Clarté", C.BLUR, listOf(p("amount", "Intensité", -1.0, 1.0, 0.5), p("radius", "Rayon", 1.0, 10.0, 4.0)),
+            desc = "Contraste local des détails (textures, visages, paysages) sans brûler les lumières") {
+            """
+            vec4 c = tex(uv);
+            vec2 px = vec2(uP[1]) / uResolution;
+            vec3 b = vec3(0.0);
+            for (int i = 0; i < 8; i++) {
+              float a = float(i) * 0.7854;
+              vec2 d = vec2(cos(a), sin(a)) * px;
+              b += tex(uv + d).rgb + tex(uv + d * 2.0).rgb;
+            }
+            b /= 16.0;
+            float mid = 1.0 - abs(luma(c.rgb) - 0.5) * 2.0;
+            vec3 col = c.rgb + (c.rgb - b) * uP[0] * 1.5 * (0.4 + 0.6 * mid);
+            return vec4(clamp(col, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("skin_smooth", "Peau lissée", C.BLUR, listOf(p("amount", "Intensité", 0.0, 1.0, 0.5), p("radius", "Rayon", 1.0, 5.0, 2.5)),
+            desc = "Lisse la peau en gardant les contours nets (yeux, cheveux, bouche)") {
+            """
+            vec4 c = tex(uv);
+            vec2 px = vec2(uP[1]) / uResolution;
+            vec3 sum = c.rgb;
+            float wsum = 1.0;
+            for (int y = -2; y <= 2; y++) {
+              for (int x = -2; x <= 2; x++) {
+                vec3 s = tex(uv + vec2(float(x), float(y)) * px).rgb;
+                vec3 dd = s - c.rgb;
+                float w = exp(-dot(dd, dd) * 40.0);
+                sum += s * w; wsum += w;
+              }
+            }
+            vec3 sm = sum / wsum;
+            vec3 h = rgb2hsv(c.rgb);
+            float skin = smoothstep(0.0, 0.06, h.x) * (1.0 - smoothstep(0.1, 0.16, h.x)) * smoothstep(0.15, 0.3, h.y) * (1.0 - smoothstep(0.7, 0.9, h.y));
+            return vec4(mix(c.rgb, sm, uP[0] * (0.35 + 0.65 * skin)), c.a);
+            """
+        })
+        register(video("orton", "Effet Orton", C.LIGHT, listOf(p("amount", "Intensité", 0.0, 1.0, 0.5), p("radius", "Rayon", 1.0, 12.0, 6.0)),
+            desc = "Image nette enveloppée d'une lueur douce, comme un rêve") {
+            """
+            vec4 c = tex(uv);
+            vec2 px = vec2(uP[1]) / uResolution;
+            vec3 b = vec3(0.0);
+            for (int i = 0; i < 12; i++) {
+              float a = float(i) * 0.5236;
+              b += tex(uv + vec2(cos(a), sin(a)) * px).rgb;
+            }
+            b /= 12.0;
+            vec3 scr = 1.0 - (1.0 - c.rgb) * (1.0 - b);
+            return vec4(clamp(mix(c.rgb, scr * scr * 1.05, uP[0] * 0.8), 0.0, 1.0), c.a);
+            """
+        })
+        register(video("cross_process", "Traitement croisé", C.RETRO, listOf(p("amount", "Intensité", 0.0, 1.0, 0.7)),
+            desc = "Couleurs acides des pellicules développées dans le mauvais bain") {
+            """
+            vec4 c = tex(uv);
+            vec3 x = c.rgb;
+            vec3 cp = vec3(smoothstep(0.05, 0.95, x.r), x.g * 1.1 - 0.03, x.b * 0.75 + 0.12);
+            cp.g = clamp(cp.g, 0.0, 1.0);
+            cp.g = cp.g * cp.g * (3.0 - 2.0 * cp.g);
+            return vec4(clamp(mix(x, cp, uP[0]), 0.0, 1.0), c.a);
+            """
+        })
+        register(video("dither_retro", "Console 8 bits", C.RETRO, listOf(p("levels", "Couleurs par canal", 2.0, 16.0, 4.0), p("pixel", "Taille des pixels", 1.0, 8.0, 3.0)),
+            desc = "Pixels et trame des vieilles consoles de jeu") {
+            """
+            vec2 cell = floor(uv * uResolution / uP[1]);
+            vec3 col = tex((cell + 0.5) * uP[1] / uResolution).rgb;
+            vec2 m = mod(cell, 4.0);
+            vec2 a = mod(m, 2.0);
+            vec2 b = floor(m / 2.0);
+            float bay = 4.0 * mod(a.x * 2.0 + a.y * 3.0, 4.0) + mod(b.x * 2.0 + b.y * 3.0, 4.0);
+            float t = (bay + 0.5) / 16.0 - 0.5;
+            float n = max(uP[0] - 1.0, 1.0);
+            col = floor(col * n + 0.5 + t) / n;
+            return vec4(clamp(col, 0.0, 1.0), 1.0);
+            """
+        })
+        register(video("gate_weave", "Défilement pellicule", C.RETRO, listOf(p("amount", "Intensité", 0.0, 1.0, 0.5)), animated = true,
+            desc = "L'image tremble et scintille légèrement, comme un vieux projecteur") {
+            """
+            float t = floor(uTime * 24.0);
+            vec2 j = vec2(hash(vec2(t, 1.3)) - 0.5, hash(vec2(t, 7.1)) - 0.5) * uP[0] * 0.006;
+            j.y += sin(uTime * 2.1) * uP[0] * 0.003;
+            vec4 c = tex(uv + j);
+            float flick = 1.0 + (hash(vec2(t, 3.7)) - 0.5) * uP[0] * 0.08;
+            return vec4(clamp(c.rgb * flick, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("anaglyph", "3D anaglyphe", C.STYLIZE, listOf(p("depth", "Écart", 0.0, 20.0, 6.0, "px")),
+            desc = "Rouge et cyan décalés, comme les lunettes 3D en carton") {
+            """
+            vec2 o = vec2(uP[0] / uResolution.x, 0.0);
+            float l = luma(tex(uv - o).rgb);
+            vec4 r = tex(uv + o);
+            return vec4(l, r.g, r.b, r.a);
+            """
+        })
+
         // ------------------------------------------------------------------ INTERNAL (engine)
         register(video("_chroma_key", "Incrustation (fond vert)", C.INTERNAL, listOf(
             p("r", "R", 0.0, 1.0, 0.0), p("g", "V", 0.0, 1.0, 1.0), p("b", "B", 0.0, 1.0, 0.0),

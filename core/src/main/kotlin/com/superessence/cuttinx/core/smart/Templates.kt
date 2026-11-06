@@ -15,6 +15,15 @@ enum class Template(val label: String, val description: String) {
     PODCAST("Podcast vidéo", "Chaîne voix radio sur toutes les voix, musique baissée, sous-titres karaoké"),
     CINEMATIC("Cinématique", "Look film, bandes cinéma, panoramiques lents, fondus longs"),
     STORY("Story verticale", "Format 9:16, fond flou, accroche, sous-titres lisibles, boucle parfaite"),
+    // 2.5
+    TRAVEL("Carnet de voyage", "Photos animées, heure dorée, transitions fouettées, titre manuscrit, barre de progression"),
+    WEDDING("Mariage / émotion", "Portrait doux, zooms lents, fondus longs, titre élégant, musique calée sur la fin"),
+    GAMING("Gaming / highlights", "Compte à rebours, néon bleu, zooms sur les coupes, transitions glitch, accroche"),
+    RECIPE("Recette / tuto cuisine", "Couleurs vibrantes, étapes en chapitres, sous-titres lisibles, carte de fin"),
+    MUSIC_CLIP("Clip musical", "Coupes au tempo 120 BPM, pulsations, look clip, transitions glitch"),
+    RETRO_MEMORIES("Souvenir rétro", "Bobine 16 mm, fondus, titre rétro, panoramique doux"),
+    NIGHT("Ambiance nuit", "Nuit américaine, travelling lent, fondus au noir, bandes cinéma"),
+    PORTRAIT("Portrait / interview", "Peau lissée, voix nette, sous-titres pro, bandeau nom et fonction"),
 }
 
 object Templates {
@@ -41,6 +50,23 @@ object Templates {
                     .let { SmartTools.transitionsEverywhere(it, "fade") }.let { SmartTools.fadeInOut(it, 1_200_000) }
                 Template.STORY -> SmartTools.forPlatform(p, Platform.REELS).let { Layouts.blurredBackground(it) }.let { ProTools.hookTitle(it, "ATTENDS LA FIN") }
                     .let { SmartTools.readableSubtitles(it) }.let { SmartTools.perfectLoop(it) }
+                Template.TRAVEL -> ProTools.kenBurnsImages(p).let { SmartTools.applyLook(it, "Heure dorée") }.let { SmartTools.transitionsEverywhere(it, "whip") }
+                    .let { Titles.opening(it, "CARNET DE VOYAGE", TextLook.HANDWRITTEN) }.let { ProTools.progressBar(it) }.let { SmartTools.fitMusicToVideo(it) }
+                Template.WEDDING -> SmartTools.applyLook(p, "Portrait doux").let { q -> main?.let { ProTools.slowZoomAll(q, it) } ?: q }.let { SmartTools.transitionsEverywhere(it, "fade") }
+                    .let { Titles.opening(it, "Notre histoire", TextLook.LUXURY) }.let { SmartTools.fadeInOut(it, 1_500_000) }.let { SmartTools.fitMusicToVideo(it) }
+                Template.GAMING -> Titles.countdown(p, 0).let { SmartTools.applyLook(it, "Néon bleu") }.let { SmartTools.punchIn(it) }
+                    .let { SmartTools.transitionsEverywhere(it, "glitch") }.let { ProTools.hookTitle(it, "REGARDE CE MOMENT") }
+                Template.RECIPE -> SmartTools.applyLook(p, "Pop vibrant").let { EditTools.markersAtCuts(it) }.let { Titles.chapterTitles(it) }
+                    .let { SmartTools.readableSubtitles(it) }.let { Titles.endCard(it, "Bon appétit !", "Abonne-toi pour la prochaine recette") }
+                Template.MUSIC_CLIP -> SmartTools.tempoCut(p, SmartTools.beatsFromBpm(p, 120.0)).let { Animator.pulseOnBeats(it, all(it), 120.0, 1.05) }
+                    .let { SmartTools.applyLook(it, "Clip musical") }.let { SmartTools.transitionsEverywhere(it, "glitch") }
+                Template.RETRO_MEMORIES -> SmartTools.applyLook(p, "Bobine 16 mm").let { SmartTools.transitionsEverywhere(it, "fade") }
+                    .let { Titles.opening(it, "SOUVENIRS", TextLook.RETRO) }.let { Animator.camera(it, all(it), CameraMove.SWAY) }
+                Template.NIGHT -> SmartTools.applyLook(p, "Nuit américaine").let { Animator.camera(it, all(it), CameraMove.PAN_LEFT) }
+                    .let { SmartTools.transitionsEverywhere(it, "fade_black") }.let { SmartTools.fadeInOut(it, 1_000_000) }
+                Template.PORTRAIT -> SmartTools.applyLook(p, "Portrait doux").let { AudioPro.podcastVoice(it, AudioPro.voices(it, emptyList())) }
+                    .let { SmartTools.readableSubtitles(it) }.let { Titles.applyLook(it, Kit.selOrAll(it, emptyList()) { _, c -> c.kind == ClipKind.SUBTITLE }, TextLook.SUBTITLE_PRO) }
+                    .let { Titles.lowerThird(it, 500_000) }
             }
         }.getOrDefault(p)
     }

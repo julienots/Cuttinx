@@ -29,6 +29,16 @@ import com.superessence.cuttinx.core.util.Ids
 import com.superessence.cuttinx.ui.components.*
 import com.superessence.cuttinx.ui.theme.Cx
 import com.superessence.cuttinx.ui.theme.LocalCx
+import com.superessence.cuttinx.engine.FilterPreviews
+import com.superessence.cuttinx.core.smart.EditTools
+import com.superessence.cuttinx.design.CxDesign
+import com.superessence.cuttinx.design.cxChip
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.withContext
 
 @UnstableApi
 @Composable
@@ -94,16 +104,14 @@ fun EffectsPanel(vm: EditorViewModel, sel: Clip?) {
         list.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEach { d ->
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(LocalCx.current.panel2).clickable { vm.addEffect(d.id) }.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Default.AutoFixHigh, null, tint = if (d.animated) Cx.Yellow else Color.White, modifier = Modifier.size(20.dp))
-                        Text(d.name, fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 2)
-                    }
+                    val fxs = remember(d.id) { listOf(EffectInstance("preview", d.id, d.defaults())) }
+                    PreviewTile(vm, sel, "fx_${d.id}", fxs, d.name, if (d.animated) "Animé" else null, Modifier.weight(1f), onClick = { vm.addEffect(d.id) })
                 }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
-    Text("Étiquette jaune : effet animé automatiquement. Tous les paramètres sont réglables et animables par images clés.", style = MaterialTheme.typography.labelSmall, color = LocalCx.current.dim, modifier = Modifier.padding(top = 6.dp))
+    Text("Les images montrent l'effet sur ton plan. « Animé » : l'effet bouge tout seul. Tous les paramètres sont réglables et animables par images clés.", style = MaterialTheme.typography.labelSmall, color = LocalCx.current.dim, modifier = Modifier.padding(top = 6.dp))
 }
 
 @UnstableApi
@@ -116,11 +124,14 @@ fun FiltersPanel(vm: EditorViewModel, sel: Clip?) {
     val exportDoc = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> if (uri != null) runCatching { ctx.contentResolver.openOutputStream(uri)!!.use { it.write(vm.c.presets.exportText().toByteArray()) } }.onSuccess { vm.message.value = "Préréglages exportés" } }
     val importDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) runCatching { val n = vm.c.presets.importText(ctx.contentResolver.openInputStream(uri)!!.bufferedReader().readText()); vm.message.value = "$n préréglage(s) importé(s)" }.onFailure { vm.message.value = it.message } }
     if (sel == null) InfoCard("Sélectionnez un plan pour lui appliquer un filtre, ou appliquez-le à tous les plans.")
-    SectionTitle("Filtres CUTTINX")
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Presets.builtIn.chunked(3).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                row.forEach { pr -> PresetTile(pr, Modifier.weight(1f), onClick = { vm.applyPreset(pr) }, onLong = { vm.applyPresetToAll(pr) }) }
+    SectionTitle("Filtres CUTTINX · ${Presets.builtIn.size}")
+    var cat by remember { mutableStateOf<String?>(null) }
+    ChoiceChips(listOf<String?>(null) + Presets.CATEGORIES, cat, { it ?: "Tous" }, { cat = it })
+    Spacer(Modifier.height(8.dp))
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Presets.builtIn.filter { cat == null || it.category == cat }.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { pr -> PreviewTile(vm, sel, pr.id, pr.effects, pr.name, null, Modifier.weight(1f), onClick = { vm.applyPreset(pr) }, onLong = { vm.applyPresetToAll(pr) }) }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -145,15 +156,32 @@ fun FiltersPanel(vm: EditorViewModel, sel: Clip?) {
     renameId?.let { id -> TextInputDialog("Renommer", user.firstOrNull { it.id == id }?.name ?: "", { renameId = null }) { vm.c.presets.rename(id, it); renameId = null } }
 }
 
+/**
+ * A filter or effect shown as a picture: the GPU result on the selected plan (or the plan under
+ * the playhead, or a sample picture), with its name underneath.
+ */
 @Composable
-private fun PresetTile(pr: EffectPreset, modifier: Modifier, onClick: () -> Unit, onLong: () -> Unit) {
-    // colour swatch derived from the preset's look parameters
-    val adj = pr.effects.firstOrNull { it.effectId == "adjust" }?.params
-    val temp = (adj?.get("temperature") ?: 0.0).toFloat()
-    val col = Color(0.35f + temp * 0.3f, 0.35f + (adj?.get("tint")?.toFloat() ?: 0f) * -0.2f, 0.4f - temp * 0.3f)
-    Column(modifier.clip(RoundedCornerShape(12.dp)).background(col).then(Modifier.combinedClickableCompat2(onClick, onLong)).padding(10.dp)) {
-        Text(pr.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
-        Text(pr.effects.joinToString { EffectRegistry[it.effectId]?.name ?: "" }, color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 2)
+private fun PreviewTile(vm: EditorViewModel, sel: Clip?, id: String, effects: List<EffectInstance>, name: String, tag: String?, modifier: Modifier, onClick: () -> Unit, onLong: (() -> Unit)? = null) {
+    val ctx = LocalContext.current
+    val cx = LocalCx.current
+    val p = vm.current
+    val target = sel?.takeIf { c -> c.kind == ClipKind.MEDIA && p.asset(c.assetId)?.isVisual == true }
+        ?: EditTools.mainClipsAt(p, vm.position).firstNotNullOfOrNull { p.findClip(it)?.second }?.takeIf { c -> p.asset(c.assetId)?.isVisual == true }
+    val pos = vm.position
+    val key = FilterPreviews.sourceKey(p, target, pos)
+    val img by produceState<ImageBitmap?>(FilterPreviews.cached(key, id)?.asImageBitmap(), key, id) {
+        if (value == null) value = runCatching {
+            withContext(FilterPreviews.dispatcher) { FilterPreviews.render(FilterPreviews.source(ctx, p, target, pos), key, id, effects) }
+        }.getOrNull()?.asImageBitmap()
+    }
+    Column(modifier.clip(CxDesign.Card).then(if (onLong != null) Modifier.combinedClickableCompat2(onClick, onLong) else Modifier.clickable(onClick = onClick))) {
+        Box(Modifier.fillMaxWidth().aspectRatio(0.8f).clip(CxDesign.Card).background(cx.panel2).border(1.dp, cx.line, CxDesign.Card)) {
+            img?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            if (tag != null) Text(tag, Modifier.align(Alignment.TopEnd).padding(5.dp).clip(CxDesign.Chip).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 6.dp, vertical = 2.dp),
+                color = cx.accent, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Text(name, Modifier.fillMaxWidth().padding(top = 5.dp, bottom = 2.dp), fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
