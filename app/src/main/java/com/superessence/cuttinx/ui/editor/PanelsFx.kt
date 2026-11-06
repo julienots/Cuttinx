@@ -166,7 +166,8 @@ private fun PreviewTile(vm: EditorViewModel, sel: Clip?, id: String, effects: Li
     val cx = LocalCx.current
     val p = vm.current
     val target = sel?.takeIf { c -> c.kind == ClipKind.MEDIA && p.asset(c.assetId)?.isVisual == true }
-        ?: EditTools.mainClipsAt(p, vm.position).firstNotNullOfOrNull { p.findClip(it)?.second }?.takeIf { c -> p.asset(c.assetId)?.isVisual == true }
+        ?: com.superessence.cuttinx.core.smart.SmartTools.mainTrack(p)?.sortedClips()?.filter { c -> c.kind == ClipKind.MEDIA && p.asset(c.assetId)?.isVisual == true }
+            ?.let { cs -> cs.firstOrNull { vm.position >= it.startUs && vm.position < it.endUs } ?: cs.firstOrNull() }
     val pos = vm.position
     val key = FilterPreviews.sourceKey(p, target, pos)
     val img by produceState<ImageBitmap?>(FilterPreviews.cached(key, id)?.asImageBitmap(), key, id) {

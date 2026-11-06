@@ -8,6 +8,9 @@ shot() { adb exec-out screencap -p > "$OUT/$1.png"; echo "shot $1"; }
 rec_start() { adb shell "screenrecord --bit-rate 12000000 --time-limit $2 /sdcard/$1.mp4" & RECPID=$!; }
 rec_end() { wait $RECPID 2>/dev/null; sleep 1; adb pull "/sdcard/$1.mp4" "$OUT/$1.mp4" >/dev/null && echo "rec $1"; }
 tap() { $UI tap "$@"; local r=$?; sleep "${WAIT:-2}"; return $r; }
+# taps a toolbar item, scrolling the toolbar left until it shows up
+tapscroll() { for i in $(seq 1 12); do $UI tap "$1" exact >/dev/null && { sleep 2; return 0; }; adb shell input swipe $((W * 80 / 100)) $Y $((W * 35 / 100)) $Y 250; sleep 1; done; echo "not found after scroll: $1"; return 1; }
+toolbar_home() { for i in $(seq 1 10); do adb shell input swipe $((W * 15 / 100)) $Y $((W * 90 / 100)) $Y 150; done; sleep 1; }
 # waits until a text is on screen; relaunches the app when the launcher shows up
 wait_for() { for i in $(seq 1 ${2:-12}); do $UI list > /tmp/ui.txt; grep -q "$1" /tmp/ui.txt && return 0; grep -q "Predicted app" /tmp/ui.txt && { echo "app gone, relaunch"; adb logcat -d > "$OUT/logcat_gone_$i.txt"; adb shell am start -n $PKG/.MainActivity; }; dismiss; sleep 4; done; return 1; }
 dismiss() { for t in "Passer" "Plus tard" "Compris"; do $UI tap "$t" exact >/dev/null 2>&1 && sleep 1; done; true; }
@@ -51,16 +54,16 @@ $UI list > "$OUT/editor.txt"
 # toolbar: scroll to the one-gesture and Plus tools
 W=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1 | cut -dx -f1); H=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1 | cut -dx -f2)
 Y=$($UI pos "Média" | cut -d' ' -f2); Y=${Y:-$((H * 93 / 100))}; echo "toolbar y=$Y"
-rec_start toolbar 10
+rec_start toolbar 12
 sleep 1
-for i in 1 2 3 4 5 6; do adb shell input swipe $((W * 85 / 100)) $Y $((W * 20 / 100)) $Y 350; sleep 1; done
+for i in $(seq 1 10); do adb shell input swipe $((W * 85 / 100)) $Y $((W * 25 / 100)) $Y 300; sleep 0.6; done
 rec_end toolbar
 shot toolbar_plus
 $UI list > "$OUT/toolbar.txt"
-tap "Sur la musique"; sleep 2; shot plus_dialog; tap "Plus tard"
-for i in 1 2 3 4 5 6; do adb shell input swipe $((W * 20 / 100)) $Y $((W * 85 / 100)) $Y 200; done; sleep 1
-
-tap "Labo"; sleep 3; shot labo
+toolbar_home
+tapscroll "Sur la musique"; sleep 1; shot plus_dialog; tap "Plus tard"
+toolbar_home
+tapscroll "Labo"; sleep 2; shot labo
 tap "Montage rapide"; sleep 1
 # filters and effects with their pictures (computed on the takes)
 tap "Colorimétrie"; sleep 8; shot filters
