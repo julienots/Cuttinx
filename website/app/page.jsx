@@ -139,7 +139,7 @@ export default async function Home() {
           <p className="kicker">CUTTINX PLUS</p>
           <h2>Envie d’aller encore plus loin ?</h2>
           <div className="notes">
-            <p>L’appli reste gratuite. Avec <strong>CUTTINX Plus</strong> : zéro pub, tout le Labo débloqué pour toujours et 8 technologies de pointe exclusives (précision à l’image, étalonnage cinéma, mastering broadcast…).</p>
+            <p>L’appli reste gratuite. Avec <strong>CUTTINX Plus</strong> : six outils qui montent pour toi en analysant tes vidéos (montage sur la musique, coupe des blancs, best-of…), huit technologies de pointe, zéro pub et tout le Labo débloqué.</p>
           </div>
           <a className="btn btn-primary" href="/plus">Découvrir CUTTINX Plus</a>
         </section>

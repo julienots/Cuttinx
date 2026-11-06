@@ -1,10 +1,10 @@
 import Icon from '@/components/Icon'
 import Mark from '@/components/Mark'
-import { perks, techs } from '@/lib/plusPerks'
+import { perks, techs, tools } from '@/lib/plusPerks'
 import { prices, stripeReady } from '@/lib/plus'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'CUTTINX Plus', description: 'Zéro pub, tout le Labo pour toujours et 8 technologies de pointe exclusives.' }
+export const metadata = { title: 'CUTTINX Plus', description: 'Six outils qui montent pour toi, huit technologies de pointe, zéro pub et tout le Labo débloqué.' }
 
 export default async function PlusPage({ searchParams }) {
   const q = await searchParams
@@ -20,7 +20,7 @@ export default async function PlusPage({ searchParams }) {
         <section className="plus-hero">
           <span className="pill">CUTTINX Plus</span>
           <h1>Le montage <span className="y">sans limite.</span></h1>
-          <p className="lead">Zéro pub, tout le Labo débloqué pour toujours et 8 technologies de pointe réservées aux abonnés. Sur Android et sur PC.</p>
+          <p className="lead">Six outils qui montent pour toi en analysant tes vidéos, huit technologies de pointe, zéro pub et tout le Labo débloqué pour toujours.</p>
         </section>
 
         {q?.indisponible ? <div className="msg err">L’abonnement ouvre très bientôt. Reviens dans quelques jours !</div> : null}
@@ -30,6 +30,16 @@ export default async function PlusPage({ searchParams }) {
           <div className="grid">
             {perks.map(([icon, title, text]) => (
               <article key={title} className="card"><span className="card-icon"><Icon name={icon} size={24} /></span><h3>{title}</h3><p className="dim">{text}</p></article>
+            ))}
+          </div>
+        </section>
+
+        <section className="block">
+          <p className="kicker">EN UN GESTE</p>
+          <h2>Des outils qui regardent et écoutent tes vidéos.</h2>
+          <div className="grid">
+            {tools.map(([icon, title, text]) => (
+              <article key={title} className="card plus-card"><span className="card-icon"><Icon name={icon} size={24} /></span><h3>{title}</h3><p className="dim">{text}</p></article>
             ))}
           </div>
         </section>

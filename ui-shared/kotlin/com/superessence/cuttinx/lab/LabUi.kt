@@ -122,7 +122,9 @@ fun LabPanel(ctx: EditContext, accent: Color, onRun: (QuickAction) -> Unit, modi
         for (t in free) TechCard(t, ctx, accent, onRun)
         Text("Technologies Plus", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 16.dp))
         Text("Réservées aux abonnés CUTTINX Plus : précision à l'image et outils de pointe.", color = Dim, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
-        for (t in Tech.entries.filter { it.plus }) TechCard(t, ctx, accent, onRun)
+        for (t in Tech.entries.filter { it.plus && !it.pipeline }) TechCard(t, ctx, accent, onRun)
+        Text("Et ${Tech.entries.count { it.pipeline }} outils d'analyse en un geste, dans la barre d'outils de l'éditeur : " + Tech.entries.filter { it.pipeline }.joinToString { it.label } + ".",
+            color = Dim, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
     }
     if (scroll) Column(modifier.verticalScroll(rememberScrollState()), content = body) else Column(modifier, content = body)
 }

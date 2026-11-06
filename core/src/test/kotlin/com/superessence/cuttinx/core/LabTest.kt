@@ -32,7 +32,7 @@ class LabTest {
             now += 24 * 3_600_000L
             assertFalse(TechVault.isUnlocked(Tech.ECHO)); assertNull(TechVault.remaining(Tech.ECHO))
             assertFalse(QuickActions["vfx_vhs"]!!.locked)                  // free tools are never locked
-            assertTrue(Tech.entries.all { QuickActions.byTech(it).isNotEmpty() })
+            assertTrue(Tech.entries.filter { !it.pipeline }.all { QuickActions.byTech(it).isNotEmpty() })
         } finally { TechVault.clock = { System.currentTimeMillis() } }
     }
 

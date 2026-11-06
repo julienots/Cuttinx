@@ -288,9 +288,51 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         add(T(if (sel.enabled) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (sel.enabled) "Désactiver" else "Activer") { vm.updateSelected("Activer/désactiver") { it.copy(enabled = !it.enabled) } })
         add(T(Icons.Default.Close, "Désélect.") { vm.select(null) })
     }
-    Row(Modifier.fillMaxWidth().background(LocalCx.current.panel).horizontalScroll(rememberScrollState()).padding(vertical = 4.dp, horizontal = 4.dp)) {
+    @Suppress("UNUSED_VARIABLE") val plusV = com.superessence.cuttinx.lab.TechGate.version
+    val plusOn = com.superessence.cuttinx.core.smart.Plus.active
+    val cx = LocalCx.current
+    Row(Modifier.fillMaxWidth().background(cx.panel).horizontalScroll(rememberScrollState()).padding(vertical = 4.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         tools.forEach { ToolButton(it.icon, it.label, it.action, active = it.active, enabled = it.enabled) }
+        // ---- one-gesture tools, right after the usual ones: no menu, one tap = one undoable edit
+        GestureDivider("En un geste")
+        for ((id, label) in EditorMagic.instant) ToolButton(gestureIcon(id), label, { EditorMagic.runInstant(vm, id, label) })
+        GestureDivider("Plus")
+        for (t in com.superessence.cuttinx.core.smart.Tech.entries.filter { it.pipeline })
+            ToolButton(pipelineIcon(t), shortLabel(t), { com.superessence.cuttinx.lab.TechGate.request(t) { EditorMagic.run(vm, t) } }, badge = if (plusOn) null else "PLUS")
     }
+}
+
+@Composable
+private fun GestureDivider(label: String) {
+    val cx = LocalCx.current
+    Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(1.dp).height(40.dp).background(cx.line))
+        Text(label, Modifier.padding(start = 8.dp, end = 2.dp).width(44.dp), fontSize = 10.sp, lineHeight = 12.sp, color = cx.accent, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun gestureIcon(id: String): ImageVector = when (id) {
+    "punch" -> Icons.Default.ZoomIn; "transitions" -> Icons.Default.SwapHoriz; "fades" -> Icons.Default.Gradient; "hook" -> Icons.Default.Title
+    "music_fit" -> Icons.Default.MusicNote; "progress" -> Icons.Default.LinearScale; "loop" -> Icons.Default.Loop; "vertical" -> Icons.Default.StayCurrentPortrait
+    else -> Icons.Default.CleaningServices
+}
+
+private fun pipelineIcon(t: com.superessence.cuttinx.core.smart.Tech): ImageVector = when (t) {
+    com.superessence.cuttinx.core.smart.Tech.BEAT_EDIT -> Icons.Default.GraphicEq
+    com.superessence.cuttinx.core.smart.Tech.JUMP_CUT -> Icons.Default.ContentCut
+    com.superessence.cuttinx.core.smart.Tech.BEST_OF -> Icons.Default.AutoAwesome
+    com.superessence.cuttinx.core.smart.Tech.SHOT_MATCH -> Icons.Default.Palette
+    com.superessence.cuttinx.core.smart.Tech.SMART_VERTICAL -> Icons.Default.CenterFocusStrong
+    else -> Icons.Default.Equalizer
+}
+
+private fun shortLabel(t: com.superessence.cuttinx.core.smart.Tech) = when (t) {
+    com.superessence.cuttinx.core.smart.Tech.BEAT_EDIT -> "Sur la musique"
+    com.superessence.cuttinx.core.smart.Tech.JUMP_CUT -> "Coupe blancs"
+    com.superessence.cuttinx.core.smart.Tech.BEST_OF -> "Best-of"
+    com.superessence.cuttinx.core.smart.Tech.SHOT_MATCH -> "Égaliser plans"
+    com.superessence.cuttinx.core.smart.Tech.SMART_VERTICAL -> "Vertical IA"
+    else -> "Son studio"
 }
 
 @UnstableApi

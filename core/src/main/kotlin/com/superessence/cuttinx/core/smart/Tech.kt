@@ -5,7 +5,9 @@ package com.superessence.cuttinx.core.smart
  * watching one full-screen advert (Android) or a sponsor screen (PC). The [plus] ones are only
  * for CUTTINX Plus subscribers, who also get every other technology for good (see [Plus]).
  */
-enum class Tech(val label: String, val pitch: String, val icon: String, val plus: Boolean = false) {
+enum class Tech(val label: String, val pitch: String, val icon: String, val plus: Boolean = false,
+    /** Runs a whole analysis of the media (in the editor's toolbar), not an action of the list. */
+    val pipeline: Boolean = false) {
     KINETIC("Texte cinétique", "Ton texte explose mot par mot, au rythme, avec les mots forts mis en valeur", "Text"),
     ECHO("Traînée temporelle", "Trois échos décalés dans le temps suivent le mouvement, comme une pose longue", "Animation"),
     CLONES("Clones", "Le même plan trois fois à l'écran, décalé dans le temps", "Grid"),
@@ -30,6 +32,14 @@ enum class Tech(val label: String, val pitch: String, val icon: String, val plus
     SMOOTH_SLOWMO("Super ralenti lissé", "Rampe de vitesse en courbe vers 0,25×, flou de mouvement dosé et stabilisation", "ZoomSlow", true),
     PARALLAX("Caméra virtuelle", "Mouvements de caméra courbés sur les photos : travelling, plongée et rotation douce, chaque plan différent", "Image", true),
     VOLUMETRIC("Lumière volumétrique", "Rayons de lumière, halo et éclat qui respirent sur toute la vidéo", "Idea", true),
+
+    // ---------------------------------------------------------------- Plus: one-gesture tools that analyse the media
+    BEAT_EDIT("Montage sur la musique", "CUTTINX écoute ta musique, trouve chaque temps et coupe tes plans dessus, à l'image près", "Music", true, true),
+    JUMP_CUT("Coupe des blancs", "Tous les silences de toutes tes prises retirés d'un coup, avec un zoom alterné sur chaque coupe", "TrimAfter", true, true),
+    BEST_OF("Best-of automatique", "Analyse l'image et le son de toutes tes vidéos et ne garde que les meilleurs moments", "Star", true, true),
+    SHOT_MATCH("Égalisation des plans", "Mesure la couleur et la lumière de chaque plan et les corrige pour qu'ils se ressemblent", "Effects", true, true),
+    SMART_VERTICAL("Vertical intelligent", "Passe en 9:16 et cadre chaque plan sur son sujet, suivi tout du long", "Fit", true, true),
+    STUDIO_SOUND("Son studio", "Volume mesuré et réglé à -14 LUFS sur chaque piste, puis chaîne son broadcast complète", "Volume", true, true),
 }
 
 /** Remembers which technologies are unlocked, and until when. The apps plug in their own storage. */

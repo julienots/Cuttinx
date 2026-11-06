@@ -58,7 +58,8 @@ class PlusTest {
         now += 31L * 86_400_000L
         assertFalse(Plus.active)
         assertFalse(TechVault.isUnlocked(Tech.CINE_GRADE))
-        assertTrue(Tech.entries.filter { it.plus }.all { QuickActions.byTech(it).isNotEmpty() })
+        assertTrue(Tech.entries.filter { it.plus && !it.pipeline }.all { QuickActions.byTech(it).isNotEmpty() })
+        assertTrue(Tech.entries.filter { it.pipeline }.all { it.plus })
     }
 
     // ------------------------------------------------------------------ technologies
