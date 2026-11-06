@@ -52,6 +52,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -300,7 +302,9 @@ fun RecorderScreen(onClose: () -> Unit, onDone: (RecordedTakes) -> Unit) {
                     }
                 }
                 // record button
-                Box(Modifier.size(78.dp).clip(CircleShape).border(4.dp, Color.White, CircleShape).clickable(enabled = camera != null && countdown == 0) {
+                Box(Modifier.size(78.dp).clip(CircleShape).border(4.dp, Color.White, CircleShape)
+                    .semantics { contentDescription = if (recording != null) "Arrêter la prise" else "Enregistrer" }
+                    .clickable(enabled = camera != null && countdown == 0) {
                     if (recording != null) stopRecording() else if (timer > 0) countdown = timer else startRecording()
                 }, contentAlignment = Alignment.Center) {
                     Box(Modifier.size(if (recording != null) 30.dp else 62.dp).clip(if (recording != null) RoundedCornerShape(6.dp) else CircleShape).background(Color(0xFFFF3B30)))
