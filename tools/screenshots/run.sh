@@ -23,8 +23,10 @@ shot home
 $UI list > "$OUT/home.txt"
 
 # camera: two takes, with the prompter
-tap "Filmer"; sleep 4; dismiss
+adb logcat -c
+tap "Filmer"; sleep 1; shot camera_open; sleep 4; dismiss
 shot camera
+$UI list > "$OUT/camera.txt"
 WAIT=1 tap "Prompteur"
 rec_start camera_rec 12
 WAIT=1 tap "Enregistrer"; sleep 5
@@ -34,7 +36,13 @@ WAIT=1 tap "Enregistrer"; sleep 4
 WAIT=1 tap "Arrêter la prise"
 rec_end camera_rec
 sleep 2; shot camera_takes
-tap "Monter"; sleep 10; dismiss
+if ! tap "Monter"; then
+  # no camera on this machine: open the editor from a starting template instead
+  adb logcat -d -s AndroidRuntime:E CameraX:* Camera2CameraImpl:* CuttinxShader:* > "$OUT/logcat_camera.txt"
+  adb shell input keyevent KEYCODE_BACK; sleep 3; dismiss
+  tap "Intro cinéma"
+fi
+sleep 10; dismiss
 shot editor
 $UI list > "$OUT/editor.txt"
 
@@ -65,4 +73,5 @@ adb shell input keyevent KEYCODE_BACK; sleep 2
 adb shell input keyevent KEYCODE_BACK; sleep 3; dismiss
 tap "Menu"; tap "Paramètres"; sleep 2; shot settings
 adb shell input swipe $((W / 2)) $((H * 80 / 100)) $((W / 2)) $((H * 25 / 100)) 500; sleep 1; shot settings_2
+adb logcat -d -s AndroidRuntime:E > "$OUT/logcat_crash.txt"
 ls -la "$OUT"
