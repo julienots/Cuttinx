@@ -4,8 +4,14 @@ import re, subprocess, sys, time, xml.etree.ElementTree as ET
 def sh(*a): return subprocess.run(["adb", *a], capture_output=True, text=True).stdout
 
 def nodes():
-    sh("shell", "uiautomator", "dump", "/sdcard/ui.xml")
+    # endless Compose animations keep the screen "busy": uiautomator only dumps an idle screen,
+    # so animations are switched off for the time of the dump
+    sh("shell", "settings", "put", "global", "animator_duration_scale", "0")
+    sh("shell", "rm", "-f", "/sdcard/ui.xml")
+    r = subprocess.run(["adb", "shell", "uiautomator", "dump", "/sdcard/ui.xml"], capture_output=True, text=True)
+    sh("shell", "settings", "put", "global", "animator_duration_scale", "1")
     xml = sh("shell", "cat", "/sdcard/ui.xml")
+    if "<hierarchy" not in xml: print("dump failed:", (r.stdout + r.stderr).strip()[:200])
     try: root = ET.fromstring(xml[xml.find("<"):])
     except Exception: return []
     out = []
