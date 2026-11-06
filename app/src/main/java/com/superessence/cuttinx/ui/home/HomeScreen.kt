@@ -50,7 +50,7 @@ import java.util.Date
 @UnstableApi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit, openClaude: () -> Unit = {}) {
+fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit, openClaude: () -> Unit = {}, openRecorder: () -> Unit = {}) {
     val vm: HomeViewModel = viewModel()
     // Projets créés par Claude : rafraîchir la liste quand il en crée un
     val claude by com.superessence.cuttinx.claude.ClaudeLink.state.collectAsStateWithLifecycle()
@@ -95,6 +95,7 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
     val importDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.importArchive(uri) }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = { RecordBar(openRecorder) },
         topBar = {
             TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { CuttinxMark(30.dp); Spacer(Modifier.width(8.dp)); CuttinxWordmark(24.sp); Spacer(Modifier.width(6.dp)); ProBadge() } },
                 actions = {
@@ -308,5 +309,27 @@ private fun StudioTabs(selected: StudioTab, onSelect: (StudioTab) -> Unit) {
             }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(on.copy(alpha = 0.08f)))
+    }
+}
+
+
+/** Bottom of the home screen: the CUTTINX camera, one tap away. */
+@Composable
+private fun RecordBar(openRecorder: () -> Unit) {
+    val cx = com.superessence.cuttinx.ui.theme.LocalCx.current
+    Column(Modifier.fillMaxWidth().background(cx.panel).navigationBarsPadding()) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(cx.line))
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = openRecorder).padding(horizontal = 18.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(54.dp).clip(androidx.compose.foundation.shape.CircleShape).border(3.dp, MaterialTheme.colorScheme.onSurface, androidx.compose.foundation.shape.CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFFF3B30)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Videocam, null, Modifier.size(22.dp), tint = Color.White)
+                    }
+                }
+                Spacer(Modifier.height(3.dp))
+                Text("Filmer", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 }

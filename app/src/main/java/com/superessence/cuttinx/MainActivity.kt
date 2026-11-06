@@ -25,6 +25,7 @@ import com.superessence.cuttinx.ui.settings.SettingsScreen
 import com.superessence.cuttinx.ui.theme.CuttinxTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 sealed interface Screen {
     data object Splash : Screen
@@ -34,6 +35,8 @@ sealed interface Screen {
     data object Help : Screen
     data object Licenses : Screen
     data object Claude : Screen
+    /** The CUTTINX camera; [projectId] = add the takes to this open project, null = a new project. */
+    data class Recorder(val projectId: String?) : Screen
 }
 
 @UnstableApi
@@ -103,10 +106,10 @@ class MainActivity : ComponentActivity() {
                 }
                 when (val s = stack.last()) {
                     Screen.Splash -> com.superessence.cuttinx.motion.LaunchIntro(onDone = { if (stack.lastOrNull() == Screen.Splash) replace(Screen.Home) })
-                    Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) }, openClaude = { push(Screen.Claude) })
+                    Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) }, openClaude = { push(Screen.Claude) }, openRecorder = { push(Screen.Recorder(null)) })
                     is Screen.Editor -> key(s.id) {
                         val vm: EditorViewModel = viewModel(key = s.id, factory = EditorViewModel.Factory(application, s.id))
-                        EditorScreen(vm, onBack = { pop() }, openProject = { id -> replace(Screen.Editor(id)) })
+                        EditorScreen(vm, onBack = { pop() }, openProject = { id -> replace(Screen.Editor(id)) }, openRecorder = { push(Screen.Recorder(s.id)) })
                     }
                     Screen.Settings -> { BackHandler { pop() }; SettingsScreen(c.settings, { pop() }, { push(Screen.Licenses) }) }
                     Screen.Help -> { BackHandler { pop() }; HelpScreen({ pop() }) {
@@ -114,6 +117,26 @@ class MainActivity : ComponentActivity() {
                         val p = t.build(t.list.last()); c.store.save(p); replace(Screen.Editor(p.id))
                     } }
                     Screen.Licenses -> { BackHandler { pop() }; LicensesScreen { pop() } }
+                    is Screen.Recorder -> {
+                        BackHandler { pop() }
+                        val scope = rememberCoroutineScope()
+                        com.superessence.cuttinx.ui.recorder.RecorderScreen(onClose = { pop() }) { takes ->
+                            val pt = com.superessence.cuttinx.ui.recorder.PendingTakes
+                            if (s.projectId != null) { pt.forProject = s.projectId; pt.takes = takes; pop() }
+                            else scope.launch {
+                                // a new project made of the takes, straight into the editor
+                                val p = withContext(Dispatchers.IO) {
+                                    val res = c.importer.import(takes.uris)
+                                    var pr = Project(Ids.new("prj"), "Tournage du " + java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRANCE).format(java.util.Date()),
+                                        System.currentTimeMillis(), System.currentTimeMillis(), ProjectFormat.forAspect(settings.defaultAspect))
+                                    res.assets.forEach { pr = TimelineEditor.appendAsset(pr, it).first }
+                                    c.store.save(pr); pr
+                                }
+                                if (takes.autoCut) pt.autoCutProject = p.id
+                                replace(Screen.Editor(p.id))
+                            }
+                        }
+                    }
                     Screen.Claude -> { BackHandler { pop() }; com.superessence.cuttinx.claude.ClaudeScreen { pop() } }
                 }
             }

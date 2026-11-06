@@ -4,6 +4,16 @@
 
     <!-- Voix off -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- Publier directement : trouver les applis qui acceptent une vidéo (TikTok, Instagram, YouTube…) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="video/*" />
+        </intent>
+    </queries>
     <!-- Téléchargement facultatif des modèles de reconnaissance vocale -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Export en arrière-plan -->

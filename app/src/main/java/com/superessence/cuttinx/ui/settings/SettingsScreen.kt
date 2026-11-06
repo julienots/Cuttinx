@@ -94,6 +94,19 @@ fun SettingsScreen(store: SettingsStore, onBack: () -> Unit, openLicenses: () ->
                 Slide(Icons.Outlined.Save, "Sauvegarde automatique", s.autosaveSeconds.toFloat(), 3f..120f, 1f, " s", 0, prefix = "toutes les ") { v -> store.update { it.copy(autosaveSeconds = v.roundToInt()) } }
             }
 
+            Group("Intégrations") {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val apps = remember { com.superessence.cuttinx.ui.components.Integrations.installed(ctx).map { it.first.name } }
+                Info(Icons.Outlined.Share, "Publier directement", if (apps.isEmpty()) "Aucune appli de réseau social trouvée sur ce téléphone"
+                    else apps.joinToString(", ") + " : un bouton par appli à la fin de l'export")
+                Divider()
+                Info(Icons.Outlined.Videocam, "Caméra CUTTINX", "Bouton « Filmer » en bas de l'accueil et dans l'éditeur : les prises vont directement dans le montage")
+                Divider()
+                Info(Icons.Outlined.CloudDownload, "Importer depuis le cloud", "Google Drive, Dropbox, OneDrive… depuis le sélecteur de fichiers (bouton Média)")
+                Divider()
+                Info(Icons.Outlined.Input, "Ouvrir avec CUTTINX", "Partage une vidéo, une photo ou un son depuis n'importe quelle appli vers CUTTINX")
+            }
+
             Group("Appareil") { Codecs() }
 
             Group("CUTTINX") {
@@ -257,5 +270,16 @@ private fun TableRow(name: String, value: String, ok: Boolean) {
     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = if (ok) MaterialTheme.colorScheme.onSurface else cx.dim)
+    }
+}
+
+@Composable
+private fun Info(icon: ImageVector, title: String, detail: String) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        RowIcon(icon)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = LocalCx.current.dim)
+        }
     }
 }

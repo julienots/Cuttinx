@@ -46,7 +46,7 @@ object EditorMagic {
 
     fun run(vm: EditorViewModel, t: Tech) = when (t) {
         Tech.BEAT_EDIT -> beatEdit(vm)
-        Tech.JUMP_CUT -> jumpCut(vm)
+        Tech.JUMP_CUT -> jumpCut(vm, null)
         Tech.BEST_OF -> bestOf(vm)
         Tech.SHOT_MATCH -> shotMatch(vm)
         Tech.SMART_VERTICAL -> smartVertical(vm)
@@ -94,9 +94,10 @@ object EditorMagic {
         commit(vm, "Montage sur la musique", "Monté sur ${r.bpm.toInt()} BPM : ${beats.size} temps, coupes à l'image près (annulable)") { Magic.beatEdit(it, beats, bars, r.bpm) }
     }
 
-    private fun jumpCut(vm: EditorViewModel) = vm.runTask("Coupe des blancs") { prog ->
+    /** Silences removed from every take with sound ([only]: just the clips of these media). */
+    fun jumpCut(vm: EditorViewModel, only: Set<String>?) = vm.runTask("Coupe des blancs") { prog ->
         val p = vm.current
-        val clips = mainClips(p).filter { it.kind == ClipKind.MEDIA && p.asset(it.assetId)?.hasAudio == true && it.speedCurve.isEmpty() }
+        val clips = mainClips(p).filter { it.kind == ClipKind.MEDIA && p.asset(it.assetId)?.hasAudio == true && it.speedCurve.isEmpty() && (only == null || p.asset(it.assetId)?.uri in only) }
         if (clips.isEmpty()) error("Aucune prise avec du son sur la piste principale")
         val silences = HashMap<String, List<TimeRange>>()
         clips.forEachIndexed { i, c ->

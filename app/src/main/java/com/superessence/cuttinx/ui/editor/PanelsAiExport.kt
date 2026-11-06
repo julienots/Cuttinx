@@ -280,6 +280,7 @@ fun ExportPanel(vm: EditorViewModel, p: Project) {
                     TextButton({ ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("video/mp4").putExtra(Intent.EXTRA_STREAM, e.uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Partager")) }) { Text("Partager") }
                     TextButton({ vm.c.export.reset() }) { Text("Nouvel export") }
                 }
+                com.superessence.cuttinx.ui.components.PublishRow(e.uri, Modifier.padding(top = 10.dp))
             }
             return
         }

@@ -55,8 +55,24 @@ import kotlinx.coroutines.launch
 
 @UnstableApi
 @Composable
-fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) -> Unit) {
+fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) -> Unit, openRecorder: () -> Unit = {}) {
     val project by vm.project.collectAsStateWithLifecycle()
+    // takes filmed with the CUTTINX camera go straight into the edit (and lose their silences when asked)
+    LaunchedEffect(Unit) {
+        val pt = com.superessence.cuttinx.ui.recorder.PendingTakes
+        val takes = pt.takes
+        if (takes != null && pt.forProject == vm.current.id) {
+            pt.takes = null; pt.forProject = null
+            vm.importMedia(takes.uris)
+            if (takes.autoCut) {
+                vm.task.first { it == null }
+                EditorMagic.jumpCut(vm, takes.uris.map { it.toString() }.toSet())
+            }
+        } else if (pt.autoCutProject == vm.current.id) {
+            pt.autoCutProject = null
+            EditorMagic.jumpCut(vm, null)
+        }
+    }
     val ps by vm.previewState.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val workspace by vm.workspace.collectAsStateWithLifecycle()
@@ -173,7 +189,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
             // ---------------- bottom: panel or toolbar
             val p = panel
             if (p != null) PanelHost(vm, p, project, selected, selectedTrack, openProject)
-            else Toolbar(vm, workspace, selected, selectedTrack, multi, settings.beginnerMode)
+            else Toolbar(vm, workspace, selected, selectedTrack, multi, settings.beginnerMode, openRecorder)
         }
         SnackbarHost(snack, Modifier.align(Alignment.TopCenter).padding(top = 60.dp))
         task?.let { t -> Box(Modifier.align(Alignment.Center).padding(24.dp)) { ProgressCard(t.title, t.progress, t.detail, onCancel = vm::cancelTask) } }
@@ -211,7 +227,7 @@ private fun Transport(vm: EditorViewModel, pos: Long, dur: Long, playing: Boolea
 
 @UnstableApi
 @Composable
-private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track?, multi: Boolean, beginner: Boolean) {
+private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track?, multi: Boolean, beginner: Boolean, openRecorder: () -> Unit) {
     val ctx = LocalContext.current
     val pickVisual = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { if (it.isNotEmpty()) vm.importMedia(it) }
     val pickOverlay = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { it?.let { u -> vm.importMedia(listOf(u), overlay = true) } }
@@ -219,6 +235,7 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
     val micPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) vm.panel.value = Panel.VOICE else vm.message.value = "Autorisez le micro pour enregistrer une voix off" }
     data class T(val icon: ImageVector, val label: String, val enabled: Boolean = true, val active: Boolean = false, val action: () -> Unit)
     val tools: List<T> = if (sel == null) buildList {
+        add(T(Icons.Default.Videocam, "Filmer") { openRecorder() })
         add(T(Icons.Default.VideoLibrary, "Média") { pickVisual.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) })
         add(T(Icons.Default.PhotoLibrary, "Bibliothèque") { vm.panel.value = Panel.MEDIA })
         add(T(Icons.Default.MusicNote, "Audio") { vm.panel.value = Panel.MUSIC })
