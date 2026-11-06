@@ -22,9 +22,13 @@ class Thumbnails(private val context: Context) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
     private val dir = File(context.cacheDir, "thumbs").also { it.mkdirs() }
-    private val gate = Semaphore(3)
+    // one decode at a time: each video frame extraction holds a hardware decoder that the preview also needs
+    private val gate = Semaphore(1)
 
     fun cached(key: String): Bitmap? = mem.get(key)
+
+    /** Frees the in-memory pictures (low memory); they are rebuilt from the disk cache on demand. */
+    fun trim() { mem.evictAll() }
 
     /** Frame of [asset] at source time [timeUs] whose height is about [height] px. */
     suspend fun frame(asset: MediaAsset, timeUs: Long, height: Int = 120): Bitmap? {
@@ -86,6 +90,8 @@ class Waveforms(private val context: Context) {
     val bucketsPerSecond = 50
 
     fun cached(assetId: String) = mem.get(assetId)
+
+    fun trim() { mem.evictAll() }
 
     suspend fun load(asset: MediaAsset): FloatArray? {
         mem.get(asset.id)?.let { return it }

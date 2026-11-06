@@ -69,8 +69,8 @@ fun MediaPanel(vm: EditorViewModel, p: Project) {
     val pickDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.importMedia(it, addToTimeline = false) }
     val relink = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { u -> val id = relinkId; if (u != null && id != null) vm.relink(id, u); relinkId = null }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        OutlinedButton({ pickVisual.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }) { Text("Photos/vidéos") }
-        OutlinedButton({ pickDoc.launch(arrayOf("video/*", "image/*", "audio/*", "application/x-subrip", "text/*", "font/*", "application/octet-stream")) }) { Text("Fichiers") }
+        OutlinedButton({ pickVisual.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Photos/vidéos") }
+        OutlinedButton({ pickDoc.launch(arrayOf("video/*", "image/*", "audio/*", "application/x-subrip", "text/*", "font/*", "application/octet-stream")) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Fichiers") }
         TextButton({ EditorAi.organizeMedia(vm) }) { Text("Ranger") }
     }
     OutlinedTextField(query, { query = it }, placeholder = { Text("Rechercher") }, singleLine = true, modifier = Modifier.fillMaxWidth(), leadingIcon = { Icon(Icons.Default.Search, null) })
@@ -167,7 +167,7 @@ fun MusicPanel(vm: EditorViewModel) {
         generating = null
         vm.addResourceAsset(a, role)
     }
-    OutlinedButton({ pickAudio.launch(arrayOf("audio/*")) }) { Icon(Icons.Default.LibraryMusic, null); Text(" Importer une musique / un son") }
+    OutlinedButton({ pickAudio.launch(arrayOf("audio/*")) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Icon(Icons.Default.LibraryMusic, null); Text(" Importer une musique / un son") }
     InfoCard("Musiques et bruitages ci-dessous : créations originales générées par CUTTINX, libres d'utilisation dans vos vidéos (y compris commerciales).")
     SectionTitle("Musiques")
     Synth.musicList.forEach { t ->
@@ -194,7 +194,7 @@ private fun ResourceRow(name: String, sub: String, playing: Boolean, busy: Boole
 @Composable
 fun StickersPanel(vm: EditorViewModel) {
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { it?.let { u -> vm.importMedia(listOf(u), overlay = true) } }
-    OutlinedButton({ pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Importer un autocollant (PNG transparent)") }
+    OutlinedButton({ pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Importer un autocollant (PNG transparent)") }
     vm.c.resources.stickers.groupBy { it.category }.forEach { (cat, list) ->
         SectionTitle(cat)
         list.chunked(4).forEach { row ->
@@ -228,7 +228,7 @@ fun BackgroundPanel(vm: EditorViewModel, p: Project) {
             repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
-    OutlinedButton({ vm.edit("Plan de couleur") { pr -> val (p1, m) = com.superessence.cuttinx.core.timeline.TimelineEditor.mainTrack(pr); com.superessence.cuttinx.core.timeline.TimelineEditor.insertClip(p1, m.id, com.superessence.cuttinx.core.timeline.TimelineEditor.colorClip(0xFF111111, m.endUs)) } }) { Text("Ajouter un plan de couleur unie") }
+    OutlinedButton({ vm.edit("Plan de couleur") { pr -> val (p1, m) = com.superessence.cuttinx.core.timeline.TimelineEditor.mainTrack(pr); com.superessence.cuttinx.core.timeline.TimelineEditor.insertClip(p1, m.id, com.superessence.cuttinx.core.timeline.TimelineEditor.colorClip(0xFF111111, m.endUs)) } }, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Ajouter un plan de couleur unie") }
 }
 
 @UnstableApi

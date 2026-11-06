@@ -36,9 +36,26 @@ object AudioChainFactory {
             "v_megaphone" -> DspChain(listOf(Biquad(Biquad.Type.HIGHPASS, 650.0, 1.0), Biquad(Biquad.Type.LOWPASS, 3800.0, 1.0), Biquad(Biquad.Type.PEAK, 2000.0, 1.2, 8.0), Saturator(p("drive", 0.7)), Limiter(-3.0)))
             "v_cave" -> DspChain(listOf(Delay(140.0 + 160 * p("size", 0.8), 0.45, 0.4), Reverb(0.9 + 0.1 * p("size", 0.8), 0.2, 0.5)))
             "v_bitcrush" -> BitCrusher(p("bits", 6.0), p("downsample", 6.0))
+            "v_helium" -> Biquad(Biquad.Type.HIGHSHELF, 4000.0, 0.7, 3.0 * p("amount", 1.0))
+            "v_chipmunk" -> Biquad(Biquad.Type.HIGHPASS, 120.0 + 120 * p("amount", 1.0), 0.7)
+            "v_child" -> Biquad(Biquad.Type.PEAK, 2500.0, 1.0, 3.0 * p("amount", 1.0))
+            "v_deep" -> Biquad(Biquad.Type.LOWSHELF, 150.0, 0.7, 5.0 * p("amount", 1.0))
+            "v_giant" -> DspChain(listOf(Biquad(Biquad.Type.LOWSHELF, 140.0, 0.7, 4.0 * p("amount", 1.0)), Reverb(0.85, 0.3, 0.35 * p("amount", 1.0))))
+            "v_monster" -> DspChain(listOf(Saturator(0.6 * p("amount", 1.0)), Biquad(Biquad.Type.LOWPASS, 3500.0, 0.7), Biquad(Biquad.Type.LOWSHELF, 120.0, 0.7, 6.0 * p("amount", 1.0))))
+            "v_alien" -> DspChain(listOf(RingModulator(30.0, 0.5 * p("amount", 1.0)), Delay(25.0, 0.5, 0.4 * p("amount", 1.0))))
+            "v_dark_mask" -> DspChain(listOf(RingModulator(40.0, 0.35 * p("amount", 1.0)), Biquad(Biquad.Type.LOWPASS, 2800.0, 0.7), Reverb(0.4, 0.5, 0.15 * p("amount", 1.0))))
+            "v_underwater" -> DspChain(listOf(Biquad(Biquad.Type.LOWPASS, 550.0 + 2000 * (1 - p("amount", 1.0)), 1.2), Delay(18.0, 0.6, 0.5 * p("amount", 1.0)), Reverb(0.7, 0.8, 0.3 * p("amount", 1.0))))
+            "v_ghost" -> DspChain(listOf(Biquad(Biquad.Type.HIGHPASS, 300.0, 0.7), Delay(260.0, 0.55, 0.45 * p("amount", 1.0)), Reverb(0.95, 0.2, 0.6 * p("amount", 1.0))))
+            "v_stadium" -> DspChain(listOf(Delay(120.0, 0.3, 0.25 * p("amount", 1.0)), Reverb(0.97, 0.3, 0.45 * p("amount", 1.0))))
+            "v_walkie" -> DspChain(listOf(Biquad(Biquad.Type.HIGHPASS, 500.0, 0.9), Biquad(Biquad.Type.LOWPASS, 2600.0, 0.9), Saturator(0.8 * p("amount", 1.0)), NoiseGate(-40.0), Hiss(0.01 * p("amount", 1.0))))
             else -> null
         }
     }
 
-    fun pitchSemitones(clip: Clip): Double = clip.audio.effects.filter { it.enabled && it.effectId == "v_pitch" }.sumOf { it.params["semitones"] ?: 0.0 }
+    /** Pitch shift (semitones) of the voice presets, applied by the engine on top of their DSP colour. */
+    val presetSemitones = mapOf("v_helium" to 12.0, "v_chipmunk" to 8.0, "v_child" to 5.0, "v_deep" to -4.0, "v_giant" to -10.0, "v_monster" to -7.0, "v_alien" to 4.0, "v_dark_mask" to -5.0)
+
+    fun pitchSemitones(clip: Clip): Double = clip.audio.effects.filter { it.enabled }.sumOf { fx ->
+        if (fx.effectId == "v_pitch") fx.params["semitones"] ?: 0.0 else presetSemitones[fx.effectId] ?: 0.0
+    }.coerceIn(-24.0, 24.0)
 }

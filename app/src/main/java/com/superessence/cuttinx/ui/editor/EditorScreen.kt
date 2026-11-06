@@ -1,6 +1,7 @@
 package com.superessence.cuttinx.ui.editor
 
 import android.Manifest
+import com.superessence.cuttinx.design.cxChip
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,12 +50,29 @@ import com.superessence.cuttinx.ui.components.*
 import com.superessence.cuttinx.ui.theme.Cx
 import com.superessence.cuttinx.ui.theme.LocalCx
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @UnstableApi
 @Composable
-fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) -> Unit) {
+fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) -> Unit, openRecorder: () -> Unit = {}) {
     val project by vm.project.collectAsStateWithLifecycle()
+    // takes filmed with the CUTTINX camera go straight into the edit (and lose their silences when asked)
+    LaunchedEffect(Unit) {
+        val pt = com.superessence.cuttinx.ui.recorder.PendingTakes
+        val takes = pt.takes
+        if (takes != null && pt.forProject == vm.current.id) {
+            pt.takes = null; pt.forProject = null
+            vm.importMedia(takes.uris)
+            if (takes.autoCut) {
+                vm.task.first { it == null }
+                EditorMagic.jumpCut(vm, takes.uris.map { it.toString() }.toSet())
+            }
+        } else if (pt.autoCutProject == vm.current.id) {
+            pt.autoCutProject = null
+            EditorMagic.jumpCut(vm, null)
+        }
+    }
     val ps by vm.previewState.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val workspace by vm.workspace.collectAsStateWithLifecycle()
@@ -97,7 +115,12 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
             } else {
                 val key = "${a.id}_${(t / 250_000) * 250_000}"
                 if (key in thumbs || !pending.add(key)) return@collect
-                launch { vm.c.thumbnails.frame(a, t, 96)?.let { thumbs[key] = it.asImageBitmap() } }
+                launch {
+                    // video thumbnails need a hardware decoder too: let the preview finish loading first
+                    // (4K/60 i/s sources can exhaust the decoders and leave the player loading forever)
+                    if (a.type == MediaType.VIDEO) kotlinx.coroutines.withTimeoutOrNull(5_000) { vm.previewState.first { !it.buffering } }
+                    vm.c.thumbnails.frame(a, t, 96)?.let { thumbs[key] = it.asImageBitmap() }
+                }
             }
         }
     }
@@ -112,26 +135,44 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
                     Text(project.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${project.format.width}×${project.format.height} • ${project.format.frameRate} i/s", style = MaterialTheme.typography.labelSmall, color = cx.dim)
                 }
+                IconButton({ vm.panel.value = Panel.ACTIONS }) { Icon(Icons.Default.Search, "Actions rapides", tint = cx.accent) }
+                // one-tap keyframe (diamond + plus), next to undo / redo like the pro editors
+                val kfOn = selected != null && vm.anyKeyframeAtPlayhead()
+                IconButton(vm::toggleQuickKeyframe) {
+                    Box {
+                        Icon(Icons.Default.Diamond, if (kfOn) "Retirer l'image clé" else "Ajouter une image clé", tint = if (kfOn) cx.accent else if (selected != null) MaterialTheme.colorScheme.onSurface else cx.dim)
+                        Text(if (kfOn) "−" else "+", Modifier.align(Alignment.TopStart).offset((-6).dp, (-8).dp), fontSize = 14.sp, fontWeight = FontWeight.Black, color = if (kfOn) cx.accent else MaterialTheme.colorScheme.onSurface)
+                    }
+                }
                 IconButton(vm::undo, enabled = vm.session.history.canUndo || true) { Icon(Icons.AutoMirrored.Filled.Undo, "Annuler") }
                 IconButton(vm::redo) { Icon(Icons.AutoMirrored.Filled.Redo, "Rétablir") }
                 IconButton({ vm.panel.value = Panel.HISTORY }) { Icon(Icons.Default.History, "Historique") }
                 AccentButton("Exporter", { vm.panel.value = Panel.EXPORT }, Modifier.padding(end = 6.dp))
             }
             // ---------------- preview
-            PreviewPane(vm, project, ps.positionUs, selected, ps.buffering, ps.error, Modifier.fillMaxWidth().weight(1f))
+            PreviewPane(vm, project, ps.positionUs, selected, ps.buffering, ps.error, Modifier.fillMaxWidth().weight(1f), notice = ps.notice)
             // ---------------- transport
             Transport(vm, ps.positionUs, maxOf(project.durationUs, ps.durationUs), ps.playing, selected)
             // ---------------- workspaces
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Workspace.entries.forEach { w ->
                     val sel = w == workspace
-                    Text(w.label, Modifier.clip(RoundedCornerShape(50)).background(if (sel) cx.accent else cx.panel2).clickable { vm.workspace.value = w; vm.panel.value = workspacePanel(w) }.padding(horizontal = 12.dp, vertical = 5.dp),
-                        color = if (sel) cx.onAccent else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+                    Text(w.label, Modifier.cxChip(sel, cx.accent) { vm.workspace.value = w; vm.panel.value = workspacePanel(w) },
+                        color = if (sel) cx.accent else MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
                 }
             }
             // ---------------- timeline (resizable)
-            Box(Modifier.fillMaxWidth().height(10.dp).pointerInput(Unit) { detectVerticalDragGestures { _, d -> timelineH = (timelineH - d / density).coerceIn(120f, 520f) } }, contentAlignment = Alignment.Center) {
-                Box(Modifier.width(40.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(cx.line))
+            Box(Modifier.fillMaxWidth().height(30.dp)) {
+                Box(Modifier.fillMaxSize().pointerInput(Unit) { detectVerticalDragGestures { _, d -> timelineH = (timelineH - d / density).coerceIn(120f, 520f) } }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.width(40.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(cx.line))
+                }
+                // timeline zoom without pinching: down to a single frame
+                Row(Modifier.align(Alignment.CenterEnd).padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TimelineZoomButton(com.superessence.cuttinx.icons.CxIcons.ZoomOut, "Dézoomer la timeline") { pxPerSecond = (pxPerSecond / 1.5f).coerceIn(TIMELINE_MIN_ZOOM, TIMELINE_MAX_ZOOM) }
+                    TimelineZoomButton(com.superessence.cuttinx.icons.CxIcons.ZoomIn, "Zoomer la timeline") { pxPerSecond = (pxPerSecond * 1.5f).coerceIn(TIMELINE_MIN_ZOOM, TIMELINE_MAX_ZOOM) }
+                    TimelineZoomButton(com.superessence.cuttinx.icons.CxIcons.Fit, "Zoom normal") { pxPerSecond = 80f }
+                    Text("MAX", Modifier.clip(RoundedCornerShape(8.dp)).clickable { pxPerSecond = TIMELINE_MAX_ZOOM }.padding(horizontal = 8.dp, vertical = 6.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
             TimelineView(project, ps.positionUs, selection, pxPerSecond, { pxPerSecond = it }, media,
                 TimelineCallbacks(
@@ -148,7 +189,7 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
             // ---------------- bottom: panel or toolbar
             val p = panel
             if (p != null) PanelHost(vm, p, project, selected, selectedTrack, openProject)
-            else Toolbar(vm, workspace, selected, selectedTrack, multi, settings.beginnerMode)
+            else Toolbar(vm, workspace, selected, selectedTrack, multi, settings.beginnerMode, openRecorder)
         }
         SnackbarHost(snack, Modifier.align(Alignment.TopCenter).padding(top = 60.dp))
         task?.let { t -> Box(Modifier.align(Alignment.Center).padding(24.dp)) { ProgressCard(t.title, t.progress, t.detail, onCancel = vm::cancelTask) } }
@@ -160,11 +201,11 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
     vm.loadError.collectAsStateWithLifecycle().value?.let { e -> AlertDialog({}, title = { Text("Projet illisible") }, text = { Text(e) }, confirmButton = { TextButton({ vm.close(); onBack() }) { Text("Retour") } }) }
 }
 
-fun isClipPanel(p: Panel) = p in setOf(Panel.TEXT, Panel.TEXT_STYLE, Panel.TEXT_ANIM, Panel.AUDIO, Panel.SPEED, Panel.TRANSFORM, Panel.CROP, Panel.KEYFRAMES, Panel.MASK, Panel.CHROMA, Panel.BLEND, Panel.TRANSITION)
+fun isClipPanel(p: Panel) = p in setOf(Panel.TEXT, Panel.TEXT_STYLE, Panel.TEXT_ANIM, Panel.AUDIO, Panel.SPEED, Panel.TRANSFORM, Panel.CROP, Panel.KEYFRAMES, Panel.MASK, Panel.CHROMA, Panel.BLEND, Panel.TRANSITION, Panel.MOTION)
 
 fun workspacePanel(w: Workspace): Panel? = when (w) {
     Workspace.AUDIO -> Panel.MIXER; Workspace.COLOR -> Panel.FILTERS; Workspace.SUBTITLES -> Panel.SUBTITLES; Workspace.AI -> Panel.AI
-    Workspace.COMPOSITING -> Panel.TRACKS; Workspace.EXPORT -> Panel.EXPORT; else -> null
+    Workspace.COMPOSITING -> Panel.TRACKS; Workspace.EXPORT -> Panel.EXPORT; Workspace.STUDIO -> Panel.PRO_TOOLS; else -> null
 }
 
 @UnstableApi
@@ -186,7 +227,7 @@ private fun Transport(vm: EditorViewModel, pos: Long, dur: Long, playing: Boolea
 
 @UnstableApi
 @Composable
-private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track?, multi: Boolean, beginner: Boolean) {
+private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track?, multi: Boolean, beginner: Boolean, openRecorder: () -> Unit) {
     val ctx = LocalContext.current
     val pickVisual = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { if (it.isNotEmpty()) vm.importMedia(it) }
     val pickOverlay = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { it?.let { u -> vm.importMedia(listOf(u), overlay = true) } }
@@ -194,6 +235,7 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
     val micPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) vm.panel.value = Panel.VOICE else vm.message.value = "Autorisez le micro pour enregistrer une voix off" }
     data class T(val icon: ImageVector, val label: String, val enabled: Boolean = true, val active: Boolean = false, val action: () -> Unit)
     val tools: List<T> = if (sel == null) buildList {
+        add(T(Icons.Default.Videocam, "Filmer") { openRecorder() })
         add(T(Icons.Default.VideoLibrary, "Média") { pickVisual.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) })
         add(T(Icons.Default.PhotoLibrary, "Bibliothèque") { vm.panel.value = Panel.MEDIA })
         add(T(Icons.Default.MusicNote, "Audio") { vm.panel.value = Panel.MUSIC })
@@ -201,7 +243,14 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         add(T(Icons.Default.Title, "Titres") { vm.panel.value = Panel.TEMPLATES })
         add(T(Icons.Default.Subtitles, "Sous-titres") { vm.panel.value = Panel.SUBTITLES })
         add(T(Icons.Default.Mic, "Voix off") { if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) vm.panel.value = Panel.VOICE else micPerm.launch(Manifest.permission.RECORD_AUDIO) })
+        add(T(Icons.Default.SkipPrevious, "Couper avant") { vm.trimAtPlayhead(true) })
+        add(T(Icons.Default.SkipNext, "Couper après") { vm.trimAtPlayhead(false) })
+        add(T(Icons.Default.UnfoldLess, "Espaces") { vm.closeGaps() })
+        add(T(Icons.Default.Science, "Labo") { vm.panel.value = Panel.LAB })
+        add(T(Icons.Default.Lightbulb, "Studio") { vm.panel.value = Panel.SMART })
+        add(T(Icons.Default.History, "Versions") { vm.panel.value = Panel.VERSIONS })
         add(T(Icons.Default.AutoAwesome, "AI Lab") { vm.panel.value = Panel.AI })
+        add(T(Icons.Default.Stars, "Outils pro") { vm.panel.value = Panel.PRO_TOOLS })
         if (!beginner || ws != Workspace.QUICK) {
             add(T(Icons.Default.Layers, "Incrustation") { pickOverlay.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) })
             add(T(Icons.Default.EmojiEmotions, "Autocollants") { vm.panel.value = Panel.STICKERS })
@@ -222,7 +271,8 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         val hasAudio = asset?.hasAudio == true || track?.kind == TrackKind.AUDIO
         add(T(Icons.Default.ContentCut, "Diviser") { vm.split() })
         add(T(Icons.Default.Delete, "Supprimer") { vm.deleteSelected() })
-        if (isText) { add(T(Icons.Default.Edit, "Modifier") { vm.panel.value = Panel.TEXT }); add(T(Icons.Default.FormatPaint, "Style") { vm.panel.value = Panel.TEXT_STYLE }); add(T(Icons.Default.Animation, "Animation") { vm.panel.value = Panel.TEXT_ANIM }) }
+        if (visual) add(T(Icons.Default.Animation, "Animations") { vm.panel.value = Panel.MOTION })
+        if (isText) { add(T(Icons.Default.Edit, "Modifier") { vm.panel.value = Panel.TEXT }); add(T(Icons.Default.FormatPaint, "Style") { vm.panel.value = Panel.TEXT_STYLE }); add(T(Icons.Default.TextRotationNone, "Anim. texte") { vm.panel.value = Panel.TEXT_ANIM }) }
         if (sel.kind == ClipKind.MEDIA && asset?.type != MediaType.IMAGE) add(T(Icons.Default.Speed, "Vitesse") { vm.panel.value = Panel.SPEED })
         if (hasAudio) add(T(Icons.AutoMirrored.Filled.VolumeUp, "Audio") { vm.panel.value = Panel.AUDIO })
         if (visual) {
@@ -241,16 +291,65 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         add(T(Icons.Default.CopyAll, "Copier") { vm.copySelected() })
         if (sel.kind == ClipKind.MEDIA && asset?.isVisual == true) add(T(Icons.Default.FindReplace, "Remplacer") { pickReplace.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) })
         if (asset?.type == MediaType.VIDEO && asset.hasAudio && track?.kind == TrackKind.VIDEO) add(T(Icons.AutoMirrored.Filled.CallSplit, "Extraire l'audio") { vm.extractAudio() })
+        add(T(Icons.Default.SkipPrevious, "Couper avant") { vm.trimAtPlayhead(true) })
+        add(T(Icons.Default.SkipNext, "Couper après") { vm.trimAtPlayhead(false) })
+        add(T(Icons.Default.UnfoldLess, "Espaces") { vm.closeGaps() })
+        add(T(Icons.Default.Science, "Labo") { vm.panel.value = Panel.LAB })
+        add(T(Icons.Default.Lightbulb, "Studio") { vm.panel.value = Panel.SMART })
+        add(T(Icons.Default.History, "Versions") { vm.panel.value = Panel.VERSIONS })
         add(T(Icons.Default.AutoAwesome, "AI Lab") { vm.panel.value = Panel.AI })
+        add(T(Icons.Default.Stars, "Outils pro") { vm.panel.value = Panel.PRO_TOOLS })
         add(T(Icons.Default.Checklist, "Multi", active = multi) { vm.multiSelect.value = !multi })
         if (vm.selection.value.size > 1) { add(T(Icons.Default.Link, "Grouper") { vm.groupSelected() }); add(T(Icons.Default.MergeType, "Fusionner") { vm.mergeSelected() }) }
         if (sel.groupId != null) add(T(Icons.Default.LinkOff, "Dissocier") { vm.ungroupSelected() })
         add(T(if (sel.enabled) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (sel.enabled) "Désactiver" else "Activer") { vm.updateSelected("Activer/désactiver") { it.copy(enabled = !it.enabled) } })
         add(T(Icons.Default.Close, "Désélect.") { vm.select(null) })
     }
-    Row(Modifier.fillMaxWidth().background(LocalCx.current.panel).horizontalScroll(rememberScrollState()).padding(vertical = 4.dp, horizontal = 4.dp)) {
+    @Suppress("UNUSED_VARIABLE") val plusV = com.superessence.cuttinx.lab.TechGate.version
+    val plusOn = com.superessence.cuttinx.core.smart.Plus.active
+    val cx = LocalCx.current
+    Row(Modifier.fillMaxWidth().background(cx.panel).horizontalScroll(rememberScrollState()).padding(vertical = 4.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         tools.forEach { ToolButton(it.icon, it.label, it.action, active = it.active, enabled = it.enabled) }
+        // ---- one-gesture tools, right after the usual ones: no menu, one tap = one undoable edit
+        GestureDivider("En un geste")
+        for ((id, label) in EditorMagic.instant) ToolButton(gestureIcon(id), label, { EditorMagic.runInstant(vm, id, label) })
+        GestureDivider("Plus")
+        for (t in com.superessence.cuttinx.core.smart.Tech.entries.filter { it.pipeline })
+            ToolButton(pipelineIcon(t), shortLabel(t), { com.superessence.cuttinx.lab.TechGate.request(t) { EditorMagic.run(vm, t) } }, badge = if (plusOn) null else "PLUS")
     }
+}
+
+@Composable
+private fun GestureDivider(label: String) {
+    val cx = LocalCx.current
+    Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(1.dp).height(40.dp).background(cx.line))
+        Text(label, Modifier.padding(start = 8.dp, end = 2.dp).width(44.dp), fontSize = 10.sp, lineHeight = 12.sp, color = cx.accent, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun gestureIcon(id: String): ImageVector = when (id) {
+    "punch" -> Icons.Default.ZoomIn; "transitions" -> Icons.Default.SwapHoriz; "fades" -> Icons.Default.Gradient; "hook" -> Icons.Default.Title
+    "music_fit" -> Icons.Default.MusicNote; "progress" -> Icons.Default.LinearScale; "loop" -> Icons.Default.Loop; "vertical" -> Icons.Default.StayCurrentPortrait
+    else -> Icons.Default.CleaningServices
+}
+
+private fun pipelineIcon(t: com.superessence.cuttinx.core.smart.Tech): ImageVector = when (t) {
+    com.superessence.cuttinx.core.smart.Tech.BEAT_EDIT -> Icons.Default.GraphicEq
+    com.superessence.cuttinx.core.smart.Tech.JUMP_CUT -> Icons.Default.ContentCut
+    com.superessence.cuttinx.core.smart.Tech.BEST_OF -> Icons.Default.AutoAwesome
+    com.superessence.cuttinx.core.smart.Tech.SHOT_MATCH -> Icons.Default.Palette
+    com.superessence.cuttinx.core.smart.Tech.SMART_VERTICAL -> Icons.Default.CenterFocusStrong
+    else -> Icons.Default.Equalizer
+}
+
+private fun shortLabel(t: com.superessence.cuttinx.core.smart.Tech) = when (t) {
+    com.superessence.cuttinx.core.smart.Tech.BEAT_EDIT -> "Sur la musique"
+    com.superessence.cuttinx.core.smart.Tech.JUMP_CUT -> "Coupe blancs"
+    com.superessence.cuttinx.core.smart.Tech.BEST_OF -> "Best-of"
+    com.superessence.cuttinx.core.smart.Tech.SHOT_MATCH -> "Égaliser plans"
+    com.superessence.cuttinx.core.smart.Tech.SMART_VERTICAL -> "Vertical IA"
+    else -> "Son studio"
 }
 
 @UnstableApi
@@ -286,3 +385,7 @@ private fun RecordingOverlay(vm: EditorViewModel, modifier: Modifier) {
         AccentButton("Arrêter", { vm.stopRecording() }, icon = Icons.Default.Stop)
     }
 }
+
+@Composable
+private fun TimelineZoomButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) =
+    Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick), contentAlignment = Alignment.Center) { Icon(icon, label, Modifier.size(18.dp)) }

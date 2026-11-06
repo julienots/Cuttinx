@@ -22,10 +22,10 @@ import com.superessence.cuttinx.ui.help.HelpScreen
 import com.superessence.cuttinx.ui.help.LicensesScreen
 import com.superessence.cuttinx.ui.home.HomeScreen
 import com.superessence.cuttinx.ui.settings.SettingsScreen
-import com.superessence.cuttinx.ui.splash.SplashScreen
 import com.superessence.cuttinx.ui.theme.CuttinxTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 sealed interface Screen {
     data object Splash : Screen
@@ -34,6 +34,9 @@ sealed interface Screen {
     data object Settings : Screen
     data object Help : Screen
     data object Licenses : Screen
+    data object Claude : Screen
+    /** The CUTTINX camera; [projectId] = add the takes to this open project, null = a new project. */
+    data class Recorder(val projectId: String?) : Screen
 }
 
 @UnstableApi
@@ -45,10 +48,39 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handleIntent(intent)
         val c = (application as CuttinxApp).container
+        // pubs du Labo CUTTINX : consentement (RGPD) puis démarrage du SDK, sans bloquer l'appli
+        window.decorView.postDelayed({ runCatching { com.superessence.cuttinx.ads.Ads.init(this) } }, 2500)
         if (Build.VERSION.SDK_INT >= 33) runCatching { requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1) }
+        // Reconnexion automatique à Claude si l'utilisateur l'avait activée
+        if (com.superessence.cuttinx.claude.ClaudeLink.isEnabled(this)) window.decorView.postDelayed({ runCatching { com.superessence.cuttinx.claude.ClaudeService.start(this) } }, 1500)
         setContent {
             val settings by c.settings.state.collectAsStateWithLifecycle()
             CuttinxTheme(settings) {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                // Labo CUTTINX: a locked technology was asked for -> full-screen advert, then unlock for 24 h
+                com.superessence.cuttinx.lab.TechGate.pending?.let { req ->
+                    var busy by remember(req) { mutableStateOf(false) }
+                    var err by remember(req) { mutableStateOf<String?>(null) }
+                    com.superessence.cuttinx.lab.TechUnlockDialog(req, com.superessence.cuttinx.ui.theme.LocalCx.current.accent, "une courte pub", busy, err,
+                        onWatch = {
+                            busy = true; err = null
+                            com.superessence.cuttinx.ads.Ads.showRewarded(this@MainActivity,
+                                onReward = { busy = false; com.superessence.cuttinx.lab.TechGate.grant(req.tech); android.widget.Toast.makeText(ctx, "${req.tech.label} débloqué pour 24 h", android.widget.Toast.LENGTH_SHORT).show() },
+                                // no advert anywhere right now: the user is not punished for it
+                                onNoAd = { busy = false; com.superessence.cuttinx.lab.TechGate.grant(req.tech); android.widget.Toast.makeText(ctx, "Pas de pub disponible : ${req.tech.label} offert pour 24 h", android.widget.Toast.LENGTH_LONG).show() },
+                                onError = { busy = false; err = it })
+                        },
+                        onDismiss = { com.superessence.cuttinx.lab.TechGate.cancel() })
+                }
+                com.superessence.cuttinx.lab.PlusHost(com.superessence.cuttinx.ui.theme.LocalCx.current.accent)
+                // a task that failed was contained: tell the user, nothing else happens
+                LaunchedEffect(Unit) { CuttinxApp.backgroundError.collect { m -> if (m != null) { android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_LONG).show(); CuttinxApp.backgroundError.value = null } } }
+                var crashReport by remember { mutableStateOf(c.crashLog.unseen()) }
+                val looping = remember { c.crashLog.looping() }
+                LaunchedEffect(looping) {
+                    // several closures in a row: lighten the preview so the next session is stable
+                    if (looping && settings.previewQuality != com.superessence.cuttinx.engine.PreviewQuality.LOW) c.settings.update { it.copy(previewQuality = com.superessence.cuttinx.engine.PreviewQuality.LOW) }
+                }
                 var stack by remember { mutableStateOf(listOf<Screen>(Screen.Splash)) }
                 fun push(s: Screen) { stack = stack + s }
                 fun pop() { if (stack.size > 1) stack = stack.dropLast(1) else finish() }
@@ -66,12 +98,18 @@ class MainActivity : ComponentActivity() {
                         push(Screen.Editor(p.id))
                     }
                 }
+                crashReport?.let { f ->
+                    if (stack.last() == Screen.Home) CrashNotice(looping, onCopy = {
+                        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("CUTTINX", runCatching { f.readText() }.getOrDefault("")))
+                        android.widget.Toast.makeText(ctx, "Rapport copié", android.widget.Toast.LENGTH_SHORT).show()
+                    }, onClose = { c.crashLog.markSeen(f); crashReport = null })
+                }
                 when (val s = stack.last()) {
-                    Screen.Splash -> SplashScreen { replace(Screen.Home) }
-                    Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) })
+                    Screen.Splash -> com.superessence.cuttinx.motion.LaunchIntro(onDone = { if (stack.lastOrNull() == Screen.Splash) replace(Screen.Home) })
+                    Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) }, openClaude = { push(Screen.Claude) }, openRecorder = { push(Screen.Recorder(null)) })
                     is Screen.Editor -> key(s.id) {
                         val vm: EditorViewModel = viewModel(key = s.id, factory = EditorViewModel.Factory(application, s.id))
-                        EditorScreen(vm, onBack = { pop() }, openProject = { id -> replace(Screen.Editor(id)) })
+                        EditorScreen(vm, onBack = { pop() }, openProject = { id -> replace(Screen.Editor(id)) }, openRecorder = { push(Screen.Recorder(s.id)) })
                     }
                     Screen.Settings -> { BackHandler { pop() }; SettingsScreen(c.settings, { pop() }, { push(Screen.Licenses) }) }
                     Screen.Help -> { BackHandler { pop() }; HelpScreen({ pop() }) {
@@ -79,6 +117,27 @@ class MainActivity : ComponentActivity() {
                         val p = t.build(t.list.last()); c.store.save(p); replace(Screen.Editor(p.id))
                     } }
                     Screen.Licenses -> { BackHandler { pop() }; LicensesScreen { pop() } }
+                    is Screen.Recorder -> {
+                        BackHandler { pop() }
+                        val scope = rememberCoroutineScope()
+                        com.superessence.cuttinx.ui.recorder.RecorderScreen(onClose = { pop() }) { takes ->
+                            val pt = com.superessence.cuttinx.ui.recorder.PendingTakes
+                            if (s.projectId != null) { pt.forProject = s.projectId; pt.takes = takes; pop() }
+                            else scope.launch {
+                                // a new project made of the takes, straight into the editor
+                                val p = withContext(Dispatchers.IO) {
+                                    val res = c.importer.import(takes.uris)
+                                    var pr = Project(Ids.new("prj"), "Tournage du " + java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.FRANCE).format(java.util.Date()),
+                                        System.currentTimeMillis(), System.currentTimeMillis(), ProjectFormat.forAspect(settings.defaultAspect))
+                                    res.assets.forEach { pr = TimelineEditor.appendAsset(pr, it).first }
+                                    c.store.save(pr); pr
+                                }
+                                if (takes.autoCut) pt.autoCutProject = p.id
+                                replace(Screen.Editor(p.id))
+                            }
+                        }
+                    }
+                    Screen.Claude -> { BackHandler { pop() }; com.superessence.cuttinx.claude.ClaudeScreen { pop() } }
                 }
             }
         }
@@ -88,6 +147,15 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(i: Intent?) {
         i ?: return
+        // cuttinx://plus?code=CXP1.… (button of the site's confirmation page): switch CUTTINX Plus on
+        val d = i.data
+        if (i.action == Intent.ACTION_VIEW && d?.scheme == "cuttinx" && d.host == "plus") {
+            val code = d.getQueryParameter("code").orEmpty()
+            val err = com.superessence.cuttinx.core.smart.Plus.activate(code)
+            if (err == null) com.superessence.cuttinx.lab.TechGate.plusChanged()
+            android.widget.Toast.makeText(this, err ?: "CUTTINX Plus est activé. Merci !", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         val uris = when (i.action) {
             Intent.ACTION_SEND -> listOfNotNull(if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java) else @Suppress("DEPRECATION") i.getParcelableExtra(Intent.EXTRA_STREAM))
             Intent.ACTION_SEND_MULTIPLE -> (if (Build.VERSION.SDK_INT >= 33) i.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java) else @Suppress("DEPRECATION") i.getParcelableArrayListExtra(Intent.EXTRA_STREAM)).orEmpty()
@@ -95,4 +163,18 @@ class MainActivity : ComponentActivity() {
         }
         if (uris.isNotEmpty()) shared.value = uris
     }
+}
+
+/** Shown on the home screen after the app closed unexpectedly. */
+@androidx.compose.runtime.Composable
+private fun CrashNotice(looping: Boolean, onCopy: () -> Unit, onClose: () -> Unit) {
+    androidx.compose.material3.AlertDialog(onDismissRequest = onClose,
+        title = { androidx.compose.material3.Text("Fermeture inattendue") },
+        text = {
+            androidx.compose.material3.Text(
+                "CUTTINX s'est fermé lors de la dernière utilisation. Ton travail est sauvegardé automatiquement : s'il y avait des modifications non enregistrées, une carte « Récupération » apparaît en haut de l'écran d'accueil." +
+                    if (looping) "\n\nPlusieurs fermetures se sont produites de suite : la qualité de l'aperçu a été réduite pour plus de stabilité. Tu peux la remettre dans Paramètres. Ferme aussi les autres applications avant de monter." else "")
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClose) { androidx.compose.material3.Text("OK") } },
+        dismissButton = { androidx.compose.material3.TextButton(onCopy) { androidx.compose.material3.Text("Copier le rapport") } })
 }

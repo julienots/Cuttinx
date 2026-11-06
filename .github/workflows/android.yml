@@ -5,20 +5,86 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - uses: android-actions/setup-android@v3
+        # the legacy "tools" package (default) no longer exists in the SDK repository
+        with: { packages: 'platform-tools' }
       - name: Shader validator
         run: sudo apt-get update && sudo apt-get install -y glslang-tools
-      - name: Unit tests (core + engine)
-        run: ./gradlew :core:test :app:testDebugUnitTest --no-daemon
+      - name: Unit tests (core + engine + PC renderer)
+        run: ./gradlew :core:test :app:testDebugUnitTest :desktop:test --no-daemon
       - name: Lint
         run: ./gradlew :app:lintDebug --no-daemon
       - name: Build APK
+        # identifiants AdMob : les secrets du dépôt s'ils existent, sinon ceux inscrits dans app/build.gradle.kts
+        env:
+          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+          ADMOB_REWARDED_ID: ${{ secrets.ADMOB_REWARDED_ID }}
+          UNITY_GAME_ID: ${{ secrets.UNITY_GAME_ID }}
+          UNITY_REWARDED_ID: ${{ secrets.UNITY_REWARDED_ID }}
         run: ./gradlew :app:assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: cuttinx-apk
           path: app/build/outputs/apk/release/app-release.apk
+      # public download of the latest build (GitHub release « derniere-version », replaced at every push)
+      - name: Publier l'APK
+        if: github.event_name == 'push'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk CuttinxPRO.apk
+          gh release view derniere-version >/dev/null 2>&1 || gh release create derniere-version --prerelease --target "$GITHUB_SHA" --title "CUTTINX PRO : dernière version" --notes "Compilation automatique de la dernière version (Android et Windows)." || true
+          gh release upload derniere-version CuttinxPRO.apk --clobber
+          VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          gh release edit derniere-version --title "CUTTINX PRO $VER" || true
+
+  # PC app (Twitch Studio + Identité) : installateur Windows
+  desktop-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+        with: { packages: 'platform-tools' }
+      - name: Build Windows installers
+        run: ./gradlew :desktop:packageExe :desktop:packageMsi --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cuttinx-pro-windows
+          path: |
+            desktop/build/compose/binaries/main/exe/*.exe
+            desktop/build/compose/binaries/main/msi/*.msi
+      - name: Publier l'installeur Windows
+        if: github.event_name == 'push'
+        shell: bash
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cp desktop/build/compose/binaries/main/exe/*.exe CuttinxPRO-Windows.exe
+          cp desktop/build/compose/binaries/main/msi/*.msi CuttinxPRO-Windows.msi
+          sleep 20
+          gh release view derniere-version >/dev/null 2>&1 || gh release create derniere-version --prerelease --target "$GITHUB_SHA" --title "CUTTINX PRO : dernière version" --notes "Compilation automatique de la dernière version (Android et Windows)." || true
+          gh release upload derniere-version CuttinxPRO-Windows.exe CuttinxPRO-Windows.msi --clobber
+
+  # Deuxième appli : WinPocket (logiciels Windows sur Android, moteur Winlator / Wine / Box64)
+  winpocket:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+        with: { packages: 'platform-tools ndk;24.0.8215888 cmake;3.22.1' }
+      - name: Build WinPocket
+        run: bash emulator/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winpocket-apk
+          path: emulator/dist/WinPocket.apk

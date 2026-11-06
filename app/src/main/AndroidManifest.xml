@@ -4,12 +4,24 @@
 
     <!-- Voix off -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- Publier directement : trouver les applis qui acceptent une vidéo (TikTok, Instagram, YouTube…) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="video/*" />
+        </intent>
+    </queries>
     <!-- Téléchargement facultatif des modèles de reconnaissance vocale -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Export en arrière-plan -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
+    <!-- Connexion à Claude (relais MCP) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Écriture dans Films/ uniquement nécessaire avant Android 10 -->
@@ -28,6 +40,9 @@
         android:supportsRtl="true"
         android:hardwareAccelerated="true"
         android:theme="@style/Theme.Cuttinx">
+
+        <!-- AdMob : pubs plein écran qui débloquent les technologies du Labo CUTTINX -->
+        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="${admobAppId}" />
 
         <activity
             android:name=".MainActivity"
@@ -48,6 +63,13 @@
                 <data android:mimeType="image/*" />
                 <data android:mimeType="audio/*" />
             </intent-filter>
+            <!-- Activation de CUTTINX Plus depuis la page de confirmation du site : cuttinx://plus?code=… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="cuttinx" android:host="plus" />
+            </intent-filter>
         </activity>
 
         <service
@@ -55,6 +77,15 @@
             android:exported="false"
             android:foregroundServiceType="dataSync|mediaProcessing"
             tools:targetApi="35" />
+
+        <service
+            android:name=".claude.ClaudeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Connexion à l'assistant Claude pour analyser les médias choisis par l'utilisateur et créer des projets de montage" />
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"

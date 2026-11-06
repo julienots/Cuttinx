@@ -55,6 +55,8 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
     private var recordStartUs = 0L
     /** Beats found by the AI (shown on the timeline, used for snapping). */
     val beats = MutableStateFlow<List<Long>>(emptyList())
+    /** Framing guides drawn over the preview only (never rendered in the export). */
+    val guides = MutableStateFlow(PreviewGuides.NONE)
     val loadError = MutableStateFlow<String?>(null)
 
     init {
@@ -76,13 +78,19 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
         }
         // preview follows every change
         viewModelScope.launch { session.revision.collect { preview.update(session.current) } }
-        // autosave
+        // autosave, and an automatic version every five minutes of editing
         viewModelScope.launch(Dispatchers.IO) {
             var lastSaved = session.revision.value
+            var lastVersion = System.currentTimeMillis()
+            runCatching { c.versions.snapshot(session.current, "Ouverture du projet", auto = true) }
             while (isActive) {
                 delay(c.settings.value.autosaveSeconds.coerceAtLeast(3) * 1000L)
                 val rev = session.revision.value
                 if (rev != lastSaved) { runCatching { c.store.autosave(session.current) }; lastSaved = rev }
+                if (System.currentTimeMillis() - lastVersion >= 5 * 60_000L) {
+                    runCatching { c.versions.snapshot(session.current, "Enregistrement automatique", auto = true) }
+                    lastVersion = System.currentTimeMillis()
+                }
             }
         }
         preview.update(loaded, immediate = true)
@@ -109,6 +117,22 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
     fun select(id: String?) {
         if (id == null) { selection.value = emptySet(); return }
         selection.value = if (multiSelect.value) (if (id in selection.value) selection.value - id else selection.value + id) else setOf(id)
+    }
+
+    // ------------------------------------------------------------------ versions
+
+    /** Keeps the current state in the project's version history. */
+    fun snapshot(label: String, auto: Boolean = false) {
+        val p = current
+        viewModelScope.launch(Dispatchers.IO) { runCatching { c.versions.snapshot(p, label, auto) } }
+    }
+
+    /** Puts a saved version back as a regular edit (undoable); the state before is kept as a version. */
+    fun restoreVersion(info: com.superessence.cuttinx.core.project.VersionInfo) {
+        val old = c.versions.load(info) ?: run { message.value = "Cette version est illisible."; return }
+        runCatching { c.versions.snapshot(current, "Avant la restauration", auto = true) }
+        edit("Restaurer « ${info.label} »") { cur -> old.copy(id = cur.id, name = cur.name, modifiedAtMs = cur.modifiedAtMs, createdAtMs = cur.createdAtMs) }
+        selection.value = emptySet()
     }
 
     fun save(): Boolean = runCatching { c.store.save(current); true }.getOrElse { message.value = "Sauvegarde impossible : ${it.message}"; false }
@@ -305,6 +329,39 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
     fun addMarker(label: String = "") = edit("Marqueur") { TimelineEditor.addMarker(it, position, label) }
     fun removeMarker(id: String) = edit("Supprimer le marqueur") { TimelineEditor.removeMarker(it, id) }
 
+    // ------------------------------------------------------------------ quick actions
+
+    /** Runs one action of the searchable list as a single undoable edit (a version is kept before it). */
+    fun runQuickAction(a: com.superessence.cuttinx.core.smart.QuickAction) {
+        val sel = selection.value.toList(); val at = position
+        if (!a.available(com.superessence.cuttinx.core.smart.EditContext(current, sel, at))) { message.value = a.need.hint; return }
+        com.superessence.cuttinx.actions.QuickActionsMemory.used(a.id)
+        snapshot("Avant : ${a.label}", auto = true)
+        if (edit(a.label) { p -> a.run(com.superessence.cuttinx.core.smart.EditContext(p, sel, at)) }) { message.value = "${a.label} : fait (annulable)"; panel.value = null; pruneSelection() }
+    }
+
+    // ------------------------------------------------------------------ precision tools
+
+    /** Selected shots crossing the playhead, or the main-track shot under it. */
+    private fun trimTargets(): List<String> {
+        val t = position
+        return selection.value.filter { id -> current.findClip(id)?.second?.let { t > it.startUs && t < it.endUs } == true }
+            .ifEmpty { com.superessence.cuttinx.core.smart.EditTools.mainClipsAt(current, t) }
+    }
+
+    /** Removes what is before / after the playhead and closes the hole (ripple trim). */
+    fun trimAtPlayhead(keepAfter: Boolean) {
+        val ids = trimTargets()
+        if (ids.isEmpty()) { message.value = "Placez la tête de lecture à l'intérieur d'un plan"; return }
+        val t = position
+        edit(if (keepAfter) "Couper avant la tête de lecture" else "Couper après la tête de lecture") { com.superessence.cuttinx.core.smart.EditTools.rippleTrim(it, t, keepAfter, ids) }
+    }
+
+    fun closeGaps() {
+        val tid = primaryId?.let { current.findClip(it)?.first?.id }
+        edit("Fermer les espaces") { com.superessence.cuttinx.core.smart.EditTools.closeGaps(it, tid) }
+    }
+
     fun splitAll() = edit("Diviser toutes les pistes") { TimelineEditor.splitAll(it, position) }
 
     // ------------------------------------------------------------------ text
@@ -370,6 +427,37 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
         val rel = (position - c.startUs).coerceIn(0, c.durationUs)
         if (c.keyframes[prop]?.isEmpty == false) edit("Image clé", "kf_${c.id}_$prop") { TimelineEditor.setKeyframe(it, c.id, prop, rel, value, c.keyframes[prop]!!.keyframes.minByOrNull { k -> kotlin.math.abs(k.timeUs - rel) }?.easing ?: Easing.Smooth) }
         else updateClip(prop, "prop_${c.id}_$prop") { base(it, value) }
+    }
+
+    /** Transform properties animated by the one-tap keyframe button (CapCut style). */
+    private val quickProps = listOf(Prop.POS_X, Prop.POS_Y, Prop.SCALE, Prop.ROTATION, Prop.OPACITY)
+
+    /** True when the selected clip has a keyframe at the playhead (any property). */
+    fun anyKeyframeAtPlayhead(): Boolean {
+        val c = selectedClip() ?: return false
+        val rel = position - c.startUs
+        return c.keyframes.values.any { k -> k.keyframes.any { kotlin.math.abs(it.timeUs - rel) < 30_000 } }
+    }
+
+    /**
+     * One tap: adds a keyframe on position, scale, rotation and opacity at the playhead with the
+     * current values (then moving / zooming the clip elsewhere animates it), or removes them.
+     */
+    fun toggleQuickKeyframe() {
+        val c = selectedClip() ?: run { message.value = "Sélectionne d'abord un clip"; return }
+        val rel = (position - c.startUs).coerceIn(0, c.durationUs)
+        if (position < c.startUs || position > c.endUs) { message.value = "Place la tête de lecture sur le clip sélectionné"; return }
+        if (anyKeyframeAtPlayhead()) {
+            edit("Supprimer l'image clé") { p -> TimelineEditor.updateClip(p, c.id) { cl -> cl.copy(keyframes = cl.keyframes.mapValues { (_, k) -> KeyframeTrack(k.keyframes.filterNot { kotlin.math.abs(it.timeUs - rel) < 30_000 }) }.filterValues { it.keyframes.isNotEmpty() }) } }
+            return
+        }
+        val t = FrameEvaluator.transform(c, rel, withMotion = false)
+        val values = mapOf(
+            Prop.POS_X to t.posX, Prop.POS_Y to t.posY, Prop.ROTATION to t.rotation, Prop.OPACITY to t.opacity,
+            Prop.SCALE to KeyframeEvaluator.evaluate(c.keyframes[Prop.SCALE], rel, 1.0),
+        )
+        edit("Image clé") { p -> quickProps.fold(p) { acc, prop -> TimelineEditor.setKeyframe(acc, c.id, prop, rel, values[prop] ?: 0.0) } }
+        message.value = "Image clé ajoutée ◆ — déplace la tête de lecture puis bouge / zoome le clip"
     }
 
     fun keyframeAtPlayhead(prop: String): Boolean {
@@ -483,7 +571,7 @@ class EditorViewModel(app: Application, val projectId: String) : AndroidViewMode
 
     fun snapCandidates(exclude: Set<String>) = if (c.settings.value.snapping) Snapping.candidates(current, exclude, position, beats.value) else emptyList()
 
-    fun evaluatedTransform(clip: Clip) = FrameEvaluator.transform(clip, (position - clip.startUs).coerceIn(0, clip.durationUs))
+    fun evaluatedTransform(clip: Clip) = FrameEvaluator.transform(clip, (position - clip.startUs).coerceIn(0, clip.durationUs), withMotion = false)
 
     class Factory(private val app: Application, private val id: String) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

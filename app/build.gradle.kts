@@ -6,6 +6,8 @@ plugins {
 }
 
 android {
+    // icon set shared with the PC app
+    sourceSets["main"].java.srcDir("../ui-shared/kotlin")
     namespace = "com.superessence.cuttinx"
     compileSdk = 36
 
@@ -13,9 +15,28 @@ android {
         applicationId = "com.superessence.cuttinx"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 13
+        versionName = "2.7.0"
         vectorDrawables.useSupportLibrary = true
+        // AdMob (pubs vidéo récompensées plein écran du Labo CUTTINX) : identifiants réels de l'éditeur.
+        // Remplaçables par -Pcuttinx.admobAppId=… -Pcuttinx.admobRewardedId=… ou par les secrets CI
+        // ADMOB_APP_ID / ADMOB_REWARDED_ID. Pubs de test de Google : -Pcuttinx.admobTest=true.
+        val admobTest = (project.findProperty("cuttinx.admobTest") as String?) == "true"
+        val admobAppId = if (admobTest) "ca-app-pub-3940256099942544~3347511713"
+            else (project.findProperty("cuttinx.admobAppId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_APP_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-2847478731079395~6383993130"
+        val admobRewarded = if (admobTest) "ca-app-pub-3940256099942544/5224354917"
+            else (project.findProperty("cuttinx.admobRewardedId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("ADMOB_REWARDED_ID")?.takeIf { it.isNotBlank() } ?: "ca-app-pub-2847478731079395/6775087406"
+        manifestPlaceholders["admobAppId"] = admobAppId
+        buildConfigField("String", "ADMOB_REWARDED_ID", "\"$admobRewarded\"")
+        // Adresse du site CUTTINX (page /plus pour s'abonner à CUTTINX Plus) : -Pcuttinx.siteUrl=https://…
+        val siteUrl = (project.findProperty("cuttinx.siteUrl") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("CUTTINX_SITE_URL")?.takeIf { it.isNotBlank() } ?: ""
+        buildConfigField("String", "CUTTINX_SITE", "\"$siteUrl\"")
+        // Unity Ads : 2e régie, essayée quand AdMob n'a pas de pub (APK hors Google Play). Vide = désactivé.
+        // -Pcuttinx.unityGameId=… / secret CI UNITY_GAME_ID ; bloc récompensé : cuttinx.unityRewardedId (Rewarded_Android).
+        val unityGameId = (project.findProperty("cuttinx.unityGameId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("UNITY_GAME_ID")?.takeIf { it.isNotBlank() } ?: ""
+        val unityRewarded = (project.findProperty("cuttinx.unityRewardedId") as String?)?.takeIf { it.isNotBlank() } ?: System.getenv("UNITY_REWARDED_ID")?.takeIf { it.isNotBlank() } ?: "Rewarded_Android"
+        buildConfigField("String", "UNITY_GAME_ID", "\"$unityGameId\"")
+        buildConfigField("String", "UNITY_REWARDED_ID", "\"$unityRewarded\"")
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
     }
 
@@ -46,7 +67,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/*.kotlin_module")
         jniLibs.useLegacyPackaging = false
@@ -92,6 +113,16 @@ dependencies {
     // Vosk + JNA (AAR with Android natives, as recommended by the Vosk project)
     implementation(libs.vosk.android) { exclude(group = "net.java.dev.jna") }
     implementation("net.java.dev.jna:jna:5.18.1@aar")
+    // Pubs récompensées (Labo CUTTINX) + consentement RGPD
+    implementation("com.google.android.gms:play-services-ads:23.6.0")
+    implementation("com.google.android.ump:user-messaging-platform:3.1.0")
+    implementation("com.unity3d.ads:unity-ads:4.16.6")
+    // Caméra CUTTINX (enregistreur vidéo)
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-video:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
     testImplementation(libs.junit)
     testImplementation("org.robolectric:robolectric:4.17")
     testImplementation("androidx.test:core:1.6.1")

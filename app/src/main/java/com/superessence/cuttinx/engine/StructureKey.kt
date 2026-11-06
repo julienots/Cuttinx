@@ -15,7 +15,7 @@ object StructureKey {
                 append(c.id).append(c.kind).append(c.assetId).append(c.enabled).append(':').append(c.startUs).append(',').append(c.sourceInUs).append(',').append(c.sourceOutUs)
                 append(',').append(c.speed).append(c.speedCurve.hashCode()).append(c.audio.preservePitch).append(c.audio.muted)
                 append(c.effects.joinToString(",") { it.id + it.effectId })
-                append(c.audio.effects.joinToString(",") { it.effectId + (if (it.effectId == "v_pitch") it.params.hashCode() else 0) })
+                append(c.audio.effects.joinToString(",") { it.effectId + it.enabled + (if (it.effectId == "v_pitch") it.params.hashCode() else 0) })
                 append(c.transitionIn?.let { it.transitionId + it.durationUs } ?: "-")
                 append(c.chromaKey.enabled).append(c.mask.shape).append(c.transform.crop.hashCode()).append(c.transform.fill)
                 append(c.text?.hashCode() ?: 0).append(c.color)

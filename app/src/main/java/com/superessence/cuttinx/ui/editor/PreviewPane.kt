@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,7 +37,7 @@ import kotlin.math.min
 /** Video preview with direct manipulation of the selected layer (move, pinch-scale, rotate). */
 @UnstableApi
 @Composable
-fun PreviewPane(vm: EditorViewModel, project: Project, positionUs: Long, selected: Clip?, buffering: Boolean, error: String?, modifier: Modifier = Modifier) {
+fun PreviewPane(vm: EditorViewModel, project: Project, positionUs: Long, selected: Clip?, buffering: Boolean, error: String?, modifier: Modifier = Modifier, notice: String? = null) {
     val ctx = LocalContext.current
     val surface = remember { SurfaceView(ctx) }
     DisposableEffect(surface) { vm.preview.attach(surface); onDispose { vm.preview.detach(surface) } }
@@ -45,6 +46,8 @@ fun PreviewPane(vm: EditorViewModel, project: Project, positionUs: Long, selecte
     Box(modifier.background(Color(0xFF050505)).onSizeChanged { box = it }, contentAlignment = Alignment.Center) {
         Box(Modifier.aspectRatio(ratio, matchHeightConstraintsFirst = box.width.toFloat() / max(1, box.height) > ratio)) {
             AndroidView({ surface }, Modifier.fillMaxSize())
+            val guides by vm.guides.collectAsState()
+            if (guides != PreviewGuides.NONE) GuidesOverlay(guides)
             if (selected != null && (selected.kind != ClipKind.ADJUSTMENT) && project.track(project.findClip(selected.id)?.first?.id ?: "")?.kind != TrackKind.AUDIO) {
                 Gizmo(vm, project, selected, positionUs)
             } else {
@@ -55,7 +58,14 @@ fun PreviewPane(vm: EditorViewModel, project: Project, positionUs: Long, selecte
             }
             if (buffering) CircularProgressIndicator(Modifier.align(Alignment.Center).size(28.dp), color = Cx.Yellow, strokeWidth = 2.dp)
         }
-        if (error != null) Text(error, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.align(Alignment.BottomCenter).background(Cx.Danger.copy(alpha = 0.8f)).padding(8.dp))
+        val banner = error ?: notice
+        if (banner != null) Row(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().background((if (error != null) Cx.Danger else Color(0xFF2A2A2A)).copy(alpha = 0.92f)).padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(banner, color = Color.White, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            TextButton(onClick = { vm.preview.retry() }) { Text(if (error != null) "Réessayer" else "Réactiver", color = Cx.Yellow) }
+        }
     }
 }
 
@@ -105,7 +115,7 @@ private fun Gizmo(vm: EditorViewModel, p: Project, c: Clip, positionUs: Long) {
         detectTransformGestures { centroid, pan, zoom, rotation ->
             val cl = latestClip
             val r2 = (vm.position - cl.startUs).coerceIn(0, cl.durationUs)
-            val lt = FrameEvaluator.transform(cl, r2)
+            val lt = FrameEvaluator.transform(cl, r2, withMotion = false)
             val nx = (lt.posX + pan.x / size.width).coerceIn(-0.5, 1.5)
             val ny = (lt.posY + pan.y / size.height).coerceIn(-0.5, 1.5)
             if (pan != Offset.Zero) {
@@ -134,5 +144,28 @@ private fun Gizmo(vm: EditorViewModel, p: Project, c: Clip, positionUs: Long) {
         // safe-area guides (centre lines) when near centre
         if (kotlin.math.abs(cx - size.width / 2) < 3) drawLine(Cx.Yellow.copy(alpha = 0.6f), Offset(size.width / 2, 0f), Offset(size.width / 2, size.height), 1f)
         if (kotlin.math.abs(cy - size.height / 2) < 3) drawLine(Cx.Yellow.copy(alpha = 0.6f), Offset(0f, size.height / 2), Offset(size.width, size.height / 2), 1f)
+    }
+}
+
+/** Platform safe zones / grids drawn above the preview (never exported). */
+@Composable
+private fun GuidesOverlay(g: PreviewGuides) {
+    Canvas(Modifier.fillMaxSize()) {
+        val w = size.width; val h = size.height
+        val line = Color.White.copy(alpha = 0.55f)
+        val zone = Color(0xFFFF3D8B).copy(alpha = 0.22f)
+        fun block(l: Float, t: Float, r: Float, b: Float) = drawRect(zone, Offset(l * w, t * h), androidx.compose.ui.geometry.Size((r - l) * w, (b - t) * h))
+        when (g) {
+            PreviewGuides.NONE -> {}
+            PreviewGuides.THIRDS -> for (i in 1..2) {
+                drawLine(line, Offset(w * i / 3, 0f), Offset(w * i / 3, h), 1.5f)
+                drawLine(line, Offset(0f, h * i / 3), Offset(w, h * i / 3), 1.5f)
+            }
+            // approximate areas covered by each app's interface (caption, buttons, header)
+            PreviewGuides.TIKTOK -> { block(0f, 0f, 1f, 0.08f); block(0f, 0.8f, 1f, 1f); block(0.86f, 0.38f, 1f, 0.8f) }
+            PreviewGuides.REELS -> { block(0f, 0f, 1f, 0.07f); block(0f, 0.78f, 1f, 1f); block(0.86f, 0.5f, 1f, 0.78f) }
+            PreviewGuides.SHORTS -> { block(0f, 0f, 1f, 0.06f); block(0f, 0.8f, 1f, 1f); block(0.85f, 0.45f, 1f, 0.8f) }
+            PreviewGuides.TITLE_SAFE -> drawRect(line, Offset(0.05f * w, 0.05f * h), androidx.compose.ui.geometry.Size(0.9f * w, 0.9f * h), style = Stroke(1.5f))
+        }
     }
 }

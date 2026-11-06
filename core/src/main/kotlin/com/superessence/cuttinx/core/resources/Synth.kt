@@ -27,6 +27,15 @@ object Synth {
         Sfx("error", "Erreur", "Interface"), Sfx("notify", "Notification", "Interface"), Sfx("type", "Frappe clavier", "Interface"),
         Sfx("shutter", "Déclencheur photo", "Objets"), Sfx("laser", "Laser", "Fun"), Sfx("glitch", "Glitch", "Fun"), Sfx("boing", "Boing", "Fun"),
         Sfx("heartbeat", "Battement de cœur", "Ambiance"), Sfx("wind", "Vent", "Ambiance"), Sfx("rain", "Pluie", "Ambiance"),
+        // YouTube / TikTok editing pack
+        Sfx("reverse_cymbal", "Cymbale inversée", "Transitions"), Sfx("swoosh_double", "Double swoosh", "Transitions"), Sfx("tape_stop", "Arrêt de bande", "Transitions"),
+        Sfx("bass_drop", "Bass drop", "Impacts"), Sfx("sub_boom", "Sub boom", "Impacts"), Sfx("explosion", "Explosion", "Impacts"), Sfx("sword", "Épée", "Impacts"),
+        Sfx("dun_dun", "Dun dun dunnn", "Comédie"), Sfx("rimshot", "Ba dum tss", "Comédie"), Sfx("record_scratch", "Disque rayé", "Comédie"),
+        Sfx("slide_up", "Sifflet montant", "Comédie"), Sfx("slide_down", "Sifflet descendant", "Comédie"), Sfx("buzzer", "Mauvaise réponse", "Comédie"), Sfx("correct", "Bonne réponse", "Comédie"),
+        Sfx("drumroll", "Roulement de tambour", "Comédie"), Sfx("applause", "Applaudissements", "Ambiance"), Sfx("thunder", "Tonnerre", "Ambiance"), Sfx("tick_tock", "Tic-tac", "Ambiance"),
+        Sfx("cash", "Caisse enregistreuse", "Objets"), Sfx("bubble", "Bulle", "Fun"), Sfx("magic", "Magie", "Fun"),
+        Sfx("jingle_intro", "Jingle d'intro", "Jingles"), Sfx("jingle_outro", "Jingle de fin", "Jingles"), Sfx("suspense", "Suspense", "Jingles"), Sfx("epic_hit", "Impact épique", "Jingles"),
+        Sfx("level_up", "Niveau supérieur (8-bit)", "Jeu vidéo"), Sfx("coin", "Pièce (8-bit)", "Jeu vidéo"), Sfx("jump", "Saut (8-bit)", "Jeu vidéo"),
     )
 
     val musicList = listOf(
@@ -125,10 +134,86 @@ object Synth {
                 }
                 b
             }
-            else -> buf(0.1)
+            else -> extra(id, r) ?: buf(0.1)
         }
         normalize(out, 0.89f)
         return Audio(out, 1)
+    }
+
+    private fun sq(ph: Double) = if (sin(ph) >= 0) 1.0 else -1.0
+
+    /** Sound effects of the creator pack (YouTube / TikTok editing). */
+    private fun extra(id: String, r: java.util.Random): FloatArray? {
+        fun buf(sec: Double) = FloatArray((sec * SR).toInt())
+        fun tone(b: FloatArray, start: Double, dur: Double, f0: Double, f1: Double, amp: Double, square: Boolean = false, decay: Double = 6.0) {
+            val s0 = (start * SR).toInt(); var ph = 0.0; val n = (dur * SR).toInt()
+            for (k in 0 until n) { if (s0 + k >= b.size) break; val t = k.toDouble() / SR; ph += 2 * PI * (f0 + (f1 - f0) * k / n) / SR
+                b[s0 + k] += ((if (square) sq(ph) * 0.4 else sin(ph)) * amp * exp(-t * decay) * min(1.0, t * 400)).toFloat() }
+        }
+        fun noiseBurst(b: FloatArray, start: Double, dur: Double, amp: Double, lp: Double, decay: Double) {
+            val f = Biquad(Biquad.Type.LOWPASS, lp, 0.7).also { it.configure(SR, 1) }
+            val s0 = (start * SR).toInt()
+            for (k in 0 until (dur * SR).toInt()) { if (s0 + k >= b.size) break; val t = k.toDouble() / SR; b[s0 + k] += (f.processSample(noise(r).toDouble(), 0) * amp * exp(-t * decay)).toFloat() }
+        }
+        return when (id) {
+            "reverse_cymbal" -> {
+                val b = buf(2.0); val hp = Biquad(Biquad.Type.HIGHPASS, 3000.0).also { it.configure(SR, 1) }
+                for (i in b.indices) { val t = i.toDouble() / b.size; b[i] = (hp.processSample(noise(r).toDouble(), 0) * t.pow(3) * (if (t > 0.97) (1 - t) / 0.03 else 1.0)).toFloat() }
+                b
+            }
+            "swoosh_double" -> {
+                val b = buf(0.9); val bp = Biquad(Biquad.Type.BANDPASS, 800.0, 1.4).also { it.configure(SR, 1) }
+                for (i in b.indices) { val t = i.toDouble() / b.size; val e = sin(PI * (t * 2 % 1.0)).pow(2); if (i % 64 == 0) { bp.freq = 500 + 5000 * e; bp.update() }; b[i] = (bp.processSample(noise(r).toDouble(), 0) * e * 2.5).toFloat() }
+                b
+            }
+            "tape_stop" -> { val b = buf(1.2); var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / b.size; ph += 2 * PI * 220 * (1 - t).pow(2) / SR; b[i] = ((sin(ph) + 0.5 * sin(ph * 2) + 0.3 * sin(ph * 3)) * (1 - t) * 0.5).toFloat() }; b }
+            "bass_drop" -> { val b = buf(2.2); var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / SR; ph += 2 * PI * (30 + 140 * exp(-t * 2.2)) / SR; b[i] = (tanh(sin(ph) * 2.5) * exp(-t * 0.9)).toFloat() }; b }
+            "sub_boom" -> { val b = buf(1.6); var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / SR; ph += 2 * PI * (40 + 60 * exp(-t * 6)) / SR; b[i] = (sin(ph) * exp(-t * 2.2)).toFloat() }; noiseBurst(b, 0.0, 0.2, 0.4, 900.0, 25.0); b }
+            "explosion" -> { val b = buf(2.6); noiseBurst(b, 0.0, 2.6, 1.2, 1200.0, 1.6); tone(b, 0.0, 1.2, 70.0, 35.0, 0.9, decay = 2.5); reverbInPlace(b, 0.85, 0.3); b }
+            "sword" -> { val b = buf(0.7); val bp = Biquad(Biquad.Type.BANDPASS, 3000.0, 2.0).also { it.configure(SR, 1) }; for (i in b.indices) { val t = i.toDouble() / SR; if (i % 64 == 0) { bp.freq = 1500 + 6000 * exp(-t * 6); bp.update() }; b[i] = (bp.processSample(noise(r).toDouble(), 0) * exp(-t * 7) * 3).toFloat() }; bell(b, 0.12, 2400.0, 0.5); b }
+            "dun_dun" -> { val b = buf(3.0); for ((st, d) in listOf(0.0 to 0.35, 0.45 to 0.35, 0.9 to 2.0)) for (f in listOf(65.4, 98.0, 130.8, 155.6)) tone(b, st, d, f * (if (st > 0.8) 0.94 else 1.0), f * (if (st > 0.8) 0.94 else 1.0), 0.25, decay = if (st > 0.8) 0.8 else 3.0); reverbInPlace(b, 0.8, 0.25); b }
+            "rimshot" -> { val b = buf(1.4); tone(b, 0.0, 0.15, 200.0, 140.0, 0.8, decay = 25.0); noiseBurst(b, 0.0, 0.1, 0.5, 4000.0, 40.0); tone(b, 0.18, 0.12, 180.0, 120.0, 0.8, decay = 25.0); noiseBurst(b, 0.36, 1.0, 0.6, 12000.0, 4.0); b }
+            "record_scratch" -> { val b = buf(0.6); var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / SR; val sp = sin(2 * PI * 7 * t); ph += 2 * PI * (300 + 700 * sp) / SR; b[i] = ((sin(ph) * 0.4 + noise(r) * 0.4 * abs(sp)) * exp(-t * 3)).toFloat() }; b }
+            "slide_up", "slide_down" -> { val b = buf(0.8); var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / b.size; val f = if (id == "slide_up") 400 + 1400 * t else 1800 - 1400 * t; ph += 2 * PI * f * (1 + 0.01 * sin(2 * PI * 6 * t * 0.8)) / SR; b[i] = (sin(ph) * 0.7 * min(1.0, (1 - t) * 8)).toFloat() }; b }
+            "buzzer" -> { val b = buf(0.9); var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / SR; ph += 2 * PI * 110 / SR; b[i] = (sq(ph) * 0.5 * (1 - t / 0.9)).toFloat() }; b }
+            "correct" -> { val b = buf(0.9); tone(b, 0.0, 0.5, 1046.5, 1046.5, 0.5, decay = 4.0); tone(b, 0.12, 0.7, 1568.0, 1568.0, 0.5, decay = 3.5); b }
+            "drumroll" -> { val b = buf(2.6); var t0 = 0.0; while (t0 < 2.2) { noiseBurst(b, t0, 0.06, 0.4 + t0 * 0.2, 3000.0, 60.0); t0 += 0.035 }; noiseBurst(b, 2.25, 0.35, 1.2, 8000.0, 8.0); tone(b, 2.25, 0.4, 90.0, 60.0, 1.0, decay = 8.0); b }
+            "applause" -> { val b = buf(3.0); for (k in 0 until 900) { val st = r.nextDouble() * 2.8; noiseBurst(b, st, 0.02, 0.25 * min(1.0, min(st, 3.0 - st) / 0.6), 6000.0, 150.0) }; b }
+            "thunder" -> { val b = buf(4.0); noiseBurst(b, 0.0, 0.15, 1.0, 6000.0, 10.0); noiseBurst(b, 0.05, 4.0, 1.4, 300.0, 0.9); reverbInPlace(b, 0.95, 0.4); b }
+            "tick_tock" -> { val b = buf(2.0); for (k in 0 until 4) { tone(b, k * 0.5, 0.05, if (k % 2 == 0) 2200.0 else 1700.0, 1500.0, 0.6, decay = 80.0); noiseBurst(b, k * 0.5, 0.02, 0.3, 5000.0, 200.0) }; b }
+            "cash" -> { val b = buf(1.2); noiseBurst(b, 0.0, 0.15, 0.6, 5000.0, 30.0); bell(b, 0.12, 2637.0, 0.8); bell(b, 0.2, 3520.0, 0.6); noiseBurst(b, 0.35, 0.3, 0.3, 9000.0, 12.0); b }
+            "bubble" -> { val b = buf(0.25); var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / SR; ph += 2 * PI * (400 + 2600 * (t / 0.25).pow(0.5)) / SR; b[i] = (sin(ph) * exp(-t * 18) * 0.8).toFloat() }; b }
+            "magic" -> { val b = buf(1.8); for (k in 0 until 14) bell(b, k * 0.07, 1046.5 * 2.0.pow((listOf(0, 4, 7, 11, 12, 16, 19)[k % 7] + (k / 7) * 12) / 12.0), 0.35); reverbInPlace(b, 0.8, 0.35); b }
+            "level_up" -> { val b = buf(1.0); listOf(523.3, 659.3, 784.0, 1046.5, 1318.5, 1568.0).forEachIndexed { k, f -> tone(b, k * 0.08, 0.14, f, f, 0.6, square = true, decay = 4.0) }; tone(b, 0.5, 0.45, 2093.0, 2093.0, 0.5, square = true, decay = 4.0); b }
+            "coin" -> { val b = buf(0.5); tone(b, 0.0, 0.08, 988.0, 988.0, 0.7, square = true, decay = 2.0); tone(b, 0.08, 0.4, 1319.0, 1319.0, 0.7, square = true, decay = 6.0); b }
+            "jump" -> { val b = buf(0.35); var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / b.size; ph += 2 * PI * (300 + 900 * t) / SR; b[i] = (sq(ph) * 0.3 * (1 - t)).toFloat() }; b }
+            "jingle_intro" -> {
+                val b = buf(3.2)
+                listOf(0, 4, 7, 12, 16, 19).forEachIndexed { k, n -> bell(b, k * 0.11, 523.3 * 2.0.pow(n / 12.0), 0.5) }
+                for (f in listOf(130.8, 196.0, 261.6, 329.6)) tone(b, 0.7, 2.4, f, f, 0.22, decay = 1.2)
+                tone(b, 0.7, 0.6, 80.0, 45.0, 0.9, decay = 6.0); noiseBurst(b, 0.7, 1.5, 0.35, 10000.0, 3.0)
+                reverbInPlace(b, 0.7, 0.25); b
+            }
+            "jingle_outro" -> {
+                val b = buf(3.0)
+                listOf(19, 16, 12, 7, 4, 0).forEachIndexed { k, n -> bell(b, k * 0.13, 523.3 * 2.0.pow(n / 12.0), 0.45) }
+                for (f in listOf(130.8, 164.8, 196.0, 261.6)) tone(b, 0.85, 2.1, f, f, 0.22, decay = 1.4)
+                reverbInPlace(b, 0.8, 0.3); b
+            }
+            "suspense" -> {
+                val b = buf(4.0)
+                for (f in listOf(55.0, 58.3, 82.4)) { var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / b.size; ph += 2 * PI * f * (1 + 0.5 * t) / SR; b[i] += (sin(ph) * 0.3 * t).toFloat() } }
+                noiseBurst(b, 0.0, 4.0, 0.15, 2500.0, 0.2); tone(b, 3.6, 0.4, 70.0, 40.0, 1.0, decay = 5.0)
+                b
+            }
+            "epic_hit" -> {
+                val b = buf(3.0)
+                for (f in listOf(65.4, 98.0, 130.8, 155.6, 196.0)) { var ph = 0.0; for (i in b.indices) { val t = i.toDouble() / SR; ph += 2 * PI * f / SR; b[i] += ((2 * ((ph / (2 * PI)) % 1.0) - 1) * 0.15 * exp(-t * 1.1) * min(1.0, t * 60)).toFloat() } }
+                tone(b, 0.0, 1.5, 60.0, 35.0, 1.0, decay = 2.0); noiseBurst(b, 0.0, 2.0, 0.6, 3000.0, 2.0)
+                reverbInPlace(b, 0.9, 0.35); b
+            }
+            else -> null
+        }
     }
 
     private fun bell(b: FloatArray, startSec: Double, f: Double, amp: Double) {

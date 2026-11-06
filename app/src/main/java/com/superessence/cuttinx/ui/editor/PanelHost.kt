@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -68,6 +69,29 @@ fun PanelHost(vm: EditorViewModel, panel: Panel, p: Project, sel: Clip?, track: 
                 Panel.AI -> AiPanel(vm, p, sel, openProject)
                 Panel.EXPORT -> ExportPanel(vm, p)
                 Panel.PRESETS -> FiltersPanel(vm, sel)
+                Panel.MOTION -> MotionPanel(vm, sel!!)
+                Panel.PRO_TOOLS -> ProToolsPanel(vm, p, sel)
+                Panel.ACTIONS -> com.superessence.cuttinx.actions.QuickActionsPanel(
+                    com.superessence.cuttinx.core.smart.EditContext(p, vm.selection.collectAsStateWithLifecycle().value.toList(), vm.position),
+                    cx.accent, onRun = { vm.runQuickAction(it) })
+                Panel.LAB -> com.superessence.cuttinx.lab.LabPanel(
+                    com.superessence.cuttinx.core.smart.EditContext(p, vm.selection.collectAsStateWithLifecycle().value.toList(), vm.position),
+                    cx.accent, onRun = { vm.runQuickAction(it) })
+                Panel.VERSIONS -> com.superessence.cuttinx.versions.VersionsPanel(p, cx.accent,
+                    list = { vm.c.versions.list(p.id) }, load = { vm.c.versions.load(it) },
+                    onSaveNamed = { name -> vm.c.versions.snapshot(vm.current, name, auto = false); vm.message.value = "Version « $name » enregistrée" },
+                    onRestore = { vm.restoreVersion(it); vm.message.value = "Version restaurée (annulable)" },
+                    onDelete = { vm.c.versions.delete(it) })
+                Panel.SMART -> {
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    com.superessence.cuttinx.smart.SmartStudioPanel(p, vm.selection.collectAsStateWithLifecycle().value, vm.position, cx.accent,
+                        onEdit = { label, op -> vm.snapshot("Avant : $label", auto = true); if (vm.edit(label) { op(it) }) vm.message.value = "$label : fait (annulable)" },
+                        onSeek = { vm.preview.seekTo(it) },
+                        onCopy = { t ->
+                            (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager).setPrimaryClip(android.content.ClipData.newPlainText("CUTTINX", t))
+                            vm.message.value = "Chapitres copiés"
+                        })
+                }
             }
         }
     }

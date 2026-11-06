@@ -2,6 +2,8 @@ package com.superessence.cuttinx.core.render
 
 import com.superessence.cuttinx.core.anim.Interpolation
 import com.superessence.cuttinx.core.anim.KeyframeEvaluator
+import com.superessence.cuttinx.core.anim.MotionEvaluator
+import com.superessence.cuttinx.core.model.MotionPreset
 import com.superessence.cuttinx.core.anim.SpeedMath
 import com.superessence.cuttinx.core.effects.EffectRegistry
 import com.superessence.cuttinx.core.effects.LayerMod
@@ -36,8 +38,24 @@ data class LayerState(
 
 object FrameEvaluator {
 
-    /** Base transform of a clip at clip-relative time [relUs]. */
-    fun transform(c: Clip, relUs: Long): LayerTransform {
+    /**
+     * Transform of a clip at clip-relative time [relUs]: keyframes, then (when [withMotion]) the
+     * entry/exit/loop animations of [Clip.motion]. Editing tools use `withMotion = false` so that
+     * animation offsets are never baked into the user's values.
+     */
+    fun transform(c: Clip, relUs: Long, withMotion: Boolean = true): LayerTransform {
+        val base = keyframedTransform(c, relUs)
+        if (!withMotion || c.motion.isIdentity) return base
+        val m = MotionEvaluator.evaluate(c.motion, relUs, c.durationUs)
+        return LayerTransform(
+            posX = base.posX + m.dx, posY = base.posY + m.dy,
+            scaleX = base.scaleX * m.scaleX, scaleY = base.scaleY * m.scaleY,
+            rotation = base.rotation + m.rotation,
+            opacity = (base.opacity * m.alpha).coerceIn(0.0, 1.0),
+        )
+    }
+
+    private fun keyframedTransform(c: Clip, relUs: Long): LayerTransform {
         val t = c.transform
         val k = c.keyframes
         val uniform = KeyframeEvaluator.evaluate(k[Prop.SCALE], relUs, 1.0)
@@ -122,7 +140,23 @@ object FrameEvaluator {
         TextAnimation.BOUNCE -> TextAnimState(alpha = min(1.0, raw * 2), dy = if (raw >= 1) 0.0 else -0.06 * kotlin.math.abs(sin(raw * PI * 2.5)) * (1 - raw))
         TextAnimation.BLUR_IN -> TextAnimState(alpha = e, scale = 1.0 + (1 - e) * 0.15)
         TextAnimation.WAVE -> TextAnimState(alpha = e, rotation = (1 - e) * -12.0, dy = (1 - e) * 0.03)
+        TextAnimation.ELASTIC -> MotionEvaluator.preset(MotionPreset.ELASTIC, raw, false).asText()
+        TextAnimation.DROP -> TextAnimState(alpha = min(1.0, raw * 3), dy = MotionEvaluator.preset(MotionPreset.DROP, raw, false).dy * 0.4)
+        TextAnimation.SPIN -> MotionEvaluator.preset(MotionPreset.SPIN, raw, false).asText()
+        TextAnimation.FLICKER -> MotionEvaluator.preset(MotionPreset.FLICKER, raw, false).asText()
+        TextAnimation.GLITCH -> MotionEvaluator.preset(MotionPreset.GLITCH, raw, false).asText()
+        TextAnimation.STRETCH -> MotionEvaluator.preset(MotionPreset.STRETCH_H, raw, false).let { TextAnimState(alpha = it.alpha, scale = it.scaleX) }
+        TextAnimation.ROLL -> TextAnimState(alpha = e, dx = (1 - e) * 0.3, rotation = (1 - e) * 180)
+        TextAnimation.RISE -> TextAnimState(alpha = e, dy = (1 - e) * 0.12)
+        TextAnimation.SWING -> MotionEvaluator.preset(MotionPreset.SWING, raw, false).asText()
+        TextAnimation.SHAKE -> MotionEvaluator.preset(MotionPreset.SHAKE, raw, false).let { TextAnimState(alpha = it.alpha, dx = it.dx * 0.5, rotation = it.rotation) }
+        TextAnimation.ZOOM_OUT -> TextAnimState(alpha = e, scale = 1.8 - 0.8 * e)
+        // word-by-word reveal (karaoke style captions)
+        TextAnimation.KARAOKE -> TextAnimState(reveal = raw, scale = 1.0 + (1 - e) * 0.06)
     }
+
+    private fun com.superessence.cuttinx.core.anim.MotionState.asText() =
+        TextAnimState(alpha = alpha, dx = dx, dy = dy, scale = (scaleX + scaleY) / 2, rotation = rotation)
 
     /**
      * All visual layers active at [timeUs], bottom first. Video tracks are ordered with the first
