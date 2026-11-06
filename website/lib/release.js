@@ -53,9 +53,26 @@ async function fetchGithubRelease() {
   }
 }
 
-/** What the public pages offer: the version published from the private page, else the automatic GitHub build. */
+/** "2.7.0" > "2.6.1" (missing parts count as 0; anything unreadable counts as the oldest). */
+export function compareVersions(a, b) {
+  const pa = String(a || '').match(/\d+/g)?.map(Number) || []
+  const pb = String(b || '').match(/\d+/g)?.map(Number) || []
+  for (let i = 0; i < Math.max(pa.length, pb.length, 1); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0)
+    if (d) return d
+  }
+  return 0
+}
+
+/**
+ * What the public pages offer: the most recent of the version published from the private page
+ * and the automatic GitHub build (an old manual upload never hides a newer build).
+ */
 export async function getPublicRelease() {
-  return (await getRelease()) || (await getGithubRelease())
+  const [own, gh] = await Promise.all([getRelease(), getGithubRelease()])
+  if (!own) return gh
+  if (!gh) return own
+  return compareVersions(gh.version, own.version) > 0 ? gh : own
 }
 
 export async function getRelease() {
