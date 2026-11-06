@@ -34,4 +34,8 @@ def tap(label, tries=6, exact=False):
 if __name__ == "__main__":
     cmd = sys.argv[1]
     if cmd == "tap": sys.exit(0 if tap(sys.argv[2], exact=len(sys.argv) > 3) else 1)
+    if cmd == "pos":
+        for txt, x, y in nodes():
+            if any(p.strip() == sys.argv[2] for p in txt.split("|")): print(x, y); sys.exit(0)
+        sys.exit(1)
     if cmd == "list": [print(t) for t, _, _ in nodes() if t.strip(" |")]

@@ -50,29 +50,32 @@ $UI list > "$OUT/editor.txt"
 
 # toolbar: scroll to the one-gesture and Plus tools
 W=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1 | cut -dx -f1); H=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1 | cut -dx -f2)
-Y=$((H * 93 / 100))
-rec_start toolbar 8
-for i in 1 2 3 4; do adb shell input swipe $((W * 85 / 100)) $Y $((W * 15 / 100)) $Y 600; sleep 1; done
+Y=$($UI pos "Média" | cut -d' ' -f2); Y=${Y:-$((H * 93 / 100))}; echo "toolbar y=$Y"
+rec_start toolbar 10
+sleep 1
+for i in 1 2 3 4 5 6; do adb shell input swipe $((W * 85 / 100)) $Y $((W * 20 / 100)) $Y 350; sleep 1; done
 rec_end toolbar
 shot toolbar_plus
-tap "Sur la musique"; sleep 2; shot plus_dialog; dismiss
-for i in 1 2 3 4; do adb shell input swipe $((W * 15 / 100)) $Y $((W * 85 / 100)) $Y 300; done; sleep 1
+$UI list > "$OUT/toolbar.txt"
+tap "Sur la musique"; sleep 2; shot plus_dialog; tap "Plus tard"
+for i in 1 2 3 4 5 6; do adb shell input swipe $((W * 20 / 100)) $Y $((W * 85 / 100)) $Y 200; done; sleep 1
 
-# filters and effects with their pictures (computed on the takes)
-tap "Filtres"; sleep 6; shot filters
-tap "Cinéma"; sleep 5; shot filters_cinema
-adb shell input keyevent KEYCODE_BACK; sleep 2
-tap "Effets"; sleep 6; shot effects
-adb shell input keyevent KEYCODE_BACK; sleep 2
 tap "Labo"; sleep 3; shot labo
-adb shell input keyevent KEYCODE_BACK; sleep 2
-tap "Studio"; sleep 3; shot studio
-adb shell input keyevent KEYCODE_BACK; sleep 2
+tap "Montage rapide"; sleep 1
+# filters and effects with their pictures (computed on the takes)
+tap "Colorimétrie"; sleep 8; shot filters
+tap "Cinéma"; sleep 7; shot filters_cinema
+tap "Montage rapide"; sleep 1
+tap "Effets"; sleep 8; shot effects
+tap "Montage rapide"; sleep 1
+tap "Studio pro"; sleep 3; shot studio
+tap "Montage rapide"; sleep 1
 tap "Exporter"; sleep 3; shot export
-adb shell input keyevent KEYCODE_BACK; sleep 2
+adb shell input swipe $((W / 2)) $((H * 85 / 100)) $((W / 2)) $((H * 50 / 100)) 400; sleep 1; shot export_2
+tap "Montage rapide"; sleep 1
 
 # home, settings
-adb shell input keyevent KEYCODE_BACK; sleep 3; dismiss
+adb shell input keyevent KEYCODE_BACK; sleep 3; adb shell input keyevent KEYCODE_BACK; sleep 3; wait_for "Filmer" 5
 tap "Menu"; tap "Paramètres"; sleep 2; shot settings
 adb shell input swipe $((W / 2)) $((H * 80 / 100)) $((W / 2)) $((H * 25 / 100)) 500; sleep 1; shot settings_2
 adb logcat -d -s AndroidRuntime:E > "$OUT/logcat_crash.txt"
