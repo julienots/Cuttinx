@@ -37,6 +37,9 @@ sealed interface Screen {
     data object Claude : Screen
     /** The CUTTINX camera; [projectId] = add the takes to this open project, null = a new project. */
     data class Recorder(val projectId: String?) : Screen
+    data object Photo : Screen
+    data object Collage : Screen
+    data object Audio : Screen
 }
 
 @UnstableApi
@@ -105,8 +108,9 @@ class MainActivity : ComponentActivity() {
                     }, onClose = { c.crashLog.markSeen(f); crashReport = null })
                 }
                 when (val s = stack.last()) {
-                    Screen.Splash -> com.superessence.cuttinx.motion.LaunchIntro(onDone = { if (stack.lastOrNull() == Screen.Splash) replace(Screen.Home) })
-                    Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) }, openClaude = { push(Screen.Claude) }, openRecorder = { push(Screen.Recorder(null)) })
+                    Screen.Splash -> com.superessence.cuttinx.motion.LaunchIntro(onDone = { if (stack.lastOrNull() == Screen.Splash) replace(Screen.Home) }, version = com.superessence.cuttinx.BuildConfig.VERSION_NAME.removeSuffix(".0"))
+                    Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) }, openClaude = { push(Screen.Claude) }, openRecorder = { push(Screen.Recorder(null)) },
+                        openPhoto = { push(Screen.Photo) }, openCollage = { push(Screen.Collage) }, openAudio = { push(Screen.Audio) })
                     is Screen.Editor -> key(s.id) {
                         val vm: EditorViewModel = viewModel(key = s.id, factory = EditorViewModel.Factory(application, s.id))
                         EditorScreen(vm, onBack = { pop() }, openProject = { id -> replace(Screen.Editor(id)) }, openRecorder = { push(Screen.Recorder(s.id)) })
@@ -117,6 +121,9 @@ class MainActivity : ComponentActivity() {
                         val p = t.build(t.list.last()); c.store.save(p); replace(Screen.Editor(p.id))
                     } }
                     Screen.Licenses -> { BackHandler { pop() }; LicensesScreen { pop() } }
+                    Screen.Photo -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.PhotoStudio { pop() } }
+                    Screen.Collage -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.CollageStudio { pop() } }
+                    Screen.Audio -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.AudioStudio { pop() } }
                     is Screen.Recorder -> {
                         BackHandler { pop() }
                         val scope = rememberCoroutineScope()

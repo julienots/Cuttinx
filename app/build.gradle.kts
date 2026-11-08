@@ -15,8 +15,8 @@ android {
         applicationId = "com.superessence.cuttinx"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "2.7.0"
+        versionCode = 14
+        versionName = "3.0.0"
         vectorDrawables.useSupportLibrary = true
         // AdMob (pubs vidéo récompensées plein écran du Labo CUTTINX) : identifiants réels de l'éditeur.
         // Remplaçables par -Pcuttinx.admobAppId=… -Pcuttinx.admobRewardedId=… ou par les secrets CI
