@@ -350,7 +350,11 @@ private fun VersionHero(onNew: () -> Unit, onImport: () -> Unit, onNews: () -> U
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(shape).background(cx.panel).border(1.dp, cx.line, shape)) {
         Box(Modifier.width(4.dp).fillMaxHeight().background(cx.accent))
         Column(Modifier.weight(1f).padding(18.dp)) {
-            Text("CUTTINX PRO", color = cx.dim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("CUTTINX PRO", Modifier.weight(1f), color = cx.dim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, maxLines = 1)
+                Text("Quoi de neuf ›", Modifier.clip(com.superessence.cuttinx.design.CxDesign.Chip).clickable(onClick = onNews).padding(horizontal = 6.dp, vertical = 4.dp),
+                    color = cx.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+            }
             Row(verticalAlignment = Alignment.Bottom) {
                 Text("Version ", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                 Text(rel.version, fontFamily = com.superessence.cuttinx.ui.theme.CuttinxDisplay, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, color = cx.accent, lineHeight = 40.sp)
@@ -359,10 +363,9 @@ private fun VersionHero(onNew: () -> Unit, onImport: () -> Unit, onNews: () -> U
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onNew, shape = com.superessence.cuttinx.design.CxDesign.Button, colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent)) {
-                    Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Nouveau projet", fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Nouveau projet", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                 }
-                OutlinedButton(onImport, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Importer") }
-                TextButton(onNews) { Text("Quoi de neuf", color = cx.accent) }
+                OutlinedButton(onImport, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Importer", maxLines = 1, softWrap = false) }
             }
         }
     }
