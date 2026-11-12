@@ -50,7 +50,8 @@ import java.util.Date
 @UnstableApi
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit, openClaude: () -> Unit = {}, openRecorder: () -> Unit = {}) {
+fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit, openClaude: () -> Unit = {}, openRecorder: () -> Unit = {},
+    openPhoto: () -> Unit = {}, openCollage: () -> Unit = {}, openAudio: () -> Unit = {}) {
     val vm: HomeViewModel = viewModel()
     // Projets créés par Claude : rafraîchir la liste quand il en crée un
     val claude by com.superessence.cuttinx.claude.ClaudeLink.state.collectAsStateWithLifecycle()
@@ -73,12 +74,16 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
     var exportFor by remember { mutableStateOf<ProjectSummary?>(null) }
     var exportWithMedia by remember { mutableStateOf(true) }
     var menuOpen by remember { mutableStateOf(false) }
+    // « Quoi de neuf » opens by itself once per version
+    val uiPrefs = remember { ctxPrefs(vm) }
+    var showNews by remember { mutableStateOf(uiPrefs.getString("seen_version", "") != com.superessence.cuttinx.core.create.Releases.current.version) }
     var tab by rememberSaveable { mutableStateOf(StudioTab.EDITOR) }
     val studio: com.superessence.cuttinx.ui.twitch.StudioViewModel = viewModel()
     var quickFormat by remember { mutableStateOf(ProjectFormat.forAspect(settings.defaultAspect, fps = settings.defaultFps)) }
 
     LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it); vm.message.value = null } }
     LaunchedEffect(Unit) { vm.refresh() }
+    if (showNews) WhatsNewDialog { showNews = false; uiPrefs.edit().putString("seen_version", com.superessence.cuttinx.core.create.Releases.current.version).apply() }
 
     val quickPick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(50)) { uris ->
         if (uris.isNotEmpty()) scope.launch {
@@ -95,9 +100,9 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
     val importDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.importArchive(uri) }
 
     Scaffold(snackbarHost = { SnackbarHost(snack) }, containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = { RecordBar(openRecorder) },
+        bottomBar = { HomeNav(openRecorder, openPhoto, openCollage, openAudio) },
         topBar = {
-            TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { CuttinxMark(30.dp); Spacer(Modifier.width(8.dp)); CuttinxWordmark(24.sp); Spacer(Modifier.width(6.dp)); ProBadge() } },
+            TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { CuttinxMark(30.dp); Spacer(Modifier.width(8.dp)); CuttinxWordmark(24.sp); Spacer(Modifier.width(8.dp)); VersionChip() } },
                 actions = {
                     IconButton(openClaude) { Icon(Icons.Outlined.AutoAwesome, "Claude", tint = if (claudeOn) androidx.compose.ui.graphics.Color(0xFF30A46C) else androidx.compose.material3.LocalContentColor.current) }
                     // one menu instead of a row of icons
@@ -130,21 +135,12 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
         LazyVerticalGrid(GridCells.Adaptive(160.dp), Modifier.fillMaxSize(), contentPadding = PaddingValues(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column {
-                    // start card: flat, informative, no decoration
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(cx.panel).border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp)).padding(20.dp)) {
-                        Text("Nouveau projet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(4.dp))
-                        Text("Importez vos médias ou partez d'une timeline vide. Montage multipiste, effets, transitions et audio ; export jusqu'en 4K, sans filigrane.", color = cx.dim, style = MaterialTheme.typography.bodySmall)
-                        Spacer(Modifier.height(14.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Button({ showNew = true }, shape = RoundedCornerShape(8.dp), colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent)) {
-                                Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Créer", fontWeight = FontWeight.SemiBold)
-                            }
-                            OutlinedButton({ quickPick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, shape = RoundedCornerShape(8.dp)) {
-                                Icon(Icons.Default.VideoLibrary, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Importer des médias")
-                            }
-                        }
-                    }
+                    // hero: the version, what is new, the main actions
+                    VersionHero(onNew = { showNew = true }, onImport = { quickPick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, onNews = { showNews = true })
+                    Spacer(Modifier.height(16.dp))
+                    Text("Créer", style = MaterialTheme.typography.labelLarge, color = cx.dim, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
+                    CreateRow(onVideo = { showNew = true }, onFilm = openRecorder, onPhoto = openPhoto, onCollage = openCollage, onAudio = openAudio)
+                    Spacer(Modifier.height(8.dp))
                     busy?.let { Spacer(Modifier.height(10.dp)); ProgressCard(it, null) }
                     if (recoveries.isNotEmpty()) {
                         Spacer(Modifier.height(10.dp))
@@ -331,5 +327,138 @@ private fun RecordBar(openRecorder: () -> Unit) {
                 Text("Filmer", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+}
+
+
+private fun ctxPrefs(vm: HomeViewModel) = vm.getApplication<android.app.Application>().getSharedPreferences("cuttinx_ui", android.content.Context.MODE_PRIVATE)
+
+/** The installed version, always visible next to the logo. */
+@Composable
+private fun VersionChip() {
+    val cx = LocalCx.current
+    Text("v" + com.superessence.cuttinx.BuildConfig.VERSION_NAME.removeSuffix(".0"), color = cx.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
+        modifier = Modifier.border(1.dp, cx.accent.copy(alpha = 0.7f), RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 1.dp))
+}
+
+/** Top of the editor space: the version in big, its headline, and the main actions. */
+@Composable
+private fun VersionHero(onNew: () -> Unit, onImport: () -> Unit, onNews: () -> Unit) {
+    val cx = LocalCx.current
+    val rel = com.superessence.cuttinx.core.create.Releases.current
+    val shape = com.superessence.cuttinx.design.CxDesign.Card
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(shape).background(cx.panel).border(1.dp, cx.line, shape)) {
+        Box(Modifier.width(4.dp).fillMaxHeight().background(cx.accent))
+        Column(Modifier.weight(1f).padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("CUTTINX PRO", Modifier.weight(1f), color = cx.dim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, maxLines = 1)
+                Text("Quoi de neuf ›", Modifier.clip(com.superessence.cuttinx.design.CxDesign.Chip).clickable(onClick = onNews).padding(horizontal = 6.dp, vertical = 4.dp),
+                    color = cx.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+            }
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("Version ", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text(rel.version, fontFamily = com.superessence.cuttinx.ui.theme.CuttinxDisplay, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, color = cx.accent, lineHeight = 40.sp)
+            }
+            Text(rel.title + " : " + rel.items.joinToString(" · ") { it.first }, color = cx.dim, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onNew, shape = com.superessence.cuttinx.design.CxDesign.Button, colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent)) {
+                    Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Nouveau projet", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+                }
+                OutlinedButton(onImport, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Importer", maxLines = 1, softWrap = false) }
+            }
+        }
+    }
+}
+
+/** One tile per kind of creation: video, camera, photo, collage, audio. */
+@Composable
+private fun CreateRow(onVideo: () -> Unit, onFilm: () -> Unit, onPhoto: () -> Unit, onCollage: () -> Unit, onAudio: () -> Unit) {
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        CreateTile(Icons.Default.Movie, "Vidéo", "Montage multipiste", Cx.Yellow, false, onVideo)
+        CreateTile(Icons.Default.Videocam, "Filmer", "Caméra 4K", Color(0xFFFF3B30), false, onFilm)
+        CreateTile(Icons.Default.Photo, "Photo", "Retouche pro", Color(0xFF3D8BFF), true, onPhoto)
+        CreateTile(Icons.Default.Dashboard, "Collage", "Et carrousel", Color(0xFFFF4FA3), true, onCollage)
+        CreateTile(Icons.Default.GraphicEq, "Audio", "Son studio", Color(0xFF2FB67C), true, onAudio)
+    }
+}
+
+@Composable
+private fun CreateTile(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, sub: String, color: Color, isNew: Boolean, onClick: () -> Unit) {
+    val cx = LocalCx.current
+    val shape = com.superessence.cuttinx.design.CxDesign.Card
+    Column(Modifier.width(118.dp).clip(shape).background(cx.panel).border(1.dp, cx.line, shape).clickable(onClick = onClick).padding(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(9.dp)).background(color.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, Modifier.size(20.dp), tint = color)
+            }
+            Spacer(Modifier.weight(1f))
+            if (isNew) Text("3.0", color = cx.accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+        Text(sub, color = cx.dim, fontSize = 11.5.sp, maxLines = 1)
+    }
+}
+
+/** « Quoi de neuf » : the versions and what each one brought. */
+@Composable
+private fun WhatsNewDialog(onDismiss: () -> Unit) {
+    val cx = LocalCx.current
+    AlertDialog(onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("Quoi de neuf", fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.width(8.dp))
+                Text("v" + com.superessence.cuttinx.core.create.Releases.current.version, color = cx.accent, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                com.superessence.cuttinx.core.create.Releases.all.forEachIndexed { i, r ->
+                    if (i > 0) Box(Modifier.fillMaxWidth().padding(vertical = 12.dp).height(1.dp).background(cx.line))
+                    Text("${r.version} · ${r.title}", fontWeight = FontWeight.SemiBold, color = if (i == 0) cx.accent else MaterialTheme.colorScheme.onSurface)
+                    for ((t, d) in r.items) Column(Modifier.padding(top = 8.dp)) {
+                        Text(t, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text(d, color = cx.dim, fontSize = 12.5.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = { Button(onDismiss, shape = com.superessence.cuttinx.design.CxDesign.Button, colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent)) { Text("C'est parti") } },
+    )
+}
+
+/** Bottom navigation: the studios on each side, the camera in the middle. */
+@Composable
+private fun HomeNav(openRecorder: () -> Unit, openPhoto: () -> Unit, openCollage: () -> Unit, openAudio: () -> Unit) {
+    val cx = LocalCx.current
+    Column(Modifier.fillMaxWidth().background(cx.panel).navigationBarsPadding()) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(cx.line))
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            NavItem(Icons.Default.Movie, "Projets", true, Modifier.weight(1f)) {}
+            NavItem(Icons.Default.Photo, "Photo", false, Modifier.weight(1f), openPhoto)
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable(onClick = openRecorder), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(52.dp).clip(androidx.compose.foundation.shape.CircleShape).border(3.dp, MaterialTheme.colorScheme.onSurface, androidx.compose.foundation.shape.CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(38.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFFF3B30)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Videocam, null, Modifier.size(20.dp), tint = Color.White)
+                    }
+                }
+                Text("Filmer", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
+            }
+            NavItem(Icons.Default.Dashboard, "Collage", false, Modifier.weight(1f), openCollage)
+            NavItem(Icons.Default.GraphicEq, "Audio", false, Modifier.weight(1f), openAudio)
+        }
+    }
+}
+
+@Composable
+private fun NavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val cx = LocalCx.current
+    val tint = if (selected) cx.accent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    Column(modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(icon, label, Modifier.size(24.dp), tint = tint)
+        Text(label, fontSize = 11.sp, color = tint, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, modifier = Modifier.padding(top = 3.dp))
     }
 }
