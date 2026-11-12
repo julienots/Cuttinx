@@ -40,17 +40,23 @@ sealed interface Screen {
     data object Photo : Screen
     data object Collage : Screen
     data object Audio : Screen
+    data object Gif : Screen
+    data object Planner : Screen
 }
 
 @UnstableApi
 class MainActivity : ComponentActivity() {
     private val shared = mutableStateOf<List<Uri>>(emptyList())
+    /** A planner reminder was tapped: open the planning. */
+    private val openPlanner = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleIntent(intent)
         val c = (application as CuttinxApp).container
+        // reminders of the publication plan (alarms do not survive an update)
+        Thread { runCatching { com.superessence.cuttinx.planner.PlannerStore.rescheduleAll(applicationContext) } }.start()
         // pubs du Labo CUTTINX : consentement (RGPD) puis démarrage du SDK, sans bloquer l'appli
         window.decorView.postDelayed({ runCatching { com.superessence.cuttinx.ads.Ads.init(this) } }, 2500)
         if (Build.VERSION.SDK_INT >= 33) runCatching { requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1) }
@@ -89,6 +95,10 @@ class MainActivity : ComponentActivity() {
                 fun pop() { if (stack.size > 1) stack = stack.dropLast(1) else finish() }
                 fun replace(s: Screen) { stack = stack.dropLast(1) + s }
                 val sharedUris by shared
+                val plannerAsked by openPlanner
+                LaunchedEffect(plannerAsked, stack.last()) {
+                    if (plannerAsked && stack.last() != Screen.Splash) { openPlanner.value = false; if (stack.last() != Screen.Planner) push(Screen.Planner) }
+                }
                 LaunchedEffect(sharedUris, stack.last()) {
                     if (sharedUris.isNotEmpty() && stack.last() == Screen.Home) {
                         val uris = sharedUris; shared.value = emptyList()
@@ -110,7 +120,8 @@ class MainActivity : ComponentActivity() {
                 when (val s = stack.last()) {
                     Screen.Splash -> com.superessence.cuttinx.motion.LaunchIntro(onDone = { if (stack.lastOrNull() == Screen.Splash) replace(Screen.Home) }, version = com.superessence.cuttinx.BuildConfig.VERSION_NAME.removeSuffix(".0"))
                     Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) }, openClaude = { push(Screen.Claude) }, openRecorder = { push(Screen.Recorder(null)) },
-                        openPhoto = { push(Screen.Photo) }, openCollage = { push(Screen.Collage) }, openAudio = { push(Screen.Audio) })
+                        openPhoto = { push(Screen.Photo) }, openCollage = { push(Screen.Collage) }, openAudio = { push(Screen.Audio) },
+                        openGif = { push(Screen.Gif) }, openPlanner = { push(Screen.Planner) })
                     is Screen.Editor -> key(s.id) {
                         val vm: EditorViewModel = viewModel(key = s.id, factory = EditorViewModel.Factory(application, s.id))
                         EditorScreen(vm, onBack = { pop() }, openProject = { id -> replace(Screen.Editor(id)) }, openRecorder = { push(Screen.Recorder(s.id)) })
@@ -124,6 +135,8 @@ class MainActivity : ComponentActivity() {
                     Screen.Photo -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.PhotoStudio { pop() } }
                     Screen.Collage -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.CollageStudio { pop() } }
                     Screen.Audio -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.AudioStudio { pop() } }
+                    Screen.Gif -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.GifStudio { pop() } }
+                    Screen.Planner -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.PlannerScreen { pop() } }
                     is Screen.Recorder -> {
                         BackHandler { pop() }
                         val scope = rememberCoroutineScope()
@@ -154,6 +167,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(i: Intent?) {
         i ?: return
+        if (i.getStringExtra("open") == "planner") { openPlanner.value = true; return }
         // cuttinx://plus?code=CXP1.… (button of the site's confirmation page): switch CUTTINX Plus on
         val d = i.data
         if (i.action == Intent.ACTION_VIEW && d?.scheme == "cuttinx" && d.host == "plus") {

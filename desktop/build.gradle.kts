@@ -50,7 +50,7 @@ compose.desktop {
             modules("java.desktop", "java.sql", "java.naming", "java.management", "jdk.unsupported", "jdk.crypto.ec")
             targetFormats(TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb)
             packageName = "CuttinxPRO"
-            packageVersion = "3.0.0"
+            packageVersion = "3.1.0"
             description = "Cuttinx PRO — éditeur vidéo, Twitch Editor et ID Influenceur"
             vendor = "SuperEssence Creative Studio"
             windows {

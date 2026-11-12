@@ -5,6 +5,12 @@ object Releases {
     class Entry(val version: String, val title: String, val items: List<Pair<String, String>>)
 
     val all = listOf(
+        Entry("3.1", "Prépare, publie, fais le buzz", listOf(
+            "Studio GIF" to "Une vidéo devient un GIF animé : boomerang, inversé, ralenti ou accéléré, légende façon mème, partage direct",
+            "Planning de publication" to "Ta semaine sur TikTok, Instagram, YouTube… les meilleurs moments pour publier et un rappel à l'heure",
+            "Légendes et hashtags" to "Trois légendes au choix selon le ton, hashtags adaptés, vérification des limites de chaque réseau",
+            "Suivi" to "Publications à venir, en retard, série de semaines publiées",
+        )),
         Entry("3.0", "Bien plus que la vidéo", listOf(
             "Studio Photo" to "Filtres en direct, réglages pro, recadrage aux formats des réseaux, amélioration automatique (Plus)",
             "Collage et carrousel" to "Grilles, mosaïques, une grande photo, bandes ; carrousel Instagram sans raccord visible",

@@ -51,7 +51,7 @@ import java.util.Date
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit, openClaude: () -> Unit = {}, openRecorder: () -> Unit = {},
-    openPhoto: () -> Unit = {}, openCollage: () -> Unit = {}, openAudio: () -> Unit = {}) {
+    openPhoto: () -> Unit = {}, openCollage: () -> Unit = {}, openAudio: () -> Unit = {}, openGif: () -> Unit = {}, openPlanner: () -> Unit = {}) {
     val vm: HomeViewModel = viewModel()
     // Projets créés par Claude : rafraîchir la liste quand il en crée un
     val claude by com.superessence.cuttinx.claude.ClaudeLink.state.collectAsStateWithLifecycle()
@@ -110,6 +110,7 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
                         IconButton({ menuOpen = true }) { Icon(Icons.Default.MoreVert, "Menu") }
                         DropdownMenu(menuOpen, { menuOpen = false }) {
                             DropdownMenuItem({ Text("Claude (montage par l'IA)") }, { menuOpen = false; openClaude() }, leadingIcon = { Icon(Icons.Outlined.AutoAwesome, null) })
+                            DropdownMenuItem({ Text("Planning de publication") }, { menuOpen = false; openPlanner() }, leadingIcon = { Icon(Icons.Default.CalendarMonth, null) })
                             DropdownMenuItem({ Text("Aide & tutos vidéo") }, { menuOpen = false; openHelp() }, leadingIcon = { Icon(Icons.AutoMirrored.Outlined.HelpOutline, null) })
                             DropdownMenuItem({ Text("Paramètres") }, { menuOpen = false; openSettings() }, leadingIcon = { Icon(Icons.Outlined.Settings, null) })
                             DropdownMenuItem({ Text("Importer un projet") }, { menuOpen = false; importDoc.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }, leadingIcon = { Icon(Icons.Default.FileOpen, null) })
@@ -139,7 +140,7 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
                     VersionHero(onNew = { showNew = true }, onImport = { quickPick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, onNews = { showNews = true })
                     Spacer(Modifier.height(16.dp))
                     Text("Créer", style = MaterialTheme.typography.labelLarge, color = cx.dim, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
-                    CreateRow(onVideo = { showNew = true }, onFilm = openRecorder, onPhoto = openPhoto, onCollage = openCollage, onAudio = openAudio)
+                    CreateRow(onVideo = { showNew = true }, onFilm = openRecorder, onPhoto = openPhoto, onCollage = openCollage, onAudio = openAudio, onGif = openGif, onPlanner = openPlanner)
                     Spacer(Modifier.height(8.dp))
                     busy?.let { Spacer(Modifier.height(10.dp)); ProgressCard(it, null) }
                     if (recoveries.isNotEmpty()) {
@@ -373,18 +374,20 @@ private fun VersionHero(onNew: () -> Unit, onImport: () -> Unit, onNews: () -> U
 
 /** One tile per kind of creation: video, camera, photo, collage, audio. */
 @Composable
-private fun CreateRow(onVideo: () -> Unit, onFilm: () -> Unit, onPhoto: () -> Unit, onCollage: () -> Unit, onAudio: () -> Unit) {
+private fun CreateRow(onVideo: () -> Unit, onFilm: () -> Unit, onPhoto: () -> Unit, onCollage: () -> Unit, onAudio: () -> Unit, onGif: () -> Unit, onPlanner: () -> Unit) {
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        CreateTile(Icons.Default.Movie, "Vidéo", "Montage multipiste", Cx.Yellow, false, onVideo)
-        CreateTile(Icons.Default.Videocam, "Filmer", "Caméra 4K", Color(0xFFFF3B30), false, onFilm)
-        CreateTile(Icons.Default.Photo, "Photo", "Retouche pro", Color(0xFF3D8BFF), true, onPhoto)
-        CreateTile(Icons.Default.Dashboard, "Collage", "Et carrousel", Color(0xFFFF4FA3), true, onCollage)
-        CreateTile(Icons.Default.GraphicEq, "Audio", "Son studio", Color(0xFF2FB67C), true, onAudio)
+        CreateTile(Icons.Default.Movie, "Vidéo", "Montage multipiste", Cx.Yellow, null, onVideo)
+        CreateTile(Icons.Default.Videocam, "Filmer", "Caméra 4K", Color(0xFFFF3B30), null, onFilm)
+        CreateTile(Icons.Default.Gif, "GIF", "Boomerang, mème", Color(0xFFFF9F0A), "3.1", onGif)
+        CreateTile(Icons.Default.CalendarMonth, "Planning", "Publie au bon moment", Color(0xFFB57BFF), "3.1", onPlanner)
+        CreateTile(Icons.Default.Photo, "Photo", "Retouche pro", Color(0xFF3D8BFF), null, onPhoto)
+        CreateTile(Icons.Default.Dashboard, "Collage", "Et carrousel", Color(0xFFFF4FA3), null, onCollage)
+        CreateTile(Icons.Default.GraphicEq, "Audio", "Son studio", Color(0xFF2FB67C), null, onAudio)
     }
 }
 
 @Composable
-private fun CreateTile(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, sub: String, color: Color, isNew: Boolean, onClick: () -> Unit) {
+private fun CreateTile(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, sub: String, color: Color, badge: String?, onClick: () -> Unit) {
     val cx = LocalCx.current
     val shape = com.superessence.cuttinx.design.CxDesign.Card
     Column(Modifier.width(118.dp).clip(shape).background(cx.panel).border(1.dp, cx.line, shape).clickable(onClick = onClick).padding(14.dp)) {
@@ -393,7 +396,7 @@ private fun CreateTile(icon: androidx.compose.ui.graphics.vector.ImageVector, ti
                 Icon(icon, null, Modifier.size(20.dp), tint = color)
             }
             Spacer(Modifier.weight(1f))
-            if (isNew) Text("3.0", color = cx.accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            if (badge != null) Text(badge, color = cx.accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(10.dp))
         Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)

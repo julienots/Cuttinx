@@ -59,6 +59,12 @@ fois, sur demande.
 - **Lecteur fiable** : les calques qui sortent du cadre (glissements, transitions, animations) ne bloquent
   plus la lecture ; en cas d'échec GPU propre à un téléphone, l'aperçu se reconstruit automatiquement
   (mode simplifié) et un bouton « Réessayer » relance la lecture.
+- **Nouveau en 3.1** : **Studio GIF** (vidéo → GIF animé normal, boomerang ou inversé, vitesse 0,5×–3×,
+  8–25 i/s, 240–800 px, légende façon mème, encodeur GIF original avec palette par image et tramage,
+  enregistrement dans Images › Cuttinx ou partage), **Planning de publication** (semaine de publications
+  par réseau, meilleurs créneaux proposés, statut idée → publié, rappel par notification à l'heure prévue,
+  série de semaines publiées) et **légendes & hashtags** générés sur le téléphone selon le ton, avec
+  vérification des limites de chaque réseau (longueur, nombre de hashtags, appel à l'action).
 - **Export** : MP4 H.264 / HEVC / AV1 (selon les encodeurs réels du téléphone), 480p → 4K,
   24–60 i/s, débit et qualité réglables, progression, annulation, mesure réelle du fichier produit.
 - **Projets** : autosave, 5 versions de secours, récupération après crash, duplication, archivage,

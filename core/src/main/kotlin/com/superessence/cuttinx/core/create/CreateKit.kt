@@ -24,7 +24,7 @@ enum class CollageStyle(val label: String) { GRID("Grille"), MOSAIC("Mosaïque")
  * (waveform). Pure functions: the apps only draw.
  */
 object CreateKit {
-    const val VERSION = "3.0"
+    const val VERSION = "3.1"
 
     // ------------------------------------------------------------------ crop
 
