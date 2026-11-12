@@ -24,6 +24,10 @@ import com.superessence.cuttinx.media.PcmDecoder
 import com.superessence.cuttinx.media.Thumbnails
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.withContext
 
 /**
@@ -51,7 +55,113 @@ object EditorMagic {
         Tech.SHOT_MATCH -> shotMatch(vm)
         Tech.SMART_VERTICAL -> smartVertical(vm)
         Tech.STUDIO_SOUND -> studioSound(vm)
+        Tech.HYPER_DIRECTOR -> { DirectorUi.asking = true; Unit }
+        Tech.STABILIZE -> stabilize(vm)
+        Tech.MOTION_MATCH -> motionMatch(vm)
         else -> Unit
+    }
+
+    // ------------------------------------------------------------------ 3.2: autonomous director, stabilisation, motion cuts
+
+    /**
+     * The autonomous director: every video of the main track is read (interest of each moment,
+     * sound, colour, camera movement, subject), the music is listened to (beats, bars, energy),
+     * then [HyperDirector] writes the whole film in one undoable edit.
+     */
+    fun hyperDirector(vm: EditorViewModel, style: com.superessence.cuttinx.core.smart.DirectorStyle, targetUs: Long, hook: String?) = vm.runTask("Réalisateur autonome") { prog ->
+        val p = vm.current
+        val clips = videoClips(p)
+        if (clips.isEmpty()) error("Ajoute tes vidéos sur la piste principale : le réalisateur monte à partir d'elles")
+        val vertical = p.format.width < p.format.height
+        val takes = ArrayList<com.superessence.cuttinx.core.smart.HyperDirector.Take>()
+        clips.forEachIndexed { i, c ->
+            ensureActive()
+            val name = c.name.ifBlank { "prise ${i + 1}" }
+            prog(0.05f + 0.7f * i / clips.size, "Je regarde « $name » (${i + 1}/${clips.size})")
+            val a = p.asset(c.assetId)!!
+            val step = maxOf(66_000L, c.sourceDurationUs / 600)
+            val fr = withContext(Dispatchers.IO) { FrameSampler.sample(vm.ctx, a, c.sourceInUs, c.sourceOutUs, step, 64, cancelled = { !isActive }) }
+            if (fr.size < 2) return@forEachIndexed
+            ensureActive()
+            val stats = VideoAnalysis.stats(fr)
+            val audioDb = if (a.hasAudio) withContext(Dispatchers.IO) {
+                runCatching { PcmDecoder.decode(vm.ctx, Uri.parse(a.uri), c.sourceInUs, c.sourceOutUs, downmix = true, maxSeconds = 1800.0) }.getOrNull()
+                    ?.let { AudioAnalysis.envelopeDb(it.samples, it.sampleRate, 1, 50) }
+            } ?: DoubleArray(0) else DoubleArray(0)
+            val motion = com.superessence.cuttinx.core.smart.CameraMotion.estimate(fr)
+            val reframe = if (vertical && a.displayWidth > a.displayHeight) SubjectAnalysis.autoReframe(fr, a.displayWidth, a.displayHeight, p.format.width, p.format.height) else emptyList()
+            takes += com.superessence.cuttinx.core.smart.HyperDirector.Take(c.id, stats, audioDb, 50_000, Magic.measure(fr.filterIndexed { k, _ -> k % 8 == 0 }), motion, reframe)
+        }
+        if (takes.isEmpty()) error("Ces vidéos n'ont pas pu être lues")
+        // the music (a music track first, else none: the director then follows a narrative arc)
+        val musicClip = Magic.musicClip(p)
+        val music = musicClip?.let { mc ->
+            val ma = p.asset(mc.assetId) ?: return@let null
+            prog(0.8f, "J'écoute la musique")
+            val pcm = withContext(Dispatchers.IO) { runCatching { PcmDecoder.decode(vm.ctx, Uri.parse(ma.uri), mc.sourceInUs, mc.sourceOutUs, downmix = true, maxSeconds = 900.0) }.getOrNull() } ?: return@let null
+            ensureActive()
+            val r = BeatDetector.detect(pcm.samples, pcm.sampleRate, 1)
+            fun toTimeline(s: Long) = mc.startUs + SpeedMath.sourceToTimeline(mc, mc.sourceInUs + s)
+            val beats = r.beatsUs.map(::toTimeline).filter { it in mc.startUs..mc.endUs }
+            if (beats.size < 4) null
+            else com.superessence.cuttinx.core.smart.HyperDirector.Music(r.bpm, beats, r.downbeatsUs.map(::toTimeline).filter { it in mc.startUs..mc.endUs },
+                AudioAnalysis.envelopeDb(pcm.samples, pcm.sampleRate, 1, 50), 50_000, mc.startUs)
+        }
+        prog(0.92f, "J'écris le montage")
+        var report: List<String> = emptyList()
+        commit(vm, "Réalisateur autonome", "Film monté par le réalisateur autonome (annulable en un geste)") { cur ->
+            val res = com.superessence.cuttinx.core.smart.HyperDirector.direct(cur, takes, music, style, targetUs, hook?.takeIf { it.isNotBlank() })
+            report = res.report
+            res.project
+        }
+        withContext(Dispatchers.Main) { if (report.isNotEmpty()) DirectorUi.report = report }
+    }
+
+    /** Selected video clips, else every video of the main track. */
+    private fun targets(vm: EditorViewModel, p: Project): List<Clip> {
+        val sel = vm.selection.value
+        val all = p.tracks.flatMap { it.clips }.filter { it.kind == ClipKind.MEDIA && p.asset(it.assetId)?.type == MediaType.VIDEO }
+        return all.filter { it.id in sel }.ifEmpty { videoClips(p) }
+    }
+
+    private fun stabilize(vm: EditorViewModel) = vm.runTask("Stabilisation IA") { prog ->
+        val p = vm.current
+        val clips = targets(vm, p)
+        if (clips.isEmpty()) error("Aucune vidéo à stabiliser")
+        val result = HashMap<String, com.superessence.cuttinx.core.smart.CameraMotion.Stabilization>()
+        clips.forEachIndexed { i, c ->
+            ensureActive()
+            prog(i.toFloat() / clips.size, "Mesure du mouvement, plan ${i + 1}/${clips.size}")
+            val a = p.asset(c.assetId)!!
+            // dense sampling: the shake lives between neighbouring frames
+            val step = maxOf(1_000_000L / 15, c.sourceDurationUs / 900)
+            val fr = withContext(Dispatchers.IO) { FrameSampler.sample(vm.ctx, a, c.sourceInUs, c.sourceOutUs, step, 96, exact = true, cancelled = { !isActive }) }
+            if (fr.size < 4) return@forEachIndexed
+            val st = com.superessence.cuttinx.core.smart.CameraMotion.stabilization(com.superessence.cuttinx.core.smart.CameraMotion.estimate(fr), fr.first().timeUs, 0.85)
+            if (st.shakiness > 0.002) result[c.id] = st
+        }
+        if (result.isEmpty()) error("Ces plans sont déjà stables : rien à corriger")
+        val zoom = result.values.maxOf { it.zoom }
+        commit(vm, "Stabilisation IA", "${result.size} plan(s) stabilisé(s), zoom de compensation jusqu'à ${((zoom - 1) * 100).toInt()} % (images clés modifiables)") { q ->
+            result.entries.fold(q) { acc, (id, st) -> com.superessence.cuttinx.core.smart.CameraMotion.applyStabilization(acc, id, st) }
+        }
+    }
+
+    private fun motionMatch(vm: EditorViewModel) = vm.runTask("Raccords mouvement") { prog ->
+        val p = vm.current
+        val clips = videoClips(p)
+        if (clips.size < 2) error("Il faut au moins deux vidéos qui se suivent")
+        val motion = HashMap<String, List<com.superessence.cuttinx.core.smart.CameraMotion.Step>>()
+        clips.forEachIndexed { i, c ->
+            ensureActive()
+            prog(i.toFloat() / clips.size, "Mouvement aux coupes, plan ${i + 1}/${clips.size}")
+            val a = p.asset(c.assetId)!!
+            val edge = minOf(500_000L, c.sourceDurationUs / 2)
+            val head = withContext(Dispatchers.IO) { FrameSampler.sample(vm.ctx, a, c.sourceInUs, c.sourceInUs + edge, 50_000, 64, exact = true) }
+            val tail = withContext(Dispatchers.IO) { FrameSampler.sample(vm.ctx, a, c.sourceOutUs - edge, c.sourceOutUs, 50_000, 64, exact = true) }
+            motion[c.id] = com.superessence.cuttinx.core.smart.CameraMotion.estimate(head) + com.superessence.cuttinx.core.smart.CameraMotion.estimate(tail)
+        }
+        commit(vm, "Raccords mouvement", "Raccords dans le sens du mouvement posés à chaque coupe où la caméra bouge (annulable)") { com.superessence.cuttinx.core.smart.CameraMotion.matchCuts(it, motion, transitions = true) }
     }
 
     // ------------------------------------------------------------------ helpers
@@ -184,4 +294,10 @@ object EditorMagic {
             PlusLab.mastering(leveled, emptyList())
         }
     }
+}
+
+/** State of the autonomous director's dialogs (settings before, report after). */
+object DirectorUi {
+    var asking by mutableStateOf(false)
+    var report by mutableStateOf<List<String>?>(null)
 }

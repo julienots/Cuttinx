@@ -43,7 +43,7 @@ object Plus {
     val PERKS = listOf(
         "Zéro pub, partout et pour toujours",
         "Les ${Tech.entries.count { !it.plus }} technologies du Labo débloquées en permanence",
-        "${Tech.entries.count { it.pipeline }} outils qui analysent tes vidéos en un geste : montage sur la musique, coupe des blancs, best-of, égalisation des plans, vertical intelligent, son studio",
+        "${Tech.entries.count { it.pipeline }} outils qui analysent tes vidéos en un geste : réalisateur autonome, stabilisation, raccords mouvement, montage sur la musique, coupe des blancs, best-of, égalisation des plans, vertical intelligent, son studio",
         "${Tech.entries.count { it.plus && !it.pipeline }} technologies de pointe (précision à l'image, étalonnage cinéma, mastering broadcast…)",
         "Toutes les nouvelles technologies Plus dès leur sortie",
         "Badge Plus et aide prioritaire",

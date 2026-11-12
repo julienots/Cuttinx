@@ -59,6 +59,17 @@ fois, sur demande.
 - **Lecteur fiable** : les calques qui sortent du cadre (glissements, transitions, animations) ne bloquent
   plus la lecture ; en cas d'échec GPU propre à un téléphone, l'aperçu se reconstruit automatiquement
   (mode simplifié) et un bouton « Réessayer » relance la lecture.
+- **Nouveau en 3.2 — Réalisateur autonome** (Plus) : CUTTINX regarde chaque prise (intérêt de chaque
+  instant : mouvement, netteté, couleur, exposition, son ; mouvement de caméra ; sujet), écoute la musique
+  (tempo, mesures, énergie de chaque mesure, drop) et écrit le film entier : accroche avec le meilleur moment,
+  montée, climax posé sur le drop, final ; longueur des plans selon l'énergie (1, 2 ou 4 temps), chaque
+  coupe sur un temps à l'image près, jamais deux fois le même moment, alternance des prises, continuité
+  des couleurs, ordre chronologique en style Récit. Finitions automatiques : couleurs égalisées, étalonnage
+  du style, ralenti sur le drop, zooms sur les temps forts, impacts, raccords dans le sens du mouvement,
+  stabilisation, recadrage sur le sujet, titre d'accroche, fondus, musique calée, marqueurs de mesure.
+  4 styles (Viral, Cinéma, Hype, Récit), 15 s à 3 min, compte rendu de chaque décision, annulable en un geste.
+  **Stabilisation IA** (mesure du mouvement global par profils de projection et corrélation sub-pixel,
+  trajectoire lissée, compensation par images clés et zoom minimal) et **raccords mouvement**.
 - **Nouveau en 3.1** : **Studio GIF** (vidéo → GIF animé normal, boomerang ou inversé, vitesse 0,5×–3×,
   8–25 i/s, 240–800 px, légende façon mème, encodeur GIF original avec palette par image et tramage,
   enregistrement dans Images › Cuttinx ou partage), **Planning de publication** (semaine de publications

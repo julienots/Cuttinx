@@ -13,7 +13,8 @@ vrais téléphones. **Première étape recommandée : installer l'APK et tester 
   Android utilisé n'écrit ni WebM ni MOV : ils ne sont donc pas proposés.
 - **Modes de fusion** : le compositeur Media3 ne mélange qu'en « Normal » (transparence). Les modes
   Produit/Écran/Incrustation existent comme effets de superposition sur un calque, pas entre calques.
-- **Stabilisation** : non implémentée (champ réservé dans le modèle, aucun bouton factice).
+- **Stabilisation** (3.2) : compensation des translations de la caméra (gauche/droite, haut/bas) par images
+  clés et léger zoom ; les rotations et le « rolling shutter » ne sont pas corrigés.
 - **Séparation voix/musique** : méthode spectrale (canal central, HPSS) ; qualité inférieure aux
   modèles neuronaux (non intégrés : trop lourds pour un mobile, licences/tailles à étudier).
 - **Suppression d'arrière-plan** : images seulement, efficace sur fonds unis. Pour la vidéo : fond vert.

@@ -5,6 +5,12 @@ object Releases {
     class Entry(val version: String, val title: String, val items: List<Pair<String, String>>)
 
     val all = listOf(
+        Entry("3.2", "Le réalisateur autonome", listOf(
+            "Réalisateur autonome (Plus)" to "CUTTINX regarde toutes tes prises, écoute ta musique et monte le film entier : accroche, montée, climax sur le drop, final, coupes sur les temps",
+            "4 styles" to "Viral, Cinéma, Hype ou Récit, de 15 s à 3 min, avec le compte rendu de chaque décision",
+            "Stabilisation IA (Plus)" to "Le tremblement de la caméra est mesuré image par image et compensé, les panoramiques voulus sont gardés",
+            "Raccords mouvement (Plus)" to "Flou de vitesse et panoramique filé dans le sens exact du mouvement de la caméra à chaque coupe",
+        )),
         Entry("3.1", "Prépare, publie, fais le buzz", listOf(
             "Studio GIF" to "Une vidéo devient un GIF animé : boomerang, inversé, ralenti ou accéléré, légende façon mème, partage direct",
             "Planning de publication" to "Ta semaine sur TikTok, Instagram, YouTube… les meilleurs moments pour publier et un rappel à l'heure",
