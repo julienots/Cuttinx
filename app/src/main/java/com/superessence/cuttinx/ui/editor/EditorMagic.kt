@@ -41,7 +41,7 @@ object EditorMagic {
     val instant = listOf(
         "punch" to "Zoom coupes", "transitions" to "Transitions", "fades" to "Fondus", "hook" to "Accroche",
         "music_fit" to "Musique calée", "progress" to "Progression", "loop" to "Boucle", "vertical" to "Vertical", "clean" to "Nettoyer",
-    )
+    ) + com.superessence.cuttinx.core.smart.MontageKit.gestures
 
     fun runInstant(vm: EditorViewModel, id: String, label: String) {
         vm.snapshot("Avant : $label", auto = true)

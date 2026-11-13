@@ -59,6 +59,24 @@ fois, sur demande.
 - **Lecteur fiable** : les calques qui sortent du cadre (glissements, transitions, animations) ne bloquent
   plus la lecture ; en cas d'échec GPU propre à un téléphone, l'aperçu se reconstruit automatiquement
   (mode simplifié) et un bouton « Réessayer » relance la lecture.
+- **Nouveau en 3.3 — des nouveautés partout** :
+  **11 outils de montage en un geste** dans la barre de l'éditeur, les Actions rapides et l'Atelier
+  intelligent (PC) : rythme rapide (chaque plan garde ses 2 meilleures secondes), vélocité (rapide → ralenti
+  → rapide), ralenti final, saccade d'accroche (« re-re-regarde »), mode ciné (calque look film + bandes +
+  grain, remplacé et non empilé), compte à rebours 3·2·1, carte de fin, coupes glitch, zoom lent, diaporama
+  photo, moins d'une minute (59 s, 9:16).
+  **16 effets GPU** (reflet balayant, lumières de club, pop art, gouttes sur la vitre, poussière & rayures,
+  distorsion d'objectif, mosaïque texte, rayons X, mise au point centrale, filtre étoile, cycle de couleurs,
+  poussière d'or, confettis, bulles, cadre photo instantanée, bordure néon) ; **16 transitions** (encre,
+  brûlure, spirale, dents de scie, fente, hexagones, bandes diagonales, pois, fondu lumineux, lignes
+  alternées, coupe RVB, aspiration, glissement élastique, coup de poing, chute pivot, défilement pellicule) ;
+  **16 filtres** dont une famille **Tendances** (aussi dans le Studio Photo) ; **7 styles de texte** (chrome,
+  autocollant, gamer néon, affiche, signature, feutre, rétro diner) ; **8 modèles de montage** (unboxing,
+  fitness, motivation, mème, mode, fête, visite immobilière, ASMR).
+  Studios : collages en colonnes, pyramide et grande photo à gauche ; formats photo 3:4, 2:1 et 21:9 ;
+  légendes storytime, promo et astuce ; 14 bruitages (scintillement, j'aime, réveil, toc toc, bonus et
+  game over 8-bit, trombone triste, grillons…) ; 6 thèmes Twitch (battle royale, pluie douce, DJ club,
+  mecha, désert doré, nébuleuse).
 - **Nouveau en 3.2 — Réalisateur autonome** (Plus) : CUTTINX regarde chaque prise (intérêt de chaque
   instant : mouvement, netteté, couleur, exposition, son ; mouvement de caméra ; sujet), écoute la musique
   (tempo, mesures, énergie de chaque mesure, drop) et écrit le film entier : accroche avec le meilleur moment,

@@ -11,20 +11,21 @@ data class Box(val x: Int, val y: Int, val w: Int, val h: Int)
 
 /** Output formats of the photo studios. */
 enum class PhotoFrame(val label: String, val w: Int, val h: Int) {
-    ORIGINAL("Original", 0, 0), SQUARE("1:1", 1, 1), PORTRAIT("4:5", 4, 5), STORY("9:16", 9, 16), WIDE("16:9", 16, 9), CLASSIC("3:2", 3, 2);
+    ORIGINAL("Original", 0, 0), SQUARE("1:1", 1, 1), PORTRAIT("4:5", 4, 5), STORY("9:16", 9, 16), WIDE("16:9", 16, 9), CLASSIC("3:2", 3, 2),
+    PORTRAIT_34("3:4", 3, 4), PANORAMA("2:1", 2, 1), CINEMA("21:9", 21, 9);
     /** Width / height, or null for "keep the picture's own ratio". */
     val ratio: Double? get() = if (w == 0) null else w.toDouble() / h
 }
 
 /** Collage layouts. */
-enum class CollageStyle(val label: String) { GRID("Grille"), MOSAIC("Mosaïque"), STRIP("Bande"), HERO("Une grande") }
+enum class CollageStyle(val label: String) { GRID("Grille"), MOSAIC("Mosaïque"), STRIP("Bande"), HERO("Une grande"), COLUMNS("Colonnes"), PYRAMID("Pyramide"), SIDE_HERO("Grande à gauche") }
 
 /**
  * The layout maths of the photo studios (collage, carousel, crop) and of the audio studio
  * (waveform). Pure functions: the apps only draw.
  */
 object CreateKit {
-    const val VERSION = "3.2"
+    const val VERSION = "3.3"
 
     // ------------------------------------------------------------------ crop
 
@@ -84,8 +85,19 @@ object CreateKit {
                 rows(counts, 0, h, counts.map { if (it == 1) 1.4 else 1.0 })
             }
             CollageStyle.GRID -> rows(splitRows(n, maxPerRow = ceil(sqrt(n.toDouble())).toInt()), 0, h)
+            // 3.3: the same layouts turned a quarter (columns), growing rows, a big photo on the left
+            CollageStyle.COLUMNS -> transpose(collage(n, h, w, gap, CollageStyle.GRID))
+            CollageStyle.PYRAMID -> {
+                val counts = ArrayList<Int>(); var left = n; var k = 1
+                while (left > 0) { val c = min(k, left); counts += c; left -= c; k++ }
+                rows(counts, 0, h)
+            }
+            CollageStyle.SIDE_HERO -> transpose(collage(n, h, w, gap, CollageStyle.HERO))
         }
     }
+
+    /** Boxes of a layout computed on the swapped canvas (h×w), swapped back: rows become columns. */
+    private fun transpose(boxes: List<Box>): List<Box> = boxes.map { Box(it.y, it.x, it.h, it.w) }
 
     /** n items in rows of at most [maxPerRow], as even as possible (e.g. 5 → 2, 3). */
     fun splitRows(n: Int, maxPerRow: Int): List<Int> {

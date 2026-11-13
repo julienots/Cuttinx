@@ -76,6 +76,23 @@ object TransitionRegistry {
         register(TransitionDefinition("wheel", "Roue", listOf(ParamDef("count", "Rayons", 2.0, 16.0, 6.0)), defaultDurationUs = 700_000))
         register(TransitionDefinition("pixelate", "Pixelisation", listOf(ParamDef("size", "Taille", 8.0, 120.0, 60.0)), defaultDurationUs = 600_000))
         register(TransitionDefinition("ripple", "Ondulation", listOf(ParamDef("amount", "Force", 0.0, 0.1, 0.04)), defaultDurationUs = 800_000))
+        // ---- 3.3
+        register(TransitionDefinition("ink", "Encre", listOf(ParamDef("softness", "Douceur", 0.0, 0.2, 0.05)), defaultDurationUs = 900_000))
+        register(TransitionDefinition("burn", "Brûlure", listOf(ParamDef("glow", "Braises", 0.0, 1.0, 0.8)), defaultDurationUs = 900_000))
+        register(TransitionDefinition("spiral", "Spirale", listOf(ParamDef("softness", "Douceur", 0.0, 0.2, 0.03)), defaultDurationUs = 800_000))
+        register(TransitionDefinition("zigzag", "Dents de scie", listOf(ParamDef("count", "Dents", 2.0, 30.0, 8.0)), defaultDurationUs = 600_000))
+        register(TransitionDefinition("slit", "Fente", listOf(ParamDef("softness", "Douceur", 0.0, 0.2, 0.01)), defaultDurationUs = 600_000))
+        register(TransitionDefinition("hexagons", "Hexagones", listOf(ParamDef("count", "Taille", 3.0, 30.0, 9.0)), defaultDurationUs = 700_000))
+        register(TransitionDefinition("diagonal_bars", "Bandes diagonales", listOf(ParamDef("count", "Bandes", 2.0, 30.0, 8.0)), defaultDurationUs = 600_000))
+        register(TransitionDefinition("dots", "Pois", listOf(ParamDef("count", "Pois", 3.0, 30.0, 10.0)), defaultDurationUs = 700_000))
+        register(TransitionDefinition("luma_fade", "Fondu lumineux", listOf(ParamDef("softness", "Douceur", 0.02, 0.5, 0.2)), defaultDurationUs = 900_000))
+        register(TransitionDefinition("stripes", "Lignes alternées", listOf(ParamDef("count", "Lignes", 2.0, 40.0, 12.0)), defaultDurationUs = 600_000))
+        register(TransitionDefinition("rgb_glitch_cut", "Coupe RVB", listOf(ParamDef("amount", "Intensité", 0.1, 1.0, 1.0)), defaultDurationUs = 350_000))
+        register(TransitionDefinition("vortex", "Aspiration", listOf(ParamDef("turns", "Tours", 0.25, 3.0, 1.5)), defaultDurationUs = 600_000))
+        register(TransitionDefinition("elastic_slide", "Glissement élastique", listOf(dirChoice), defaultDurationUs = 700_000))
+        register(TransitionDefinition("punch_zoom", "Coup de poing", listOf(ParamDef("amount", "Intensité", 0.1, 1.0, 0.7)), defaultDurationUs = 450_000))
+        register(TransitionDefinition("fall_away", "Chute pivot", defaultDurationUs = 700_000))
+        register(TransitionDefinition("film_roll", "Défilement pellicule", defaultDurationUs = 450_000))
     }
 
     private fun dirVec(d: Double): Pair<Double, Double> = when (d.toInt()) {
@@ -218,9 +235,65 @@ object TransitionRegistry {
                 val i = mapOf("amount" to prm("amount", 0.04))
                 cross(LayerMod(shaderId = "_tr_ripple", shaderProgress = 1 - q, shaderParams = i), LayerMod(shaderId = "_tr_ripple", shaderProgress = q, shaderParams = i))
             }
+            // ---- 3.3
+            "ink" -> reveal("_tr_ink", mapOf("softness" to prm("softness", 0.05)))
+            "burn" -> reveal("_tr_burn", mapOf("glow" to prm("glow", 0.8)))
+            "spiral" -> reveal("_tr_spiral", mapOf("softness" to prm("softness", 0.03)))
+            "zigzag" -> reveal("_tr_zigzag", mapOf("count" to prm("count", 8.0)))
+            "slit" -> reveal("_tr_slit", mapOf("softness" to prm("softness", 0.01)))
+            "hexagons" -> reveal("_tr_hex", mapOf("count" to prm("count", 9.0)))
+            "diagonal_bars" -> reveal("_tr_diag", mapOf("count" to prm("count", 8.0)))
+            "dots" -> reveal("_tr_dots", mapOf("count" to prm("count", 10.0)))
+            "luma_fade" -> reveal("_tr_luma", mapOf("softness" to prm("softness", 0.2)))
+            "stripes" -> reveal("_tr_stripes", mapOf("count" to prm("count", 12.0)))
+            "rgb_glitch_cut" -> {
+                val i = mapOf("amount" to prm("amount", 1.0))
+                LayerMod(alpha = if (q < 0.5) 1.0 else 0.0, shaderId = "_tr_rgbsplit", shaderProgress = 1 - (q * 2).coerceIn(0.0, 1.0), shaderParams = i) to
+                    LayerMod(alpha = if (q >= 0.5) 1.0 else 0.0, shaderId = "_tr_rgbsplit", shaderProgress = (q * 2 - 1).coerceIn(0.0, 1.0), shaderParams = i)
+            }
+            "vortex" -> {
+                // the outgoing clip is sucked into the centre while spinning
+                val turns = prm("turns", 1.5) * 360.0
+                LayerMod(scale = (1 - 0.95 * q * q), rotation = turns * q * q, alpha = if (incomingOnTop) 1.0 else 1 - q * q) to
+                    LayerMod(scale = 1.25 - 0.25 * q, alpha = if (incomingOnTop) q else 1.0)
+            }
+            "elastic_slide" -> {
+                val (x, y) = dirVec(prm("direction", 0.0))
+                val k = 1 - elasticOut(q)
+                LayerMod(dx = x * q * 0.35, dy = y * q * 0.35, alpha = if (incomingOnTop) 1.0 else 1 - q) to LayerMod(dx = -x * k, dy = -y * k)
+            }
+            "punch_zoom" -> {
+                val amt = prm("amount", 0.7)
+                val cut = 0.3
+                if (q < cut) LayerMod(scale = 1 + amt * 0.4 * (q / cut)) to LayerMod(alpha = 0.0)
+                else {
+                    val k = (q - cut) / (1 - cut)
+                    val ease = 1 - (1 - k) * (1 - k) * (1 - k)
+                    val sh = amt * 0.03 * sin(k * 40.0) * (1 - k)
+                    LayerMod(alpha = 0.0) to LayerMod(scale = 1 + amt * 0.5 * (1 - ease), dx = sh, dy = -sh * 0.7)
+                }
+            }
+            "fall_away" -> {
+                val e = q * q
+                LayerMod(dy = e * 1.2, rotation = 28 * e, scale = 1 - 0.1 * q, alpha = if (incomingOnTop) 1.0 else 1 - e) to
+                    LayerMod(scale = 0.9 + 0.1 * q, alpha = if (incomingOnTop) q else 1.0)
+            }
+            "film_roll" -> {
+                val k = 1 - (1 - q).let { it * it }
+                val r = mapOf("radius" to 30.0)
+                LayerMod(dy = k, shaderId = "_tr_blur", shaderProgress = 1 - q, shaderParams = r) to LayerMod(dy = k - 1, shaderId = "_tr_blur", shaderProgress = q, shaderParams = r)
+            }
             else -> cross()
         }
     }
+
+    private fun elasticOut(p0: Double): Double {
+        val p = p0.coerceIn(0.0, 1.0)
+        if (p == 0.0 || p == 1.0) return p
+        return 2.0.pow(-10 * p) * kotlin.math.sin((p * 10 - 0.75) * (2 * kotlin.math.PI / 3)) + 1
+    }
+
+    private fun Double.pow(e: Double) = Math.pow(this, e)
 
     private fun sin(v: Double) = kotlin.math.sin(v)
 

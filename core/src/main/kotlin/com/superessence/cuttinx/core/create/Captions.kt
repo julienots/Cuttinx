@@ -4,7 +4,7 @@ import com.superessence.cuttinx.core.brand.Niche
 import java.text.Normalizer
 
 /** Voice of a caption. */
-enum class CaptionTone(val label: String) { FUN("Fun"), PRO("Pro"), INSPIRING("Inspirant"), MYSTERY("Mystère"), CHILL("Chill") }
+enum class CaptionTone(val label: String) { FUN("Fun"), PRO("Pro"), INSPIRING("Inspirant"), MYSTERY("Mystère"), CHILL("Chill"), STORYTIME("Storytime"), PROMO("Promo"), EDUCATIVE("Astuce") }
 
 /** A ready caption: the text, its hashtags, and the whole thing as posted. */
 data class Caption(val hook: String, val body: String, val cta: String, val hashtags: List<String>) {
@@ -56,6 +56,9 @@ object Captions {
         CaptionTone.INSPIRING -> listOf("Et si $s changeait tout ? ✨", "Il y a un an, je n'aurais jamais osé : $s", "Petit rappel : $s, c'est possible pour toi aussi", "$s — un pas après l'autre 🌱")
         CaptionTone.MYSTERY -> listOf("Attends la fin… $s 🤫", "Je ne devrais peut-être pas montrer ça : $s", "Tu n'as jamais vu $s comme ça", "Le secret derrière $s 👁️")
         CaptionTone.CHILL -> listOf("Un moment simple : $s ☕", "$s, tranquille", "Juste $s, rien d'autre 🌙", "Aujourd'hui c'était $s")
+        CaptionTone.STORYTIME -> listOf("Storytime : $s 📖", "Je vous raconte $s (vous n'allez pas y croire)", "Le jour où $s a tout changé", "$s : l'histoire complète")
+        CaptionTone.PROMO -> listOf("🔥 $s : c'est le moment", "Nouveau : $s est enfin là", "$s — offre limitée ⏳", "Tu attendais $s ? C'est maintenant")
+        CaptionTone.EDUCATIVE -> listOf("L'astuce $s que j'aurais aimé connaître avant 💡", "$s en 3 étapes", "Arrête de faire cette erreur avec $s", "Le guide express : $s")
     }
 
     private fun bodies(s: String, t: CaptionTone) = when (t) {
@@ -64,6 +67,9 @@ object Captions {
         CaptionTone.INSPIRING -> listOf("Commence petit, mais commence aujourd'hui.", "Chaque essai compte, même ceux qui ratent.", "Ce n'est pas la perfection qui compte, c'est la régularité.")
         CaptionTone.MYSTERY -> listOf("Regarde bien le détail à la fin.", "Tu as remarqué ce qui change ?", "La suite arrive bientôt…")
         CaptionTone.CHILL -> listOf("Prends ton temps.", "Le genre de moment qu'on oublie trop vite.", "Moins de bruit, plus de vrai.")
+        CaptionTone.STORYTIME -> listOf("Tout a commencé par un détail que personne n'avait vu.", "Je n'ai jamais raconté ça en entier.", "La fin m'a laissé sans voix.")
+        CaptionTone.PROMO -> listOf("Les places partent vite, ne traîne pas.", "Tout est expliqué en vidéo, en moins d'une minute.", "Disponible dès aujourd'hui.")
+        CaptionTone.EDUCATIVE -> listOf("Enregistre-le, tu en auras besoin.", "Étape 1, 2, 3 : tout est dans la vidéo.", "Simple, rapide, et ça marche vraiment.")
     }
 
     private fun ctas(n: Network, t: CaptionTone) = when (n) {

@@ -334,6 +334,9 @@ private fun GestureDivider(label: String) {
 private fun gestureIcon(id: String): ImageVector = when (id) {
     "punch" -> Icons.Default.ZoomIn; "transitions" -> Icons.Default.SwapHoriz; "fades" -> Icons.Default.Gradient; "hook" -> Icons.Default.Title
     "music_fit" -> Icons.Default.MusicNote; "progress" -> Icons.Default.LinearScale; "loop" -> Icons.Default.Loop; "vertical" -> Icons.Default.StayCurrentPortrait
+    "rhythm" -> Icons.Default.FlashOn; "velocity" -> Icons.Default.Speed; "slowmo_end" -> Icons.Default.SlowMotionVideo; "stutter" -> Icons.Default.Replay
+    "cinema" -> Icons.Default.Movie; "countdown" -> Icons.Default.Timer; "end_card" -> Icons.Default.Subscriptions; "glitch_cuts" -> Icons.Default.BlurOn
+    "slow_zoom" -> Icons.Default.ZoomOutMap; "slideshow" -> Icons.Default.Slideshow; "shorts59" -> Icons.Default.HourglassBottom
     else -> Icons.Default.CleaningServices
 }
 

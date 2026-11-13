@@ -5,6 +5,14 @@ object Releases {
     class Entry(val version: String, val title: String, val items: List<Pair<String, String>>)
 
     val all = listOf(
+        Entry("3.3", "Des nouveautés partout", listOf(
+            "11 outils de montage en un geste" to "Rythme rapide, vélocité, ralenti final, saccade d'accroche, mode ciné, 3·2·1, carte de fin, coupes glitch, zoom lent, diaporama, moins d'1 minute",
+            "16 effets vidéo" to "Reflet balayant, lumières de club, pop art, gouttes sur la vitre, confettis, poussière d'or, bulles, rayons X, mise au point centrale, filtre étoile…",
+            "16 transitions" to "Encre, brûlure, spirale, hexagones, pois, fondu lumineux, coupe RVB, aspiration, glissement élastique, coup de poing, chute pivot…",
+            "16 filtres et une famille Tendances" to "Soirée club, carte premium, jour de pluie, fête, paillettes, souvenir instantané, terminal… aussi dans le Studio Photo",
+            "7 styles de texte, 8 modèles de montage" to "Chrome, autocollant, gamer néon, affiche, signature, feutre, rétro diner ; unboxing, fitness, motivation, mème, mode, fête, immobilier, ASMR",
+            "Studios" to "3 dispositions de collage, 3 formats photo (3:4, 2:1, 21:9), 3 tons de légende (storytime, promo, astuce), 14 bruitages, 6 thèmes Twitch",
+        )),
         Entry("3.2", "Le réalisateur autonome", listOf(
             "Réalisateur autonome (Plus)" to "CUTTINX regarde toutes tes prises, écoute ta musique et monte le film entier : accroche, montée, climax sur le drop, final, coupes sur les temps",
             "4 styles" to "Viral, Cinéma, Hype ou Récit, de 15 s à 3 min, avec le compte rendu de chaque décision",

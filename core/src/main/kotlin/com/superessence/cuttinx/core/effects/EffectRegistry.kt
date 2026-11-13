@@ -1510,6 +1510,404 @@ object EffectRegistry {
             """
         })
 
+        // ------------------------------------------------------------------ 3.3 : nouveautés partout
+        register(video("light_sweep", "Reflet balayant", C.TREND, listOf(p("amount", "Intensité", 0.0, 1.0, 0.7), p("speed", "Vitesse", 0.1, 3.0, 1.0), p("width", "Largeur", 0.02, 0.4, 0.12)),
+            animated = true, desc = "Un reflet de lumière traverse l'image, comme sur une carte premium") {
+            """
+            vec4 c = tex(uv);
+            float pos = fract(uTime * uP[1] * 0.35) * 2.2 - 0.6;
+            float x = (uv.x + uv.y * 0.5) / 1.5;
+            float band = 1.0 - smoothstep(0.0, uP[2], abs(x - pos));
+            vec3 col = c.rgb + vec3(1.0, 0.97, 0.9) * band * uP[0] * 0.7;
+            return vec4(clamp(col, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("club_lights", "Lumières de club", C.TREND, listOf(p("amount", "Intensité", 0.0, 1.0, 0.7), p("speed", "Vitesse", 0.1, 3.0, 1.0)),
+            animated = true, desc = "Faisceaux colorés qui balaient la scène, ambiance soirée") {
+            """
+            vec4 c = tex(uv);
+            vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
+            vec3 light = vec3(0.0);
+            for (int i = 0; i < 4; i++) {
+              float fi = float(i);
+              vec2 src = vec2((0.15 + fi * 0.233) * asp.x, 1.05);
+              float ang = sin(uTime * uP[1] * (0.7 + fi * 0.2) + fi * 1.7) * 0.6;
+              vec2 dir = vec2(sin(ang), -cos(ang));
+              vec2 d = uv * asp - src;
+              float along = dot(d, dir);
+              float across = abs(dot(d, vec2(-dir.y, dir.x)));
+              float beam = (1.0 - smoothstep(0.0, 0.05 + max(along, 0.0) * 0.18, across)) * step(0.0, along) * exp(-along * 0.8);
+              light += hueColor(fi * 90.0 + uTime * 30.0) * beam;
+            }
+            vec3 col = c.rgb * (1.0 - 0.35 * uP[0]) + light * 0.7 * uP[0] * (0.6 + c.rgb);
+            return vec4(clamp(col, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("pop_art", "Pop art", C.TREND, listOf(p("amount", "Intensité", 0.0, 1.0, 1.0), p("dots", "Taille des points", 20.0, 160.0, 70.0), hue("hue", "Teinte", 0.0)),
+            desc = "Aplats de couleurs vives et trame de points, façon sérigraphie") {
+            """
+            vec4 c = tex(uv);
+            float l = luma(c.rgb);
+            vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
+            vec2 f = fract(uv * asp * uP[1]) - 0.5;
+            float dotR = sqrt(1.0 - l) * 0.6;
+            float dots = 1.0 - smoothstep(dotR - 0.08, dotR, length(f));
+            vec3 base = l > 0.66 ? hueColor(uP[2] + 50.0) : (l > 0.33 ? hueColor(uP[2] + 300.0) : hueColor(uP[2] + 200.0) * 0.6);
+            vec3 pop = mix(base, base * 0.25, dots * 0.8);
+            return vec4(mix(c.rgb, pop, uP[0]), c.a);
+            """
+        })
+        register(video("rain_window", "Gouttes sur la vitre", C.TREND, listOf(p("amount", "Intensité", 0.0, 1.0, 0.8), p("size", "Taille", 0.5, 3.0, 1.0)),
+            animated = true, desc = "Des gouttes glissent sur une vitre devant l'image et la déforment") {
+            """
+            vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
+            vec2 g = uv * asp * (8.0 / uP[1]);
+            vec2 off = vec2(0.0);
+            float wet = 0.0;
+            for (int i = 0; i < 2; i++) {
+              float fi = float(i);
+              vec2 gg = g * (1.0 + fi * 0.7) + vec2(fi * 3.1, 0.0);
+              vec2 id = floor(gg);
+              float h = hash(id + fi);
+              vec2 f = fract(gg) - 0.5;
+              float fall = fract(uTime * (0.05 + 0.1 * h) + h);
+              vec2 d = f - vec2((h - 0.5) * 0.5, 0.4 - fall * 0.8);
+              float drop = (1.0 - smoothstep(0.06, 0.12, length(d * vec2(1.0, 0.8)))) * step(0.35, h);
+              off += d * drop * 0.6;
+              wet += drop;
+            }
+            vec4 c = tex(uv + off * 0.08 * uP[0]);
+            return vec4(clamp(c.rgb * (1.0 + wet * 0.15 * uP[0]), 0.0, 1.0), c.a);
+            """
+        })
+        register(video("film_dust", "Poussière & rayures", C.RETRO, listOf(p("amount", "Poussière", 0.0, 1.0, 0.6), p("scratches", "Rayures", 0.0, 1.0, 0.5)),
+            animated = true, desc = "Poussières, rayures verticales et scintillement de vieille bobine") {
+            """
+            vec4 c = tex(uv);
+            float t = floor(uTime * 18.0);
+            float dust = 0.0;
+            for (int i = 0; i < 6; i++) {
+              float fi = float(i);
+              vec2 pos = vec2(hash(vec2(t, fi)), hash(vec2(fi, t + 1.7)));
+              float r = 0.002 + 0.006 * hash(vec2(t + fi, 3.1));
+              vec2 d = (uv - pos) * vec2(uResolution.x / uResolution.y, 1.0);
+              dust += 1.0 - smoothstep(r * 0.5, r, length(d));
+            }
+            float sx = hash(vec2(t, 9.0));
+            float scratch = (1.0 - smoothstep(0.0, 0.0015, abs(uv.x - sx))) * step(0.5, hash(vec2(t, 5.0))) * uP[1];
+            vec3 col = c.rgb * (1.0 - 0.06 * uP[0]) - vec3(dust) * 0.7 * uP[0] + vec3(scratch) * 0.5;
+            float flick = 1.0 + (hash(vec2(t, 2.0)) - 0.5) * 0.08 * uP[0];
+            return vec4(clamp(col * flick, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("lens_distortion", "Distorsion d'objectif", C.DISTORT, listOf(p("amount", "Courbure", -1.0, 1.0, 0.4), p("zoom", "Recadrage", 0.0, 1.0, 1.0)),
+            desc = "Effet grand-angle bombé (positif) ou en coussin (négatif)") {
+            """
+            vec2 d = uv - 0.5;
+            float r2 = dot(d, d);
+            vec2 q = 0.5 + d * (1.0 + uP[0] * r2 * 1.6) / (1.0 + max(uP[0], 0.0) * 0.4 * uP[1]);
+            if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0, 0.0, 0.0, 1.0);
+            return tex(q);
+            """
+        })
+        register(video("ascii_blocks", "Mosaïque texte", C.STYLIZE, listOf(p("amount", "Intensité", 0.0, 1.0, 1.0), p("cell", "Taille des signes", 4.0, 32.0, 10.0), toggle("color", "Couleurs d'origine", false)),
+            desc = "L'image redessinée avec des signes (points, tirets, croix), façon terminal") {
+            """
+            vec2 cell = vec2(uP[1]) / uResolution;
+            vec2 id = floor(uv / cell);
+            vec2 q = fract(uv / cell) - 0.5;
+            vec4 c = tex((id + 0.5) * cell);
+            float l = luma(c.rgb);
+            float dotG = 1.0 - step(0.12, length(q));
+            float dashG = step(abs(q.y), 0.08) * step(abs(q.x), 0.3);
+            float plusG = max(dashG, step(abs(q.x), 0.08) * step(abs(q.y), 0.3));
+            float hashG = max(step(abs(abs(q.x) - 0.15), 0.06), step(abs(abs(q.y) - 0.15), 0.06)) * step(max(abs(q.x), abs(q.y)), 0.35);
+            float fullG = step(max(abs(q.x), abs(q.y)), 0.38);
+            float g = l < 0.15 ? 0.0 : (l < 0.3 ? dotG : (l < 0.5 ? dashG : (l < 0.65 ? plusG : (l < 0.8 ? hashG : fullG))));
+            vec3 ink = uP[2] > 0.5 ? c.rgb * 1.2 : vec3(0.3, 1.0, 0.4);
+            vec4 o = tex(uv);
+            return vec4(mix(o.rgb, clamp(ink * g, 0.0, 1.0), uP[0]), o.a);
+            """
+        })
+        register(video("xray", "Rayons X", C.STYLIZE, listOf(p("amount", "Intensité", 0.0, 1.0, 1.0), p("edges", "Contours", 0.0, 1.0, 0.6)),
+            desc = "Négatif bleuté et contours lumineux, comme une radio") {
+            """
+            vec4 c = tex(uv);
+            vec2 px = 1.0 / uResolution;
+            float e = abs(luma(tex(uv + vec2(px.x, 0.0)).rgb) - luma(tex(uv - vec2(px.x, 0.0)).rgb)) + abs(luma(tex(uv + vec2(0.0, px.y)).rgb) - luma(tex(uv - vec2(0.0, px.y)).rgb));
+            float v = 1.0 - luma(c.rgb);
+            vec3 col = vec3(0.55, 0.85, 1.0) * pow(v, 1.4) + vec3(0.8, 0.95, 1.0) * e * 3.0 * uP[1];
+            return vec4(mix(c.rgb, clamp(col, 0.0, 1.0), uP[0]), c.a);
+            """
+        })
+        register(video("focus_blur", "Mise au point centrale", C.BLUR, listOf(p("radius", "Flou", 0.0, 30.0, 12.0, "px"), p("focus", "Zone nette", 0.0, 0.8, 0.25), p("x", "Centre X", 0.0, 1.0, 0.5), p("y", "Centre Y", 0.0, 1.0, 0.55)),
+            desc = "Le sujet reste net, l'arrière-plan se floute comme au grand capteur") {
+            """
+            vec4 c = tex(uv);
+            vec2 d = (uv - vec2(uP[2], uP[3])) * vec2(uResolution.x / uResolution.y, 1.0);
+            float k = smoothstep(uP[1], uP[1] + 0.35, length(d));
+            if (k < 0.01) return c;
+            vec2 px = uP[0] * k / uResolution;
+            vec4 acc = vec4(0.0);
+            for (int i = 0; i < 12; i++) {
+              float a = float(i) * 0.5236;
+              acc += tex(uv + vec2(cos(a), sin(a)) * px);
+              acc += tex(uv + vec2(cos(a + 0.26), sin(a + 0.26)) * px * 0.5);
+            }
+            return mix(c, acc / 24.0, min(1.0, k * 1.2));
+            """
+        })
+        register(video("star_filter", "Filtre étoile", C.LIGHT, listOf(p("amount", "Intensité", 0.0, 1.0, 0.7), p("length", "Longueur", 1.0, 8.0, 3.0), p("threshold", "Seuil", 0.5, 1.0, 0.8)),
+            desc = "Les points lumineux deviennent des étoiles à quatre branches") {
+            """
+            vec4 c = tex(uv);
+            vec2 px = 1.0 / uResolution;
+            vec3 acc = vec3(0.0);
+            for (int i = 1; i <= 10; i++) {
+              float fi = float(i);
+              float w = 1.0 - fi / 11.0;
+              vec2 o1 = vec2(fi, fi) * px * uP[1];
+              vec2 o2 = vec2(fi, -fi) * px * uP[1];
+              vec3 s = max(tex(uv + o1).rgb - uP[2], 0.0) + max(tex(uv - o1).rgb - uP[2], 0.0) + max(tex(uv + o2).rgb - uP[2], 0.0) + max(tex(uv - o2).rgb - uP[2], 0.0);
+              acc += s * w;
+            }
+            return vec4(clamp(c.rgb + acc * uP[0] * 1.5, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("color_cycle", "Cycle de couleurs", C.COLOR, listOf(p("amount", "Intensité", 0.0, 1.0, 1.0), p("speed", "Vitesse", 0.1, 5.0, 1.0)),
+            animated = true, desc = "Les teintes tournent en boucle sur toute la roue chromatique") {
+            """
+            vec4 c = tex(uv);
+            vec3 h = rgb2hsv(c.rgb);
+            h.x = fract(h.x + uTime * uP[1] * 0.1);
+            return vec4(mix(c.rgb, hsv2rgb(h), uP[0]), c.a);
+            """
+        })
+        register(video("gold_dust", "Poussière d'or", C.PARTICLES, listOf(p("amount", "Intensité", 0.0, 1.0, 0.8), p("density", "Densité", 0.5, 2.0, 1.0)),
+            animated = true, desc = "Des paillettes dorées qui montent et scintillent") {
+            """
+            vec4 c = tex(uv);
+            vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
+            float sp = 0.0;
+            for (int i = 0; i < 3; i++) {
+              float fi = float(i);
+              vec2 g = uv * asp * (10.0 + fi * 8.0) * uP[1] + vec2(fi * 7.3, -uTime * (0.3 + fi * 0.15));
+              vec2 id = floor(g);
+              vec2 f = fract(g) - 0.5;
+              float h = hash(id + fi);
+              vec2 q = vec2(hash(id * 1.3 + 2.0) - 0.5, hash(id * 2.1 + 5.0) - 0.5) * 0.7;
+              float tw = 0.5 + 0.5 * sin(uTime * (2.0 + h * 4.0) + h * 30.0);
+              sp += (1.0 - smoothstep(0.0, 0.06 + 0.04 * h, length(f - q))) * step(0.6, h) * tw;
+            }
+            return vec4(clamp(c.rgb + vec3(1.0, 0.8, 0.4) * sp * uP[0], 0.0, 1.0), c.a);
+            """
+        })
+        register(video("confetti", "Confettis", C.PARTICLES, listOf(p("amount", "Intensité", 0.0, 1.0, 1.0), p("density", "Densité", 0.5, 2.0, 1.0)),
+            animated = true, desc = "Une pluie de confettis colorés qui tournoient, pour fêter") {
+            """
+            vec4 c = tex(uv);
+            vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
+            vec3 col = c.rgb;
+            for (int i = 0; i < 3; i++) {
+              float fi = float(i);
+              vec2 g = uv * asp * (6.0 + fi * 4.0) * uP[1] + vec2(fi * 3.7, uTime * (0.6 + fi * 0.2));
+              vec2 id = floor(g);
+              vec2 f = fract(g) - 0.5;
+              float h = hash(id + fi * 11.0);
+              vec2 q = vec2(sin(uTime * 2.0 + h * 20.0) * 0.25, (hash(id + 4.0) - 0.5) * 0.5);
+              vec2 d = rotate2(f - q, uTime * (2.0 + h * 5.0) + h * 6.0);
+              float rect = step(abs(d.x), 0.09) * step(abs(d.y), 0.04 + 0.03 * abs(sin(uTime * 4.0 + h * 9.0)));
+              col = mix(col, hueColor(h * 720.0), step(0.55, h) * rect * uP[0]);
+            }
+            return vec4(col, c.a);
+            """
+        })
+        register(video("bubbles", "Bulles", C.PARTICLES, listOf(p("amount", "Intensité", 0.0, 1.0, 0.8), p("size", "Taille", 0.5, 2.0, 1.0)),
+            animated = true, desc = "Des bulles de savon transparentes qui montent devant l'image") {
+            """
+            vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
+            vec2 off = vec2(0.0);
+            float rim = 0.0;
+            for (int i = 0; i < 2; i++) {
+              float fi = float(i);
+              vec2 g = uv * asp * (4.0 + fi * 3.0) / uP[1] + vec2(fi * 5.1, -uTime * (0.25 + fi * 0.1));
+              vec2 id = floor(g);
+              vec2 f = fract(g) - 0.5;
+              float h = hash(id + fi * 7.0);
+              vec2 q = f - vec2(sin(uTime + h * 12.0) * 0.15, 0.0);
+              float r = 0.18 + 0.15 * h;
+              float dd = length(q);
+              float inside = (1.0 - smoothstep(r - 0.01, r, dd)) * step(0.5, h);
+              rim += inside * smoothstep(r * 0.75, r, dd);
+              rim += inside * (1.0 - smoothstep(0.0, r * 0.25, length(q - vec2(-r * 0.4, r * 0.4)))) * 0.8;
+              off += q * inside * 0.15;
+            }
+            vec4 c = tex(uv - off * uP[0]);
+            return vec4(clamp(c.rgb + vec3(0.8, 0.9, 1.0) * rim * 0.6 * uP[0], 0.0, 1.0), c.a);
+            """
+        })
+        register(video("instant_frame", "Cadre photo instantanée", C.OVERLAY, listOf(p("border", "Bordure", 0.0, 0.12, 0.04), p("bottom", "Bas", 0.0, 0.3, 0.16), p("warmth", "Tons chauds", 0.0, 1.0, 0.5)),
+            desc = "La vidéo dans un cadre blanc de photo instantanée, bas plus large") {
+            """
+            float b = uP[0];
+            float bx = b * uResolution.y / uResolution.x;
+            vec2 q = vec2((uv.x - bx) / max(1.0 - 2.0 * bx, 0.01), (uv.y - uP[1]) / max(1.0 - uP[1] - b, 0.01));
+            if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(vec3(0.97, 0.96, 0.93) - hash(uv * 900.0) * 0.03, 1.0);
+            vec4 c = tex(q);
+            vec3 col = mix(c.rgb, c.rgb * vec3(1.06, 1.0, 0.9) + 0.03, uP[2]);
+            return vec4(clamp(col, 0.0, 1.0), c.a);
+            """
+        })
+        register(video("neon_frame", "Bordure néon", C.OVERLAY, listOf(hue("hue", "Teinte", 300.0), p("width", "Épaisseur", 0.005, 0.08, 0.025), p("pulse", "Pulsation", 0.0, 1.0, 0.5)),
+            animated = true, desc = "Un tube néon lumineux tout autour de l'image") {
+            """
+            vec4 c = tex(uv);
+            vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
+            vec2 d = min(uv, 1.0 - uv) * asp;
+            float e = min(d.x, d.y);
+            float w = uP[1];
+            float line = 1.0 - smoothstep(w * 0.15, w * 0.3, abs(e - w));
+            float glow = exp(-abs(e - w) / max(w * 0.6, 0.001));
+            float pulse = 1.0 - uP[2] * 0.4 * (0.5 + 0.5 * sin(uTime * 4.0));
+            vec3 nc = hueColor(uP[0] + uTime * 20.0 * uP[2]);
+            return vec4(clamp(c.rgb + nc * (line * 1.2 + glow * 0.6) * pulse, 0.0, 1.0), c.a);
+            """
+        })
+        // ---- 3.3 transitions
+        register(video("_tr_ink", "Encre", C.INTERNAL, listOf(p("softness", "Douceur", 0.0, 0.2, 0.05), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            vec2 q = uv * vec2(uResolution.x / uResolution.y, 1.0);
+            float n = noise(q * 5.0) * 0.6 + noise(q * 13.0) * 0.3 + noise(q * 31.0) * 0.1;
+            float t = uProgress * (1.2 + 2.0 * uP[0]) - uP[0] - 0.1;
+            float m = smoothstep(n - uP[0], n + uP[0], t);
+            if (uProgress >= 0.999) m = 1.0;
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_burn", "Brûlure", C.INTERNAL, listOf(p("glow", "Braises", 0.0, 1.0, 0.8), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            vec2 q = uv * vec2(uResolution.x / uResolution.y, 1.0);
+            float n = noise(q * 4.0) * 0.65 + noise(q * 11.0) * 0.35;
+            float t = uProgress * 1.3 - 0.15;
+            float m = smoothstep(n - 0.015, n + 0.015, t);
+            float edge = (1.0 - smoothstep(0.0, 0.1, t - n)) * m;
+            float core = (1.0 - smoothstep(0.0, 0.025, t - n)) * m;
+            vec3 col = c.rgb + (vec3(1.0, 0.42, 0.05) * edge * 1.6 + vec3(1.0, 0.9, 0.5) * core) * uP[0];
+            if (uProgress >= 0.999) { m = 1.0; col = c.rgb; }
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(clamp(col, 0.0, 1.0), c.a * m);
+            """
+        })
+        register(video("_tr_spiral", "Spirale", C.INTERNAL, listOf(p("softness", "Douceur", 0.0, 0.2, 0.03), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            vec2 asp = vec2(uResolution.x / uResolution.y, 1.0);
+            vec2 d = (uv - 0.5) * asp;
+            float r = length(d) / length(asp * 0.5);
+            float a = atan(d.y, d.x) / 6.2831853 + 0.5;
+            float v = clamp(r * 0.75 + a * 0.25, 0.0, 1.0);
+            float m = smoothstep(v - uP[0], v + uP[0], uProgress * (1.0 + 2.0 * uP[0]) - uP[0]);
+            if (uProgress >= 0.999) m = 1.0;
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_zigzag", "Dents de scie", C.INTERNAL, listOf(p("count", "Dents", 2.0, 30.0, 8.0), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            float tooth = abs(fract(uv.y * uP[0]) - 0.5) * 2.0;
+            float edge = uProgress * 1.2 - 0.1 + (tooth - 0.5) * 0.08;
+            float m = step(uv.x, edge);
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_slit", "Fente", C.INTERNAL, listOf(p("softness", "Douceur", 0.0, 0.2, 0.01), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            float y = abs(uv.y - 0.5) * 2.0;
+            float m = 1.0 - smoothstep(uProgress - uP[0], uProgress + uP[0], y);
+            if (uProgress >= 0.999) m = 1.0;
+            if (uProgress <= 0.001) m = 0.0;
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_hex", "Hexagones", C.INTERNAL, listOf(p("count", "Taille", 3.0, 30.0, 9.0), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            vec2 q = uv * vec2(uResolution.x / uResolution.y, 1.0) * uP[0];
+            vec2 r = vec2(1.0, 1.7320508);
+            vec2 h = r * 0.5;
+            vec2 a = mod(q, r) - h;
+            vec2 b = mod(q - h, r) - h;
+            vec2 gv = dot(a, a) < dot(b, b) ? a : b;
+            vec2 id = floor((q - gv) * 10.0 + 0.5);
+            float m = step(hash(id) * 0.999, uProgress);
+            if (uProgress <= 0.001) m = 0.0;
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_diag", "Bandes diagonales", C.INTERNAL, listOf(p("count", "Bandes", 2.0, 30.0, 8.0), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            float f = fract((uv.x + uv.y) * uP[0] * 0.5);
+            float m = step(f, uProgress);
+            if (uProgress <= 0.001) m = 0.0;
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_dots", "Pois", C.INTERNAL, listOf(p("count", "Pois", 3.0, 30.0, 10.0), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            vec2 f = fract(uv * vec2(uResolution.x / uResolution.y, 1.0) * uP[0]) - 0.5;
+            float r = uProgress * 0.75;
+            float m = 1.0 - smoothstep(r - 0.03, r, length(f));
+            if (uProgress >= 0.999) m = 1.0;
+            if (uProgress <= 0.001) m = 0.0;
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_luma", "Fondu lumineux", C.INTERNAL, listOf(p("softness", "Douceur", 0.02, 0.5, 0.2), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            float t = 1.0 - uProgress * (1.0 + uP[0]);
+            float m = smoothstep(t, t + uP[0], luma(c.rgb));
+            if (uProgress >= 0.999) m = 1.0;
+            if (uProgress <= 0.001) m = 0.0;
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_stripes", "Lignes alternées", C.INTERNAL, listOf(p("count", "Lignes", 2.0, 40.0, 12.0), p("invert", "Inverser", 0.0, 1.0, 0.0))) {
+            """
+            vec4 c = tex(uv);
+            float band = floor(uv.y * uP[0]);
+            float x = mod(band, 2.0) < 0.5 ? uv.x : 1.0 - uv.x;
+            float m = step(x, uProgress);
+            if (uProgress <= 0.001) m = 0.0;
+            if (uP[1] > 0.5) m = 1.0 - m;
+            return vec4(c.rgb, c.a * m);
+            """
+        })
+        register(video("_tr_rgbsplit", "Coupe RVB", C.INTERNAL, listOf(p("amount", "Intensité", 0.0, 1.0, 1.0))) {
+            """
+            float k = (1.0 - uProgress) * uP[0];
+            float row = floor(uv.y * 24.0);
+            float jit = (hash(vec2(row, floor(uProgress * 30.0))) - 0.5) * 0.06 * k;
+            vec2 q = vec2(uv.x + jit, uv.y);
+            float s = 0.06 * k;
+            vec4 c = tex(q);
+            return vec4(tex(q + vec2(s, 0.0)).r, c.g, tex(q - vec2(s, s * 0.3)).b, c.a);
+            """
+        })
+
         // ------------------------------------------------------------------ AUDIO (core DSP)
         register(audio("a_compressor", "Compresseur", C.AUDIO, listOf(p("threshold", "Seuil", -60.0, 0.0, -18.0, "dB"), p("ratio", "Ratio", 1.0, 20.0, 4.0, ":1"), p("attack", "Attaque", 0.1, 100.0, 10.0, "ms"), p("release", "Relâchement", 10.0, 1000.0, 120.0, "ms"), p("makeup", "Gain", 0.0, 24.0, 4.0, "dB"))))
         register(audio("a_limiter", "Limiteur", C.AUDIO, listOf(p("ceiling", "Plafond", -12.0, 0.0, -1.0, "dB"), p("release", "Relâchement", 10.0, 500.0, 80.0, "ms"))))

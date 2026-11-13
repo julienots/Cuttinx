@@ -30,7 +30,7 @@ object Presets {
     private fun preset(cat: String, name: String, vararg effects: EffectInstance) = preset(name, *effects).copy(category = cat)
 
     /** Families shown as tabs above the filters. */
-    val CATEGORIES = listOf("Essentiels", "Portrait", "Cinéma", "Rétro", "Nature", "Nuit", "Noir & blanc", "Créatif")
+    val CATEGORIES = listOf("Essentiels", "Tendances", "Portrait", "Cinéma", "Rétro", "Nature", "Nuit", "Noir & blanc", "Créatif")
     private val CATEGORY_OF = mapOf(
         "Blockbuster" to "Cinéma", "Contraste dramatique" to "Cinéma", "Pellicule cinéma" to "Cinéma", "Froid cinéma" to "Cinéma",
         "Nostalgie" to "Rétro", "Super 8" to "Rétro", "Rétro VHS" to "Rétro", "Chaud vintage" to "Rétro", "Vidéo vintage" to "Rétro",
@@ -94,6 +94,23 @@ object Presets {
             preset("Créatif", "Rêve éveillé", fx("orton", "amount" to 0.7), fx("adjust", "saturation" to 0.1)),
             preset("Créatif", "Pop vibrant", fx("clarity", "amount" to 0.5), fx("adjust", "saturation" to 0.35, "vibrance" to 0.3)),
             preset("Essentiels", "Naturel net", fx("clarity", "amount" to 0.25), fx("adjust", "vibrance" to 0.15)),
+            // ---- 3.3
+            preset("Tendances", "Soirée club", fx("club_lights", "amount" to 0.6), fx("adjust", "contrast" to 0.2, "saturation" to 0.25), fx("glow", "intensity" to 0.4)),
+            preset("Tendances", "Carte premium", fx("light_sweep", "amount" to 0.6), fx("clarity", "amount" to 0.3), fx("adjust", "contrast" to 0.1, "vibrance" to 0.2)),
+            preset("Tendances", "Pop sérigraphie", fx("pop_art")),
+            preset("Tendances", "Jour de pluie", fx("rain_window", "amount" to 0.7), fx("adjust", "temperature" to -0.35, "saturation" to -0.2, "contrast" to 0.1), fx("vignette", "amount" to 0.3)),
+            preset("Tendances", "Fête", fx("confetti", "amount" to 0.8), fx("adjust", "saturation" to 0.3, "brightness" to 0.05)),
+            preset("Tendances", "Paillettes", fx("gold_dust", "amount" to 0.7), fx("split_tone", "shadowHue" to 30.0, "highlightHue" to 45.0, "amount" to 0.3), fx("orton", "amount" to 0.2)),
+            preset("Tendances", "Souvenir instantané", fx("instant_frame"), fx("adjust", "fade" to 0.15, "temperature" to 0.15)),
+            preset("Tendances", "Néon arcade", fx("neon_frame", "hue" to 190.0), fx("selective_hue", "target" to 300.0, "range" to 50.0, "saturation" to 0.4), fx("adjust", "contrast" to 0.2)),
+            preset("Tendances", "Arc-en-ciel vivant", fx("color_cycle", "amount" to 0.6, "speed" to 0.6), fx("adjust", "saturation" to 0.2)),
+            preset("Tendances", "Bulles de rêve", fx("bubbles", "amount" to 0.7), fx("dreamy"), fx("adjust", "brightness" to 0.05)),
+            preset("Portrait", "Sujet net", fx("focus_blur", "radius" to 10.0, "focus" to 0.22), fx("skin_smooth", "amount" to 0.3), fx("adjust", "vibrance" to 0.1)),
+            preset("Cinéma", "Étoiles de nuit", fx("star_filter", "amount" to 0.6), fx("adjust", "temperature" to -0.25, "contrast" to 0.15), fx("letterbox")),
+            preset("Cinéma", "Grand angle", fx("lens_distortion", "amount" to 0.35), fx("teal_orange", "amount" to 0.35), fx("vignette", "amount" to 0.35)),
+            preset("Rétro", "Bobine poussiéreuse", fx("film_dust"), fx("sepia", "amount" to 0.5), fx("vignette", "amount" to 0.5)),
+            preset("Créatif", "Terminal", fx("ascii_blocks")),
+            preset("Créatif", "Radio", fx("xray")),
         )
     }
 

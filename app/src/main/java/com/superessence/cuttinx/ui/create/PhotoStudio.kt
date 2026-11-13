@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -185,7 +186,7 @@ fun PhotoStudio(onBack: () -> Unit) {
                         }
                         PhotoTab.CROP -> Column {
                             Text("Format", color = cx.dim, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 for (f in PhotoFrame.entries) Text(f.label, Modifier.cxChip(f == frame, cx.accent) { frame = f }, fontSize = 12.sp,
                                     color = if (f == frame) cx.accent else MaterialTheme.colorScheme.onSurface)
                             }

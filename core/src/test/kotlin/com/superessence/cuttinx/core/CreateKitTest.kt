@@ -48,7 +48,7 @@ class CreateKitTest {
         assertEquals(sr * 2, t.size)
         CreateKit.fades(t, sr, 2, 0.1, 0.1)
         assertEquals(0f, t[0]); assertEquals(0.5f, t[t.size / 2]); assertTrue(t.last() < 0.01f)
-        assertEquals("3.2", Releases.current.version)
+        assertEquals("3.3", Releases.current.version)
     }
 }
 

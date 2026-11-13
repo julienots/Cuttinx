@@ -162,7 +162,7 @@ object Magic {
         "transitions" -> SmartTools.mainTrack(p)?.let { ProToolsBridge.transitions(p, it.id) } ?: p
         "clean" -> SmartTools.cleanUp(p)
         "safe" -> SmartTools.safeZones(p, platform)
-        else -> p
+        else -> MontageKit.run(id, p) ?: p
     }
 }
 

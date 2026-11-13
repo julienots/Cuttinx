@@ -8,6 +8,8 @@ enum class TextLook(val label: String) {
     IMPACT("Gros titre impact"), NEON("Néon"), OUTLINE("Contour épais"), BANNER("Bandeau"), SUBTITLE_PRO("Sous-titre pro"),
     TYPEWRITER("Machine à écrire"), KARAOKE("Karaoké"), FIRE("Dégradé feu"), MINIMAL("Minimal élégant"), COMIC("Bande dessinée"),
     RETRO("Rétro arcade"), HANDWRITTEN("Écriture manuscrite"), LUXURY("Luxe"), NEWS("Info flash"),
+    // 3.3
+    CHROME("Chrome"), STICKER("Autocollant"), GAMER("Gamer néon"), POSTER("Affiche"), SIGNATURE("Signature"), MARKER("Feutre"), DINER("Rétro diner"),
 }
 
 /** Titles, captions and text tools. Texts created here land on their own text tracks. */
@@ -30,6 +32,13 @@ object Titles {
         TextLook.HANDWRITTEN -> base.copy(fontFamily = "asset:fonts/Caveat_700Bold.ttf", sizeSp = 64.0, uppercase = false, color = 0xFFFFFFFF, strokeWidth = 0.0, shadowRadius = 8.0, backgroundColor = 0, gradientEnabled = false)
         TextLook.LUXURY -> base.copy(fontFamily = "asset:fonts/PlayfairDisplay_700Bold_Italic.ttf", sizeSp = 58.0, uppercase = false, gradientEnabled = true, gradientStart = 0xFFFFF1C1, gradientEnd = 0xFFC9962B, strokeWidth = 0.0, shadowRadius = 10.0, backgroundColor = 0)
         TextLook.NEWS -> base.copy(fontFamily = "asset:fonts/Oswald_600SemiBold.ttf", sizeSp = 40.0, uppercase = true, color = 0xFFFFFFFF, strokeWidth = 0.0, shadowRadius = 0.0, backgroundColor = 0xFFE5202E, backgroundPadding = 16.0, backgroundCorner = 0.0, gradientEnabled = false)
+        TextLook.CHROME -> base.copy(fontFamily = "asset:fonts/Anton_400Regular.ttf", sizeSp = 78.0, uppercase = true, gradientEnabled = true, gradientStart = 0xFFFFFFFF, gradientEnd = 0xFF7D8590, strokeWidth = 3.0, strokeColor = 0xFF1B1E24, shadowRadius = 14.0, shadowColor = 0xFF000000, backgroundColor = 0)
+        TextLook.STICKER -> base.copy(fontFamily = "asset:fonts/Fredoka_600SemiBold.ttf", sizeSp = 48.0, uppercase = false, color = 0xFF111111, strokeWidth = 0.0, shadowRadius = 6.0, shadowDx = 3.0, shadowDy = 4.0, shadowColor = 0x66000000, backgroundColor = 0xFFFFFFFF, backgroundPadding = 20.0, backgroundCorner = 40.0, gradientEnabled = false)
+        TextLook.GAMER -> base.copy(fontFamily = "asset:fonts/BebasNeue_400Regular.ttf", sizeSp = 72.0, uppercase = true, letterSpacing = 0.08, color = 0xFFE9FFFF, strokeWidth = 2.0, strokeColor = 0xFF00E5FF, shadowRadius = 24.0, shadowDx = 0.0, shadowDy = 0.0, shadowColor = 0xFF00E5FF, backgroundColor = 0, gradientEnabled = false)
+        TextLook.POSTER -> base.copy(fontFamily = "asset:fonts/AbrilFatface_400Regular.ttf", sizeSp = 86.0, uppercase = false, color = 0xFFFFF4E0, strokeWidth = 0.0, shadowRadius = 0.0, shadowDx = 6.0, shadowDy = 6.0, shadowColor = 0xFFE5202E, backgroundColor = 0, gradientEnabled = false)
+        TextLook.SIGNATURE -> base.copy(fontFamily = "asset:fonts/Pacifico_400Regular.ttf", sizeSp = 56.0, uppercase = false, color = 0xFFFFFFFF, strokeWidth = 0.0, shadowRadius = 10.0, shadowColor = 0x99000000, backgroundColor = 0, gradientEnabled = false)
+        TextLook.MARKER -> base.copy(fontFamily = "asset:fonts/PermanentMarker_400Regular.ttf", sizeSp = 54.0, uppercase = false, color = 0xFF111111, strokeWidth = 0.0, shadowRadius = 0.0, backgroundColor = 0xFFFFE14D, backgroundPadding = 14.0, backgroundCorner = 2.0, gradientEnabled = false)
+        TextLook.DINER -> base.copy(fontFamily = "asset:fonts/Lobster_400Regular.ttf", sizeSp = 62.0, uppercase = false, gradientEnabled = true, gradientStart = 0xFFFF7AC3, gradientEnd = 0xFFFFC94D, strokeWidth = 4.0, strokeColor = 0xFF3A0B2E, shadowRadius = 0.0, shadowDx = 4.0, shadowDy = 4.0, shadowColor = 0xFF3A0B2E, backgroundColor = 0)
     }
 
     private fun anims(look: TextLook): Pair<TextAnimation, TextAnimation> = when (look) {
@@ -47,6 +56,13 @@ object Titles {
         TextLook.HANDWRITTEN -> TextAnimation.TYPEWRITER to TextAnimation.FADE
         TextLook.LUXURY -> TextAnimation.BLUR_IN to TextAnimation.FADE
         TextLook.NEWS -> TextAnimation.SLIDE_RIGHT to TextAnimation.FADE
+        TextLook.CHROME -> TextAnimation.ZOOM to TextAnimation.ZOOM_OUT
+        TextLook.STICKER -> TextAnimation.POP to TextAnimation.POP
+        TextLook.GAMER -> TextAnimation.GLITCH to TextAnimation.FLICKER
+        TextLook.POSTER -> TextAnimation.DROP to TextAnimation.FADE
+        TextLook.SIGNATURE -> TextAnimation.TYPEWRITER to TextAnimation.FADE
+        TextLook.MARKER -> TextAnimation.SWING to TextAnimation.FADE
+        TextLook.DINER -> TextAnimation.BOUNCE to TextAnimation.ZOOM_OUT
     }
 
     /** Applies [look] to the selected texts (or every title and caption). */
