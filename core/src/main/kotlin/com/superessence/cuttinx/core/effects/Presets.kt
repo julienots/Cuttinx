@@ -30,7 +30,7 @@ object Presets {
     private fun preset(cat: String, name: String, vararg effects: EffectInstance) = preset(name, *effects).copy(category = cat)
 
     /** Families shown as tabs above the filters. */
-    val CATEGORIES = listOf("Essentiels", "Portrait", "Cinéma", "Rétro", "Nature", "Nuit", "Noir & blanc", "Créatif")
+    val CATEGORIES = listOf("Essentiels", "Portrait", "Cinéma", "Rétro", "Nature", "Nuit", "Noir & blanc", "Créatif", "Ultra tech")
     private val CATEGORY_OF = mapOf(
         "Blockbuster" to "Cinéma", "Contraste dramatique" to "Cinéma", "Pellicule cinéma" to "Cinéma", "Froid cinéma" to "Cinéma",
         "Nostalgie" to "Rétro", "Super 8" to "Rétro", "Rétro VHS" to "Rétro", "Chaud vintage" to "Rétro", "Vidéo vintage" to "Rétro",
@@ -94,6 +94,19 @@ object Presets {
             preset("Créatif", "Rêve éveillé", fx("orton", "amount" to 0.7), fx("adjust", "saturation" to 0.1)),
             preset("Créatif", "Pop vibrant", fx("clarity", "amount" to 0.5), fx("adjust", "saturation" to 0.35, "vibrance" to 0.3)),
             preset("Essentiels", "Naturel net", fx("clarity", "amount" to 0.25), fx("adjust", "vibrance" to 0.15)),
+            // ---- Ultra tech (2.8) : combinaisons de haut niveau
+            preset("Ultra tech", "Capteur 8K", fx("ultra_super_res", "amount" to 1.0), fx("ultra_hdr", "amount" to 0.6), fx("adjust", "vibrance" to 0.15)),
+            preset("Ultra tech", "Blockbuster IMAX", fx("ultra_hdr", "amount" to 0.5), fx("ultra_bloom", "amount" to 0.5), fx("teal_orange", "amount" to 0.5), fx("letterbox")),
+            preset("Ultra tech", "Lumière divine", fx("ultra_volumetric", "amount" to 0.8), fx("ultra_bloom", "amount" to 0.4)),
+            preset("Ultra tech", "Mode cinéma IA", fx("ultra_depth_focus"), fx("ultra_bloom", "amount" to 0.3), fx("adjust", "contrast" to 0.1)),
+            preset("Ultra tech", "Cockpit", fx("hud_visor"), fx("hud_targeting", "amount" to 0.7), fx("hud_data_stream", "amount" to 0.6)),
+            preset("Ultra tech", "Hologramme", fx("hud_hologram"), fx("ultra_bloom", "amount" to 0.6, "threshold" to 0.4)),
+            preset("Ultra tech", "Opération nocturne", fx("ai_night_vision"), fx("hud_targeting", "amount" to 0.6, "hue" to 120.0)),
+            preset("Ultra tech", "Prédateur", fx("ai_thermal"), fx("hud_biometric", "hue" to 0.0)),
+            preset("Ultra tech", "Futur synthwave", fx("hud_neon_grid"), fx("ultra_bloom", "amount" to 0.6, "tint" to 300.0, "tintAmt" to 0.5), fx("adjust", "saturation" to 0.2)),
+            preset("Ultra tech", "Matrice neuronale", fx("ai_neural_edges", "bg" to 0.25), fx("ultra_bloom", "amount" to 0.5, "threshold" to 0.3)),
+            preset("Ultra tech", "Voyage astral", fx("dim_wormhole", "glow" to 0.6), fx("ultra_prism", "amount" to 0.4)),
+            preset("Ultra tech", "Scan 3D", fx("hud_lidar"), fx("hud_data_stream", "amount" to 0.5)),
         )
     }
 

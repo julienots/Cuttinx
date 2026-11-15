@@ -91,7 +91,7 @@ fun AppliedEffects(vm: EditorViewModel, c: Clip, audio: Boolean) {
 @UnstableApi
 @Composable
 fun EffectsPanel(vm: EditorViewModel, sel: Clip?) {
-    val cats = EffectRegistry.video().map { it.category }.distinct()
+    val cats = EffectRegistry.video().map { it.category }.distinct().sortedBy { it.ordinal }
     var cat by remember { mutableStateOf(cats.first()) }
     if (sel != null && vm.current.findClip(sel.id)?.first?.kind != TrackKind.AUDIO) {
         SectionTitle("Effets appliqués à « ${sel.name.ifBlank { "l'élément" }} »")

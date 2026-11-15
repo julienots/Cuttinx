@@ -76,6 +76,11 @@ object TransitionRegistry {
         register(TransitionDefinition("wheel", "Roue", listOf(ParamDef("count", "Rayons", 2.0, 16.0, 6.0)), defaultDurationUs = 700_000))
         register(TransitionDefinition("pixelate", "Pixelisation", listOf(ParamDef("size", "Taille", 8.0, 120.0, 60.0)), defaultDurationUs = 600_000))
         register(TransitionDefinition("ripple", "Ondulation", listOf(ParamDef("amount", "Force", 0.0, 0.1, 0.04)), defaultDurationUs = 800_000))
+        // ---- ultra technologies (2.8)
+        register(TransitionDefinition("teleport", "Téléportation", listOf(ParamDef("grain", "Particules", 20.0, 300.0, 110.0), ParamDef("hue", "Lueur", 0.0, 360.0, 190.0, ParamType.HUE)), defaultDurationUs = 800_000))
+        register(TransitionDefinition("holo_glitch", "Faille holographique", listOf(ParamDef("amount", "Intensité", 0.1, 1.0, 1.0)), defaultDurationUs = 500_000))
+        register(TransitionDefinition("portal", "Portail dimensionnel", listOf(ParamDef("hue", "Couleur", 0.0, 360.0, 280.0, ParamType.HUE)), defaultDurationUs = 800_000))
+        register(TransitionDefinition("hyperspace", "Saut hyperespace", listOf(ParamDef("amount", "Étirement", 0.1, 1.0, 0.8)), defaultDurationUs = 500_000))
     }
 
     private fun dirVec(d: Double): Pair<Double, Double> = when (d.toInt()) {
@@ -217,6 +222,18 @@ object TransitionRegistry {
             "ripple" -> {
                 val i = mapOf("amount" to prm("amount", 0.04))
                 cross(LayerMod(shaderId = "_tr_ripple", shaderProgress = 1 - q, shaderParams = i), LayerMod(shaderId = "_tr_ripple", shaderProgress = q, shaderParams = i))
+            }
+            "teleport" -> reveal("_tr_teleport", mapOf("grain" to prm("grain", 110.0), "hue" to prm("hue", 190.0)))
+            "portal" -> reveal("_tr_portal", mapOf("hue" to prm("hue", 280.0)))
+            "holo_glitch" -> {
+                val i = mapOf("amount" to prm("amount", 1.0))
+                cross(LayerMod(shaderId = "_tr_holo_glitch", shaderProgress = 1 - q, shaderParams = i), LayerMod(shaderId = "_tr_holo_glitch", shaderProgress = q, shaderParams = i))
+            }
+            "hyperspace" -> {
+                val i = mapOf("amount" to prm("amount", 0.8))
+                // A s'étire vers le centre jusqu'au flash, puis B se stabilise
+                LayerMod(alpha = if (q < 0.5) 1.0 else 0.0, shaderId = "_tr_warp", shaderProgress = 1 - (q * 2).coerceIn(0.0, 1.0), shaderParams = i) to
+                    LayerMod(alpha = if (q >= 0.5) 1.0 else 0.0, shaderId = "_tr_warp", shaderProgress = (q * 2 - 1).coerceIn(0.0, 1.0), shaderParams = i)
             }
             else -> cross()
         }

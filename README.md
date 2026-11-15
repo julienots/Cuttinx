@@ -56,6 +56,22 @@ fois, sur demande.
   inversée, bass drop, explosion, ba dum tss, disque rayé, sons 8-bit, jingles d'intro / fin…),
   20 effets de voix (hélium, monstre, alien, fantôme, sous l'eau, talkie-walkie…), réducteur de bruit
   de fond et « voix studio » en un geste, tutoriel pas à pas et guide intégré avec recherche.
+- **Ultra technologies (2.8)** : 4 nouvelles catégories d'effets GPU haut de gamme.
+  *Ultra technologies* : hyper-zoom neuronal, rayons volumétriques, dispersion spectrale, mise au point IA
+  (profondeur simulée + bokeh), traînées lumineuses, distorsion quantique, HDR ultra (tone mapping local),
+  super-résolution, tranches temporelles (slit-scan), bloom cinéma. *Interface HUD* : viseur de ciblage, scan
+  LiDAR, projection holographique, radar, grille néon 3D, flux de données, analyse biométrique, visière cyber.
+  *Vision IA* : vision thermique, vision nocturne, rayons X, contours neuronaux, segmentation, carte de
+  profondeur, camouflage optique, hallucination IA, tri de pixels. *3D & dimensions* : parallaxe 3D, rotation
+  3D en perspective, boule de cristal, kaléidoscope fractal, trou de ver, voxels, carte lenticulaire, effet
+  Droste infini. 4 transitions (téléportation, faille holographique, portail dimensionnel, saut hyperespace)
+  et 12 filtres « Ultra tech » (Capteur 8K, Blockbuster IMAX, Cockpit, Opération nocturne…).
+- **Filmer (2.8)** : mode **Écran** — enregistre l'écran du téléphone (jeux, applis, tutos) en MP4 jusqu'en
+  1440p 60 i/s avec le son du téléphone (Android 10+), le micro ou les deux mixés ; pause / arrêt depuis la
+  notification, durée max, CUTTINX se réduit tout seul. Mode **Caméra** : 60 i/s et vidéo HDR quand le
+  capteur le permet, niveau à bulle, zones sûres TikTok / Reels / Shorts, anneau lumineux pour les selfies,
+  miroir, verrouillage AE/AF (appui long), retardateur 3 / 5 / 10 s, durée max (15 s → 3 min), zoom ×10,
+  taille du fichier en direct, suppression de la dernière prise. Les prises vont directement dans le montage.
 - **Lecteur fiable** : les calques qui sortent du cadre (glissements, transitions, animations) ne bloquent
   plus la lecture ; en cas d'échec GPU propre à un téléphone, l'aperçu se reconstruit automatiquement
   (mode simplifié) et un bouton « Réessayer » relance la lecture.
