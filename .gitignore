@@ -10,3 +10,4 @@ build/
 *.keystore
 !debug-cuttinx.keystore
 /dist/
+apk/
