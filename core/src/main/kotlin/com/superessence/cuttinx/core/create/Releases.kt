@@ -5,6 +5,12 @@ object Releases {
     class Entry(val version: String, val title: String, val items: List<Pair<String, String>>)
 
     val all = listOf(
+        Entry("3.4", "Ultra technologies et capture d'écran", listOf(
+            "4 nouvelles familles d'effets" to "Ultra technologies, Interface HUD, Vision IA, 3D & dimensions : rayons volumétriques, mise au point IA, HDR ultra, scan LiDAR, vision thermique, trou de ver, effet Droste…",
+            "4 transitions et 12 filtres Ultra tech" to "Téléportation, faille holographique, portail dimensionnel, saut hyperespace ; Capteur 8K, Blockbuster IMAX, Cockpit, Opération nocturne…",
+            "Filmer son écran" to "Jeux, applis, tutos jusqu'en 1440p 60 i/s, avec le son du téléphone et / ou ta voix, pause et arrêt depuis la notification",
+            "Caméra encore plus pro" to "60 i/s, HDR, niveau, zones sûres TikTok / Reels / Shorts, anneau lumineux, verrouillage AE/AF, durée max, zoom ×10",
+        )),
         Entry("3.3", "Des nouveautés partout", listOf(
             "11 outils de montage en un geste" to "Rythme rapide, vélocité, ralenti final, saccade d'accroche, mode ciné, 3·2·1, carte de fin, coupes glitch, zoom lent, diaporama, moins d'1 minute",
             "16 effets vidéo" to "Reflet balayant, lumières de club, pop art, gouttes sur la vitre, confettis, poussière d'or, bulles, rayons X, mise au point centrale, filtre étoile…",

@@ -1281,6 +1281,9 @@ object EffectRegistry {
             """
         })
 
+        // ------------------------------------------------------------------ ULTRA TECHNOLOGIES (3.4)
+        UltraEffects.all().forEach(::register)
+
         // ------------------------------------------------------------------ INTERNAL (engine)
         register(video("_chroma_key", "Incrustation (fond vert)", C.INTERNAL, listOf(
             p("r", "R", 0.0, 1.0, 0.0), p("g", "V", 0.0, 1.0, 1.0), p("b", "B", 0.0, 1.0, 0.0),

@@ -4,7 +4,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class EffectCategory(val label: String) {
-    TREND("Tendances"), ADJUST("Réglages"), COLOR("Couleur"), BLUR("Flou & netteté"), STYLIZE("Stylisé"),
+    TREND("Tendances"),
+    // CUTTINX 3.4 : montages « ultra technologies »
+    ULTRA("Ultra technologies"), HUD("Interface HUD"), AI_VISION("Vision IA"), DIMENSION("3D & dimensions"),
+    ADJUST("Réglages"), COLOR("Couleur"), BLUR("Flou & netteté"), STYLIZE("Stylisé"),
     RETRO("Rétro"), CINEMA("Cinéma"), LIGHT("Lumière"), DISTORT("Distorsion"), MOTION("Mouvement & vitesse"),
     PARTICLES("Particules"), OVERLAY("Superposition"), AUDIO("Audio"), VOICE("Voix"), INTERNAL("Interne"),
 }

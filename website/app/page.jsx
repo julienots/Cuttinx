@@ -16,6 +16,8 @@ const features = [
   { icon: 'Text', title: 'Titres et caméra', text: '14 styles de texte, compte à rebours, classement, bandeau nom, carte de fin. Zooms, panoramiques et secousses en images clés.' },
   { icon: 'JlCut', title: 'Montage précis', text: 'Couper avant ou après la tête de lecture, coupes en J et en L, aimant, solo, marqueurs, plans de durée égale.' },
   { icon: 'Effects', title: 'Effets et transitions', text: 'Looks couleur, transitions, animations d’entrée, zoom lent, rampes de vitesse, textes animés et sous-titres.' },
+  { icon: 'Effects', title: 'Ultra technologies', text: 'Rayons volumétriques, mise au point IA, HDR ultra, interfaces HUD, vision thermique et nocturne, parallaxe 3D, trou de ver, effet Droste : 4 nouvelles familles d’effets haut de gamme.' },
+  { icon: 'Video', title: 'Filmer son écran', text: 'Enregistre ton écran (jeux, applis, tutos) avec le son du téléphone et ta voix, jusqu’en 1440p 60 i/s. Caméra 4K 60 i/s HDR, niveau, zones sûres, anneau lumineux.' },
   { icon: 'Replay', title: 'Historique des versions', text: 'Chaque étape est gardée. Compare, puis reviens à n’importe quelle version sans rien perdre.' },
   { icon: 'Download', title: 'Export sans filigrane', text: 'Export MP4 jusqu’en 4K, au format TikTok, Reels, Shorts ou YouTube. Ta vidéo, sans logo ajouté.' },
 ]

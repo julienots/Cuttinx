@@ -189,7 +189,7 @@ private fun SfxTab(m: EditorModel) {
 private fun FxTab(m: EditorModel) {
     val sel by m.selection.collectAsState()
     Hint(if (sel.isEmpty()) "Aucun clip sélectionné : l'effet s'appliquera à tout ce qui est dessous (calque d'effets)." else "S'applique au clip sélectionné. Réglages dans le panneau de droite.")
-    val groups = EffectRegistry.all.filter { it.kind == EffectKind.VIDEO && it.category != EffectCategory.INTERNAL && !it.id.startsWith("_") }.groupBy { it.category }
+    val groups = EffectRegistry.all.filter { it.kind == EffectKind.VIDEO && it.category != EffectCategory.INTERNAL && !it.id.startsWith("_") }.groupBy { it.category }.toSortedMap()
     LazyColumn {
         groups.forEach { (cat, list) ->
             item { Title(cat.label.uppercase()) }
