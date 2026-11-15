@@ -157,7 +157,7 @@ fun RecorderScreen(onClose: () -> Unit, onDone: (RecordedTakes) -> Unit) {
     var exposure by remember { mutableFloatStateOf(0f) }
 
     // ---- screen options
-    var sQuality by remember { mutableStateOf(ScreenQuality.FHD) }
+    var sQuality by remember { mutableStateOf(ScreenQuality.HD) }
     var sFps by remember { mutableIntStateOf(30) }
     var sAudio by remember { mutableStateOf(if (Build.VERSION.SDK_INT >= 29) ScreenAudio.DEVICE else ScreenAudio.MIC) }
     var sMinimize by remember { mutableStateOf(true) }

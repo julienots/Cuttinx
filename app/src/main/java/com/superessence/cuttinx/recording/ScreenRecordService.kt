@@ -57,7 +57,7 @@ enum class ScreenQuality(val label: String, val maxSide: Int, val mbps: Int) {
 
 /** Réglages d'une capture d'écran. */
 data class ScreenOptions(
-    val quality: ScreenQuality = ScreenQuality.FHD,
+    val quality: ScreenQuality = ScreenQuality.HD,
     val fps: Int = 30,
     val audio: ScreenAudio = ScreenAudio.DEVICE,
     val maxSeconds: Int = 0,
@@ -95,8 +95,6 @@ class ScreenRecordService : Service() {
     private var pausedTotal = 0L
     private var pausedAt = 0L
     private var options = ScreenOptions()
-    private var width = 0
-    private var height = 0
     private var dpi = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -106,7 +104,7 @@ class ScreenRecordService : Service() {
             ACTION_START -> start(intent)
             ACTION_PAUSE -> pause()
             ACTION_RESUME -> resume()
-            ACTION_STOP -> stopCapture()
+            ACTION_STOP -> stopCapture(null)
         }
         return START_NOT_STICKY
     }
@@ -114,7 +112,7 @@ class ScreenRecordService : Service() {
     private fun start(intent: Intent) {
         if (engine != null) return
         options = ScreenOptions(
-            quality = ScreenQuality.entries.getOrElse(intent.getIntExtra(EXTRA_QUALITY, 1)) { ScreenQuality.FHD },
+            quality = ScreenQuality.entries.getOrElse(intent.getIntExtra(EXTRA_QUALITY, 0)) { ScreenQuality.HD },
             fps = intent.getIntExtra(EXTRA_FPS, 30),
             audio = ScreenAudio.entries.getOrElse(intent.getIntExtra(EXTRA_AUDIO, 2)) { ScreenAudio.DEVICE },
             maxSeconds = intent.getIntExtra(EXTRA_MAX, 0),
@@ -131,10 +129,11 @@ class ScreenRecordService : Service() {
         if (mp == null) { fail("Autorisation de capture refusée"); return }
         projection = mp
         mp.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() { main.post { stopCapture() } }
+            override fun onStop() { main.post { stopCapture(null) } }
         }, main)
 
-        computeSize()
+        val (sw, sh) = screenSize()
+        dpi = resources.displayMetrics.densityDpi
         val dir = File(filesDir, "recordings").apply { mkdirs() }
         val file = File(dir, "ecran_${System.currentTimeMillis()}.mp4")
         val withDevice = options.audio.device && Build.VERSION.SDK_INT >= 29
@@ -146,14 +145,16 @@ class ScreenRecordService : Service() {
             else -> null
         }
         val enc = runCatching {
-            ScreenEncoder(file, width, height, options.fps, options.quality.mbps * 1_000_000,
-                if (audioOk && withDevice) mp else null, audioOk && (withMic || (options.audio.device && Build.VERSION.SDK_INT < 29)))
+            ScreenEncoder(file, sw, sh, options.quality.maxSide, options.fps, options.quality.mbps * 1_000_000,
+                if (audioOk && withDevice) mp else null, audioOk && (withMic || (options.audio.device && Build.VERSION.SDK_INT < 29)),
+                onFatal = { main.post { stopCapture("L'encodeur vidéo s'est arrêté : capture terminée par sécurité") } })
         }.getOrElse { fail("Encodeur vidéo indisponible : ${it.message}"); return }
         engine = enc
+        // l'encodeur doit consommer les images AVANT que l'écran virtuel ne commence à en produire
+        runCatching { enc.start() }.onFailure { enc.release(); engine = null; fail("Encodeur vidéo indisponible : ${it.message}"); return }
         display = runCatching {
-            mp.createVirtualDisplay("CUTTINX-ecran", width, height, dpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, enc.surface, null, main)
+            mp.createVirtualDisplay("CUTTINX-ecran", enc.width, enc.height, dpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, enc.surface, null, main)
         }.getOrElse { enc.release(); engine = null; fail("Capture d'écran impossible : ${it.message}"); return }
-        enc.start()
         startedAt = System.currentTimeMillis(); pausedTotal = 0; pausedAt = 0
         ScreenRecState.set(ScreenRecState.State(ScreenRecState.Phase.RECORDING, 0, null, note))
         main.post(tick)
@@ -161,11 +162,16 @@ class ScreenRecordService : Service() {
 
     private val tick: Runnable = object : Runnable {
         override fun run() {
-            val s = ScreenRecState.state.value
-            if (engine == null || s.phase == ScreenRecState.Phase.IDLE) return
+            val e = engine ?: return
             val elapsed = elapsed()
             ScreenRecState.update { it.copy(elapsedMs = elapsed) }
-            if (options.maxSeconds > 0 && elapsed >= options.maxSeconds * 1000L) { stopCapture(); return }
+            if (options.maxSeconds > 0 && elapsed >= options.maxSeconds * 1000L) { stopCapture(null); return }
+            // garde-fou : si l'encodeur ne rend plus d'images, on libère tout de suite l'écran virtuel
+            // (sinon l'affichage du téléphone peut rester bloqué)
+            if (pausedAt == 0L && System.currentTimeMillis() - e.lastOutputMs > WATCHDOG_MS) {
+                stopCapture("La capture ne répondait plus : elle a été arrêtée par sécurité. Essaie en 720p.")
+                return
+            }
             main.postDelayed(this, 250)
         }
     }
@@ -179,7 +185,7 @@ class ScreenRecordService : Service() {
         val e = engine ?: return
         if (pausedAt > 0) return
         pausedAt = System.currentTimeMillis()
-        display?.surface = null
+        runCatching { display?.surface = null }
         e.pause()
         ScreenRecState.update { it.copy(phase = ScreenRecState.Phase.PAUSED, elapsedMs = elapsed()) }
         notifyState(true)
@@ -191,49 +197,52 @@ class ScreenRecordService : Service() {
         pausedTotal += System.currentTimeMillis() - pausedAt
         pausedAt = 0
         e.resume()
-        display?.surface = e.surface
+        runCatching { display?.surface = e.surface }
         ScreenRecState.update { it.copy(phase = ScreenRecState.Phase.RECORDING) }
         notifyState(false)
     }
 
-    private fun stopCapture() {
+    /** Libère l'écran virtuel tout de suite (sur le fil principal), puis finalise le fichier en arrière-plan. */
+    private fun stopCapture(reason: String?) {
         val e = engine
         engine = null
         main.removeCallbacks(tick)
+        runCatching { display?.surface = null }
         runCatching { display?.release() }; display = null
-        val file = e?.let { runCatching { it.stop() }.getOrNull() }
         runCatching { projection?.stop() }; projection = null
-        if (file != null && file.length() > 0) ScreenRecState.addFinished(file)
-        ScreenRecState.update { ScreenRecState.State(error = if (e != null && file == null) "La capture n'a pas pu être finalisée" else it.error) }
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        runCatching { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) }
+        if (e == null) { if (reason != null) ScreenRecState.set(ScreenRecState.State(error = reason)); stopSelf(); return }
+        ScreenRecState.update { it.copy(phase = ScreenRecState.Phase.IDLE, note = "Finalisation de la vidéo…") }
+        thread(name = "cx-screen-finish") {
+            val file = runCatching { e.stop() }.getOrNull()
+            main.post {
+                if (file != null && file.length() > 0) ScreenRecState.addFinished(file)
+                ScreenRecState.set(ScreenRecState.State(error = reason ?: if (file == null) "La capture n'a pas pu être finalisée" else null))
+                stopSelf()
+            }
+        }
     }
 
     private fun fail(msg: String) {
         ScreenRecState.set(ScreenRecState.State(error = msg))
         runCatching { projection?.stop() }; projection = null
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        runCatching { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) }
         stopSelf()
     }
 
     override fun onDestroy() {
-        if (engine != null) stopCapture()
+        if (engine != null) stopCapture(null)
         super.onDestroy()
     }
 
-    /** Taille de capture : proportions de l'écran, plus grand côté limité par la qualité, multiple de 16. */
-    private fun computeSize() {
+    private fun screenSize(): Pair<Int, Int> {
         val wm = getSystemService(WindowManager::class.java)
-        val (w, h) = if (Build.VERSION.SDK_INT >= 30) {
+        return if (Build.VERSION.SDK_INT >= 30) {
             val b = wm.maximumWindowMetrics.bounds; b.width() to b.height()
         } else {
             val m = DisplayMetrics()
             @Suppress("DEPRECATION") wm.defaultDisplay.getRealMetrics(m); m.widthPixels to m.heightPixels
         }
-        dpi = resources.displayMetrics.densityDpi
-        val scale = minOf(1.0, options.quality.maxSide.toDouble() / maxOf(w, h))
-        width = ((w * scale).toInt() / 16 * 16).coerceAtLeast(320)
-        height = ((h * scale).toInt() / 16 * 16).coerceAtLeast(320)
     }
 
     private fun notifyState(paused: Boolean) {
@@ -259,6 +268,7 @@ class ScreenRecordService : Service() {
     companion object {
         const val CHANNEL = "cuttinx_screen"
         private const val NOTIF_ID = 31
+        private const val WATCHDOG_MS = 4_000L
         const val ACTION_START = "cuttinx.screen.START"
         const val ACTION_PAUSE = "cuttinx.screen.PAUSE"
         const val ACTION_RESUME = "cuttinx.screen.RESUME"
@@ -288,24 +298,34 @@ class ScreenRecordService : Service() {
     }
 }
 
+
 /**
  * Encodeur MediaCodec : vidéo H.264 depuis une Surface (l'écran virtuel) et AAC depuis
  * le son interne (AudioPlaybackCapture) et / ou le micro, mixés, puis multiplexés en MP4.
+ *
+ * La vidéo tourne en mode asynchrone sur son propre fil : chaque image rendue par l'encodeur est
+ * relâchée quoi qu'il arrive (même si l'écriture du fichier échoue), pour que l'écran virtuel ne
+ * se retrouve jamais bloqué — un écran virtuel non consommé peut figer l'affichage du téléphone.
  */
 private class ScreenEncoder(
     private val file: File,
-    width: Int, height: Int, fps: Int, bitrate: Int,
+    screenW: Int, screenH: Int, maxSide: Int, fpsWanted: Int, bitrateWanted: Int,
     deviceAudio: MediaProjection?,
     mic: Boolean,
+    private val onFatal: () -> Unit,
 ) {
     private val video: MediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
+    val width: Int
+    val height: Int
     val surface: android.view.Surface
+    private val codecThread = android.os.HandlerThread("cx-screen-codec").apply { start() }
+    private val codecHandler = Handler(codecThread.looper)
     private val muxer = MediaMuxer(file.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
     private val lock = Object()
     private var videoTrack = -1
     private var audioTrack = -1
     private var muxing = false
-    private val wantsAudio: Boolean
+    @Volatile private var wantsAudio = false
     private var audio: MediaCodec? = null
     private var devRec: AudioRecord? = null
     private var micRec: AudioRecord? = null
@@ -314,23 +334,72 @@ private class ScreenEncoder(
     @Volatile private var pauseStartUs = 0L
     @Volatile private var pausedUs = 0L
     @Volatile private var needKey = false
+    @Volatile var lastOutputMs = System.currentTimeMillis()
+        private set
+    private var videoFormatMs = 0L
+    private val videoDone = java.util.concurrent.CountDownLatch(1)
     private var lastVideoPts = -1L
     private var lastAudioPts = -1L
-    private var videoThread: Thread? = null
     private var audioThread: Thread? = null
-    private var wroteVideo = false
+    @Volatile private var wroteVideo = false
 
     init {
+        // taille réellement acceptée par l'encodeur du téléphone (sinon certains encodeurs se figent)
+        val caps = video.codecInfo.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).videoCapabilities
+        var scale = minOf(1.0, maxSide.toDouble() / maxOf(screenW, screenH))
+        var w = 0; var h = 0
+        for (i in 0 until 12) {
+            w = ((screenW * scale).toInt() / 16 * 16).coerceAtLeast(160)
+            h = ((screenH * scale).toInt() / 16 * 16).coerceAtLeast(160)
+            if (caps.isSizeSupported(w, h)) break
+            scale *= 0.85
+        }
+        width = w; height = h
+        val fps = if (fpsWanted > 30 && !caps.areSizeAndRateSupported(w, h, fpsWanted.toDouble())) 30 else fpsWanted
+        val bitrate = caps.bitrateRange.clamp(bitrateWanted)
+
+        video.setCallback(object : MediaCodec.Callback() {
+            override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {}
+            override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
+                lastOutputMs = System.currentTimeMillis()
+                synchronized(lock) {
+                    // le son ne démarre pas : on enregistre quand même l'image, sans le son
+                    if (!muxing && wantsAudio && audioTrack < 0 && videoTrack >= 0 && lastOutputMs - videoFormatMs > 1500) { wantsAudio = false; startMuxerIfReady() }
+                }
+                try {
+                    val buf = runCatching { codec.getOutputBuffer(index) }.getOrNull()
+                    val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
+                    if (key) needKey = false
+                    if (buf != null && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && !paused && !needKey) write(videoTrack, buf, info, true)
+                } finally {
+                    runCatching { codec.releaseOutputBuffer(index, false) }
+                }
+                if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) videoDone.countDown()
+            }
+            override fun onError(codec: MediaCodec, e: MediaCodec.CodecException) {
+                videoDone.countDown()
+                if (running) onFatal()
+            }
+            override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
+                synchronized(lock) { if (videoTrack < 0) { videoTrack = runCatching { muxer.addTrack(format) }.getOrDefault(-1); videoFormatMs = System.currentTimeMillis(); startMuxerIfReady() } }
+            }
+        }, codecHandler)
+
         val vf = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-            // répète la dernière image quand l'écran ne bouge pas (sinon la vidéo « saute »)
-            setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps)
+            // répète la dernière image quand l'écran ne bouge pas (vidéo fluide, et le garde-fou reste alimenté)
+            setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 100_000L)
         }
-        video.configure(vf, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-        surface = video.createInputSurface()
+        surface = try {
+            video.configure(vf, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            video.createInputSurface()
+        } catch (t: Throwable) {
+            runCatching { video.release() }; codecThread.quitSafely(); runCatching { muxer.release() }; file.delete()
+            throw t
+        }
 
         var a: MediaCodec? = null
         if (deviceAudio != null || mic) runCatching {
@@ -372,12 +441,14 @@ private class ScreenEncoder(
 
     fun start() {
         running = true
+        lastOutputMs = System.currentTimeMillis()
         video.start()
-        videoThread = thread(name = "cx-screen-video") { drainVideo() }
         audio?.let { enc ->
-            enc.start()
-            devRec?.startRecording(); micRec?.startRecording()
-            audioThread = thread(name = "cx-screen-audio") { audioLoop(enc) }
+            runCatching {
+                enc.start()
+                devRec?.startRecording(); micRec?.startRecording()
+                audioThread = thread(name = "cx-screen-audio") { runCatching { audioLoop(enc) } }
+            }
         }
     }
 
@@ -391,13 +462,13 @@ private class ScreenEncoder(
         paused = false
     }
 
-    /** Arrête l'encodage et renvoie le fichier, ou null si rien d'exploitable n'a été écrit. */
+    /** Arrête l'encodage (jamais sur le fil principal) et renvoie le fichier, ou null si rien n'a été écrit. */
     fun stop(): File? {
         if (paused) resume()
         runCatching { video.signalEndOfInputStream() }
-        videoThread?.join(3000)
+        videoDone.await(2, java.util.concurrent.TimeUnit.SECONDS)
         running = false
-        audioThread?.join(3000)
+        audioThread?.join(2000)
         release()
         return if (wroteVideo) file else { file.delete(); null }
     }
@@ -408,6 +479,7 @@ private class ScreenEncoder(
         runCatching { audio?.stop() }; runCatching { audio?.release() }
         releaseAudioSources()
         runCatching { surface.release() }
+        codecThread.quitSafely()
         synchronized(lock) { if (muxing) runCatching { muxer.stop() }; runCatching { muxer.release() }; muxing = false }
     }
 
@@ -417,7 +489,7 @@ private class ScreenEncoder(
     }
 
     private fun startMuxerIfReady() {
-        if (!muxing && videoTrack >= 0 && (!wantsAudio || audioTrack >= 0)) { muxer.start(); muxing = true }
+        if (!muxing && videoTrack >= 0 && (!wantsAudio || audioTrack >= 0)) muxing = runCatching { muxer.start() }.isSuccess
     }
 
     private fun write(track: Int, buf: java.nio.ByteBuffer, info: MediaCodec.BufferInfo, isVideo: Boolean) {
@@ -425,28 +497,9 @@ private class ScreenEncoder(
             if (!muxing || track < 0 || info.size <= 0) return
             val pts = info.presentationTimeUs - pausedUs
             if (isVideo) { if (pts <= lastVideoPts) return; lastVideoPts = pts } else { if (pts <= lastAudioPts) return; lastAudioPts = pts }
-            info.presentationTimeUs = pts
+            val out = MediaCodec.BufferInfo().apply { set(info.offset, info.size, pts, info.flags) }
             buf.position(info.offset); buf.limit(info.offset + info.size)
-            runCatching { muxer.writeSampleData(track, buf, info); if (isVideo) wroteVideo = true }
-        }
-    }
-
-    private fun drainVideo() {
-        val info = MediaCodec.BufferInfo()
-        while (true) {
-            val idx = runCatching { video.dequeueOutputBuffer(info, 10_000) }.getOrElse { return }
-            when {
-                idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> synchronized(lock) { videoTrack = muxer.addTrack(video.outputFormat); startMuxerIfReady() }
-                idx >= 0 -> {
-                    val buf = video.getOutputBuffer(idx)
-                    val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
-                    if (key) needKey = false
-                    if (buf != null && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && !paused && !needKey) write(videoTrack, buf, info, true)
-                    video.releaseOutputBuffer(idx, false)
-                    if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return
-                }
-                idx == MediaCodec.INFO_TRY_AGAIN_LATER && !running -> return
-            }
+            runCatching { muxer.writeSampleData(track, buf, out); if (isVideo) wroteVideo = true }
         }
     }
 
@@ -459,7 +512,8 @@ private class ScreenEncoder(
         while (true) {
             if (!eos) {
                 val n = readMixed(a, b)
-                val inIdx = runCatching { enc.dequeueInputBuffer(10_000) }.getOrDefault(-1)
+                if (n <= 0 && running) Thread.sleep(5)
+                val inIdx = enc.dequeueInputBuffer(10_000)
                 if (inIdx >= 0) {
                     val ib = enc.getInputBuffer(inIdx)
                     val ptsUs = System.nanoTime() / 1000
@@ -471,26 +525,27 @@ private class ScreenEncoder(
                     } else enc.queueInputBuffer(inIdx, 0, 0, ptsUs, 0)
                 }
             }
-            val outIdx = runCatching { enc.dequeueOutputBuffer(info, 5_000) }.getOrElse { return }
+            val outIdx = enc.dequeueOutputBuffer(info, 5_000)
             when {
-                outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> synchronized(lock) { audioTrack = muxer.addTrack(enc.outputFormat); startMuxerIfReady() }
+                outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> synchronized(lock) { if (audioTrack < 0 && !muxing && wantsAudio) { audioTrack = runCatching { muxer.addTrack(enc.outputFormat) }.getOrDefault(-1); startMuxerIfReady() } }
                 outIdx >= 0 -> {
-                    val ob = enc.getOutputBuffer(outIdx)
-                    if (ob != null && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0) write(audioTrack, ob, info, false)
-                    enc.releaseOutputBuffer(outIdx, false)
+                    try {
+                        val ob = enc.getOutputBuffer(outIdx)
+                        if (ob != null && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0) write(audioTrack, ob, info, false)
+                    } finally { enc.releaseOutputBuffer(outIdx, false) }
                     if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return
                 }
-                eos && outIdx == MediaCodec.INFO_TRY_AGAIN_LATER && videoThread?.isAlive != true -> return
+                eos && outIdx == MediaCodec.INFO_TRY_AGAIN_LATER -> return
             }
         }
     }
 
-    /** Lit un bloc du son interne et du micro et les additionne (avec écrêtage doux). */
+    /** Lit un bloc du son interne et du micro et les additionne (avec écrêtage). */
     private fun readMixed(a: ShortArray, b: ShortArray): Int {
         val d = devRec; val m = micRec
         val na = d?.read(a, 0, a.size) ?: 0
         val nb = m?.read(b, 0, b.size) ?: 0
-        if (d == null) { System.arraycopy(b, 0, a, 0, maxOf(nb, 0)); return nb }
+        if (d == null) { if (nb > 0) System.arraycopy(b, 0, a, 0, nb); return nb }
         if (m == null || nb <= 0) return na
         val n = maxOf(na, nb)
         for (i in 0 until n) {
