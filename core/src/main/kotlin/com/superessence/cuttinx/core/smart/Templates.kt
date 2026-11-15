@@ -24,6 +24,15 @@ enum class Template(val label: String, val description: String) {
     RETRO_MEMORIES("Souvenir rétro", "Bobine 16 mm, fondus, titre rétro, panoramique doux"),
     NIGHT("Ambiance nuit", "Nuit américaine, travelling lent, fondus au noir, bandes cinéma"),
     PORTRAIT("Portrait / interview", "Peau lissée, voix nette, sous-titres pro, bandeau nom et fonction"),
+    // 3.3
+    UNBOXING("Unboxing", "Saccade d'accroche, zoom lent, reflet premium, titre autocollant, carte de fin"),
+    FITNESS("Fitness / sport en salle", "Rythme rapide, vélocité, coupes glitch, look contrasté, compte à rebours"),
+    MOTIVATION("Motivation", "Ralenti final, look film, titre affiche, fondus longs, musique calée"),
+    MEME("Mème / humour", "Plans courts, textes autocollant, zoom sur les coupes, boucle parfaite"),
+    FASHION("Mode / outfit", "Vélocité, reflet premium, transitions élastiques, titre chrome"),
+    PARTY("Fête / anniversaire", "Confettis, lumières de club, titre rétro diner, transitions pois, carte de fin"),
+    REAL_ESTATE("Visite immobilière", "Grand angle, zoom lent, look éclatant, fondus lumineux, bandeau nom"),
+    ASMR("ASMR / calme", "Mise au point centrale, look doux, fondus lumineux, sans musique forte"),
 }
 
 object Templates {
@@ -67,6 +76,20 @@ object Templates {
                 Template.PORTRAIT -> SmartTools.applyLook(p, "Portrait doux").let { AudioPro.podcastVoice(it, AudioPro.voices(it, emptyList())) }
                     .let { SmartTools.readableSubtitles(it) }.let { Titles.applyLook(it, Kit.selOrAll(it, emptyList()) { _, c -> c.kind == ClipKind.SUBTITLE }, TextLook.SUBTITLE_PRO) }
                     .let { Titles.lowerThird(it, 500_000) }
+                Template.UNBOXING -> MontageKit.stutter(p).let { q -> main?.let { ProTools.slowZoomAll(q, it) } ?: q }.let { SmartTools.applyLook(it, "Carte premium") }
+                    .let { Titles.opening(it, "UNBOXING", TextLook.STICKER) }.let { Titles.endCard(it, "Ton avis ?", "Abonne-toi pour le prochain test") }
+                Template.FITNESS -> MontageKit.rhythm(p, 1_500_000).let { MontageKit.velocity(it) }.let { MontageKit.glitchCuts(it) }
+                    .let { SmartTools.applyLook(it, "Contraste dramatique") }.let { Titles.countdown(it, 0) }
+                Template.MOTIVATION -> SmartTools.applyLook(p, "Pellicule cinéma").let { MontageKit.slowMotionEnding(it) }.let { Titles.opening(it, "Ne lâche rien", TextLook.POSTER) }
+                    .let { SmartTools.transitionsEverywhere(it, "fade") }.let { SmartTools.fadeInOut(it, 1_200_000) }
+                Template.MEME -> MontageKit.rhythm(p, 1_800_000).let { SmartTools.punchIn(it) }.let { Titles.opening(it, "Quand…", TextLook.STICKER) }.let { SmartTools.perfectLoop(it) }
+                Template.FASHION -> MontageKit.velocity(p).let { SmartTools.applyLook(it, "Carte premium") }.let { SmartTools.transitionsEverywhere(it, "elastic_slide") }
+                    .let { Titles.opening(it, "OUTFIT DU JOUR", TextLook.CHROME) }
+                Template.PARTY -> SmartTools.applyLook(p, "Fête").let { SmartTools.transitionsEverywhere(it, "dots") }.let { Titles.opening(it, "Joyeux anniversaire !", TextLook.DINER) }
+                    .let { Titles.endCard(it, "Quelle soirée !", "Partage à ceux qui étaient là") }
+                Template.REAL_ESTATE -> SmartTools.applyLook(p, "Grand angle").let { q -> main?.let { ProTools.slowZoomAll(q, it, 0.6) } ?: q }.let { SmartTools.transitionsEverywhere(it, "luma_fade") }
+                    .let { Titles.lowerThird(it, 500_000, "Appartement lumineux", "3 pièces · centre-ville") }
+                Template.ASMR -> SmartTools.applyLook(p, "Sujet net").let { SmartTools.transitionsEverywhere(it, "luma_fade") }.let { SmartTools.fadeInOut(it, 1_500_000) }
             }
         }.getOrDefault(p)
     }

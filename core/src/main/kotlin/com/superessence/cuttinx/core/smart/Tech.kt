@@ -40,6 +40,11 @@ enum class Tech(val label: String, val pitch: String, val icon: String, val plus
     SHOT_MATCH("Égalisation des plans", "Mesure la couleur et la lumière de chaque plan et les corrige pour qu'ils se ressemblent", "Effects", true, true),
     SMART_VERTICAL("Vertical intelligent", "Passe en 9:16 et cadre chaque plan sur son sujet, suivi tout du long", "Fit", true, true),
     STUDIO_SOUND("Son studio", "Volume mesuré et réglé à -14 LUFS sur chaque piste, puis chaîne son broadcast complète", "Volume", true, true),
+
+    // ---------------------------------------------------------------- 3.2: the autonomous editing engine
+    HYPER_DIRECTOR("Réalisateur autonome", "CUTTINX regarde toutes tes prises et écoute ta musique, écrit la structure (accroche, montée, climax sur le drop, final) et monte le film entier : coupes sur les temps, meilleurs moments, couleurs, ralentis, impacts, stabilisation, recadrage", "Star", true, true),
+    STABILIZE("Stabilisation IA", "Mesure le mouvement de la caméra image par image, lisse la trajectoire et compense le tremblement avec un léger zoom", "CenterFocus", true, true),
+    MOTION_MATCH("Raccords mouvement", "À chaque coupe où la caméra bouge, un flou de vitesse et un panoramique filé dans le sens exact du mouvement", "SwapHoriz", true, true),
 }
 
 /** Remembers which technologies are unlocked, and until when. The apps plug in their own storage. */

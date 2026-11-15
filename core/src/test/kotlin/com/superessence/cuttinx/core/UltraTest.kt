@@ -10,7 +10,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** CUTTINX 2.8 : catégories « ultra technologies », transitions et filtres associés. */
+/** CUTTINX 3.4 : catégories « ultra technologies », transitions et filtres associés. */
 class UltraTest {
     private val ultraCats = listOf(EffectCategory.ULTRA, EffectCategory.HUD, EffectCategory.AI_VISION, EffectCategory.DIMENSION)
 

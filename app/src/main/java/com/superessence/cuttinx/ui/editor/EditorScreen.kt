@@ -197,6 +197,8 @@ fun EditorScreen(vm: EditorViewModel, onBack: () -> Unit, openProject: (String) 
     }
 
     trackMenu?.let { id -> TrackMenu(vm, project, id) { trackMenu = null } }
+    if (DirectorUi.asking) DirectorDialog(vm) { DirectorUi.asking = false }
+    DirectorUi.report?.let { r -> DirectorReport(r) { DirectorUi.report = null } }
     if (renameProject) TextInputDialog("Nom du projet", project.name, { renameProject = false }) { vm.rename(it); renameProject = false }
     vm.loadError.collectAsStateWithLifecycle().value?.let { e -> AlertDialog({}, title = { Text("Projet illisible") }, text = { Text(e) }, confirmButton = { TextButton({ vm.close(); onBack() }) { Text("Retour") } }) }
 }
@@ -314,7 +316,8 @@ private fun Toolbar(vm: EditorViewModel, ws: Workspace, sel: Clip?, track: Track
         GestureDivider("En un geste")
         for ((id, label) in EditorMagic.instant) ToolButton(gestureIcon(id), label, { EditorMagic.runInstant(vm, id, label) })
         GestureDivider("Plus")
-        for (t in com.superessence.cuttinx.core.smart.Tech.entries.filter { it.pipeline })
+        // the autonomous director first: it is the biggest one
+        for (t in com.superessence.cuttinx.core.smart.Tech.entries.filter { it.pipeline }.sortedBy { if (it == com.superessence.cuttinx.core.smart.Tech.HYPER_DIRECTOR) 0 else 1 })
             ToolButton(pipelineIcon(t), shortLabel(t), { com.superessence.cuttinx.lab.TechGate.request(t) { EditorMagic.run(vm, t) } }, badge = if (plusOn) null else "PLUS")
     }
 }
@@ -331,6 +334,9 @@ private fun GestureDivider(label: String) {
 private fun gestureIcon(id: String): ImageVector = when (id) {
     "punch" -> Icons.Default.ZoomIn; "transitions" -> Icons.Default.SwapHoriz; "fades" -> Icons.Default.Gradient; "hook" -> Icons.Default.Title
     "music_fit" -> Icons.Default.MusicNote; "progress" -> Icons.Default.LinearScale; "loop" -> Icons.Default.Loop; "vertical" -> Icons.Default.StayCurrentPortrait
+    "rhythm" -> Icons.Default.FlashOn; "velocity" -> Icons.Default.Speed; "slowmo_end" -> Icons.Default.SlowMotionVideo; "stutter" -> Icons.Default.Replay
+    "cinema" -> Icons.Default.Movie; "countdown" -> Icons.Default.Timer; "end_card" -> Icons.Default.Subscriptions; "glitch_cuts" -> Icons.Default.BlurOn
+    "slow_zoom" -> Icons.Default.ZoomOutMap; "slideshow" -> Icons.Default.Slideshow; "shorts59" -> Icons.Default.HourglassBottom
     else -> Icons.Default.CleaningServices
 }
 
@@ -340,6 +346,9 @@ private fun pipelineIcon(t: com.superessence.cuttinx.core.smart.Tech): ImageVect
     com.superessence.cuttinx.core.smart.Tech.BEST_OF -> Icons.Default.AutoAwesome
     com.superessence.cuttinx.core.smart.Tech.SHOT_MATCH -> Icons.Default.Palette
     com.superessence.cuttinx.core.smart.Tech.SMART_VERTICAL -> Icons.Default.CenterFocusStrong
+    com.superessence.cuttinx.core.smart.Tech.HYPER_DIRECTOR -> Icons.Default.Movie
+    com.superessence.cuttinx.core.smart.Tech.STABILIZE -> Icons.Default.Videocam
+    com.superessence.cuttinx.core.smart.Tech.MOTION_MATCH -> Icons.Default.SwapHoriz
     else -> Icons.Default.Equalizer
 }
 
@@ -349,6 +358,9 @@ private fun shortLabel(t: com.superessence.cuttinx.core.smart.Tech) = when (t) {
     com.superessence.cuttinx.core.smart.Tech.BEST_OF -> "Best-of"
     com.superessence.cuttinx.core.smart.Tech.SHOT_MATCH -> "Égaliser plans"
     com.superessence.cuttinx.core.smart.Tech.SMART_VERTICAL -> "Vertical IA"
+    com.superessence.cuttinx.core.smart.Tech.HYPER_DIRECTOR -> "Réalisateur"
+    com.superessence.cuttinx.core.smart.Tech.STABILIZE -> "Stabiliser"
+    com.superessence.cuttinx.core.smart.Tech.MOTION_MATCH -> "Raccords"
     else -> "Son studio"
 }
 

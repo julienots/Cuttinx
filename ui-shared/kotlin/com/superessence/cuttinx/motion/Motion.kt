@@ -39,7 +39,7 @@ private fun easeOut(x: Float) = 1f - (1f - x) * (1f - x) * (1f - x)
  * A tap / click skips it.
  */
 @Composable
-fun LaunchIntro(onDone: () -> Unit, durationMs: Int = 1700) {
+fun LaunchIntro(onDone: () -> Unit, durationMs: Int = 1700, version: String? = null) {
     val p = remember { Animatable(0f) }
     val done by rememberUpdatedState(onDone)
     LaunchedEffect(Unit) { p.animateTo(1f, tween(durationMs, easing = LinearEasing)); done() }
@@ -58,6 +58,10 @@ fun LaunchIntro(onDone: () -> Unit, durationMs: Int = 1700) {
             Box(Modifier.width(220.dp * rule).height(1.dp).background(Color.White.copy(alpha = 0.35f)))
             Spacer(Modifier.height(14.dp))
             Text("STUDIO DE MONTAGE", color = Color.White.copy(alpha = 0.6f * spaces), fontSize = 11.sp, letterSpacing = 4.sp, fontWeight = FontWeight.Medium)
+            if (version != null) {
+                Spacer(Modifier.height(10.dp))
+                Text("VERSION $version", color = Color(0xFFFFCC1F).copy(alpha = spaces), fontSize = 13.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+            }
             Spacer(Modifier.height(28.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.graphicsLayer { alpha = spaces; translationY = (1f - spaces) * 8f }) {
                 SpaceNames.forEachIndexed { i, n ->

@@ -347,6 +347,14 @@ private object V3 {
         free("white_flash", "Flash blanc à la tête de lecture", CUT, "éclair lumière impact", Need.NONE, "Add") { c -> Catalog.flash(c.project, c.playheadUs) }
         for (s in listOf(10, 20, 90, 120)) free("fit_$s", "Raccourcir à $s secondes", DUR, "durée couper intelligent réduire", Need.NONE, "Fit") { c -> SmartTools.fitToDuration(c.project, s * 1_000_000L) }
         for (s in listOf(1)) free("equal_$s", "Plans de $s s chacun (milieu conservé)", DUR, "durée égale uniforme rafale", Need.NONE, "Equalize") { c -> ClipOps.equalShots(c.project, c.mainTrackId ?: "", s * 1_000_000L) }
+        // ---- 3.3: new montage gestures (also in the editor's toolbar)
+        val kw33 = mapOf(
+            "rhythm" to "rapide dynamique court plans nerveux", "velocity" to "vitesse ralenti accéléré rampe edit", "slowmo_end" to "ralenti fin cinématique",
+            "stutter" to "répétition bégaiement accroche hook saccade", "cinema" to "film bandes noires ciné look grain", "countdown" to "compte à rebours 3 2 1 intro",
+            "end_card" to "fin abonne-toi merci outro", "glitch_cuts" to "glitch coupe transition rvb", "slow_zoom" to "zoom lent ken burns caméra",
+            "slideshow" to "photos diaporama souvenirs", "shorts59" to "shorts tiktok minute 59 vertical",
+        )
+        for ((id, label) in MontageKit.gestures) free("m33_$id", "Montage : $label", if (id in setOf("velocity", "slowmo_end")) "Vitesse" else DUR, kw33[id] ?: label, Need.NONE, "Fit") { c -> MontageKit.run(id, c.project) ?: c.project }
     }
 }
 

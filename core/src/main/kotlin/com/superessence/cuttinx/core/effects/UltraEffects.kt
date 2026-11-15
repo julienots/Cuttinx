@@ -12,7 +12,7 @@ private fun fx(id: String, name: String, cat: C, params: List<ParamDef>, animate
     EffectDefinition(id, name, cat, EffectKind.VIDEO, params, glsl(), animated, desc)
 
 /**
- * « Ultra technologies » (CUTTINX 2.8) : looks de montage haut de gamme — rendu volumétrique,
+ * « Ultra technologies » (CUTTINX 3.4) : looks de montage haut de gamme — rendu volumétrique,
  * interfaces HUD, visions « IA » et effets en 3 dimensions. Shaders originaux écrits pour CUTTINX,
  * en GLSL ES 1.00 compatible SkSL (boucles à bornes constantes, aucune fonction locale), donc
  * identiques sur Android et sur PC.

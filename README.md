@@ -56,7 +56,7 @@ fois, sur demande.
   inversée, bass drop, explosion, ba dum tss, disque rayé, sons 8-bit, jingles d'intro / fin…),
   20 effets de voix (hélium, monstre, alien, fantôme, sous l'eau, talkie-walkie…), réducteur de bruit
   de fond et « voix studio » en un geste, tutoriel pas à pas et guide intégré avec recherche.
-- **Ultra technologies (2.8)** : 4 nouvelles catégories d'effets GPU haut de gamme.
+- **Ultra technologies (3.4)** : 4 nouvelles catégories d'effets GPU haut de gamme.
   *Ultra technologies* : hyper-zoom neuronal, rayons volumétriques, dispersion spectrale, mise au point IA
   (profondeur simulée + bokeh), traînées lumineuses, distorsion quantique, HDR ultra (tone mapping local),
   super-résolution, tranches temporelles (slit-scan), bloom cinéma. *Interface HUD* : viseur de ciblage, scan
@@ -66,7 +66,7 @@ fois, sur demande.
   3D en perspective, boule de cristal, kaléidoscope fractal, trou de ver, voxels, carte lenticulaire, effet
   Droste infini. 4 transitions (téléportation, faille holographique, portail dimensionnel, saut hyperespace)
   et 12 filtres « Ultra tech » (Capteur 8K, Blockbuster IMAX, Cockpit, Opération nocturne…).
-- **Filmer (2.8)** : mode **Écran** — enregistre l'écran du téléphone (jeux, applis, tutos) en MP4 jusqu'en
+- **Filmer (3.4)** : mode **Écran** — enregistre l'écran du téléphone (jeux, applis, tutos) en MP4 jusqu'en
   1440p 60 i/s avec le son du téléphone (Android 10+), le micro ou les deux mixés ; pause / arrêt depuis la
   notification, durée max, CUTTINX se réduit tout seul. Mode **Caméra** : 60 i/s et vidéo HDR quand le
   capteur le permet, niveau à bulle, zones sûres TikTok / Reels / Shorts, anneau lumineux pour les selfies,
@@ -75,6 +75,41 @@ fois, sur demande.
 - **Lecteur fiable** : les calques qui sortent du cadre (glissements, transitions, animations) ne bloquent
   plus la lecture ; en cas d'échec GPU propre à un téléphone, l'aperçu se reconstruit automatiquement
   (mode simplifié) et un bouton « Réessayer » relance la lecture.
+- **Nouveau en 3.3 — des nouveautés partout** :
+  **11 outils de montage en un geste** dans la barre de l'éditeur, les Actions rapides et l'Atelier
+  intelligent (PC) : rythme rapide (chaque plan garde ses 2 meilleures secondes), vélocité (rapide → ralenti
+  → rapide), ralenti final, saccade d'accroche (« re-re-regarde »), mode ciné (calque look film + bandes +
+  grain, remplacé et non empilé), compte à rebours 3·2·1, carte de fin, coupes glitch, zoom lent, diaporama
+  photo, moins d'une minute (59 s, 9:16).
+  **16 effets GPU** (reflet balayant, lumières de club, pop art, gouttes sur la vitre, poussière & rayures,
+  distorsion d'objectif, mosaïque texte, rayons X, mise au point centrale, filtre étoile, cycle de couleurs,
+  poussière d'or, confettis, bulles, cadre photo instantanée, bordure néon) ; **16 transitions** (encre,
+  brûlure, spirale, dents de scie, fente, hexagones, bandes diagonales, pois, fondu lumineux, lignes
+  alternées, coupe RVB, aspiration, glissement élastique, coup de poing, chute pivot, défilement pellicule) ;
+  **16 filtres** dont une famille **Tendances** (aussi dans le Studio Photo) ; **7 styles de texte** (chrome,
+  autocollant, gamer néon, affiche, signature, feutre, rétro diner) ; **8 modèles de montage** (unboxing,
+  fitness, motivation, mème, mode, fête, visite immobilière, ASMR).
+  Studios : collages en colonnes, pyramide et grande photo à gauche ; formats photo 3:4, 2:1 et 21:9 ;
+  légendes storytime, promo et astuce ; 14 bruitages (scintillement, j'aime, réveil, toc toc, bonus et
+  game over 8-bit, trombone triste, grillons…) ; 6 thèmes Twitch (battle royale, pluie douce, DJ club,
+  mecha, désert doré, nébuleuse).
+- **Nouveau en 3.2 — Réalisateur autonome** (Plus) : CUTTINX regarde chaque prise (intérêt de chaque
+  instant : mouvement, netteté, couleur, exposition, son ; mouvement de caméra ; sujet), écoute la musique
+  (tempo, mesures, énergie de chaque mesure, drop) et écrit le film entier : accroche avec le meilleur moment,
+  montée, climax posé sur le drop, final ; longueur des plans selon l'énergie (1, 2 ou 4 temps), chaque
+  coupe sur un temps à l'image près, jamais deux fois le même moment, alternance des prises, continuité
+  des couleurs, ordre chronologique en style Récit. Finitions automatiques : couleurs égalisées, étalonnage
+  du style, ralenti sur le drop, zooms sur les temps forts, impacts, raccords dans le sens du mouvement,
+  stabilisation, recadrage sur le sujet, titre d'accroche, fondus, musique calée, marqueurs de mesure.
+  4 styles (Viral, Cinéma, Hype, Récit), 15 s à 3 min, compte rendu de chaque décision, annulable en un geste.
+  **Stabilisation IA** (mesure du mouvement global par profils de projection et corrélation sub-pixel,
+  trajectoire lissée, compensation par images clés et zoom minimal) et **raccords mouvement**.
+- **Nouveau en 3.1** : **Studio GIF** (vidéo → GIF animé normal, boomerang ou inversé, vitesse 0,5×–3×,
+  8–25 i/s, 240–800 px, légende façon mème, encodeur GIF original avec palette par image et tramage,
+  enregistrement dans Images › Cuttinx ou partage), **Planning de publication** (semaine de publications
+  par réseau, meilleurs créneaux proposés, statut idée → publié, rappel par notification à l'heure prévue,
+  série de semaines publiées) et **légendes & hashtags** générés sur le téléphone selon le ton, avec
+  vérification des limites de chaque réseau (longueur, nombre de hashtags, appel à l'action).
 - **Export** : MP4 H.264 / HEVC / AV1 (selon les encodeurs réels du téléphone), 480p → 4K,
   24–60 i/s, débit et qualité réglables, progression, annulation, mesure réelle du fichier produit.
 - **Projets** : autosave, 5 versions de secours, récupération après crash, duplication, archivage,

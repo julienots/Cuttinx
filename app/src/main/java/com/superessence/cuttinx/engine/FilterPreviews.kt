@@ -139,6 +139,13 @@ object FilterPreviews {
         return out
     }
 
+    /** Full-size render for the photo studio (no cache). Must run on [dispatcher]. */
+    fun renderFull(src: Bitmap, effects: List<EffectInstance>): Bitmap? =
+        runCatching { gl.draw(src, effects) }.onFailure { Log.w(TAG, "rendu photo : ${it.message}") }.getOrNull()
+
+    /** Largest picture side the GPU accepts (at least 2048). Must run on [dispatcher]. */
+    fun maxSide(): Int = runCatching { gl.maxTexture }.getOrDefault(2048).coerceIn(2048, 8192)
+
     private val gl by lazy { Gl() }
 
     private class Gl {
@@ -153,6 +160,7 @@ object FilterPreviews {
         private var w = 0
         private var h = 0
         private var srcRef: Bitmap? = null
+        val maxTexture: Int by lazy { IntArray(1).also { GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_SIZE, it, 0) }[0] }
 
         init {
             val v = IntArray(2)

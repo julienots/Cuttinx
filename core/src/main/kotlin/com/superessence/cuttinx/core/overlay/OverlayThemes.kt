@@ -99,6 +99,19 @@ object OverlayThemes {
             pal(0xFF151127, 0xFF2A2048, 0xFF9C8CFF, 0xFFFFB38A, 0xFF7FE0FF, 0xFFF1ECFF, 0xFFB9AEFF), T.ROUNDED, F.SOFT, listOf(M.PIXEL_STARS, M.CLOUDS), "lofi beats", S.PORTAL),
         OverlayTheme("jungle", "Jungle", C.NATURE, "Feuillage tropical, vert émeraude et lumière dorée",
             pal(0xFF062014, 0xFF0F3B22, 0xFF3FCF6A, 0xFFFFC94A, 0xFFFF6B4A, 0xFFEFFFF2, 0xFF9BFFB4), T.IMPACT, F.SOFT, listOf(M.LEAVES, M.SUN_RAYS), "EXPLORATION", S.SHUTTER),
+        // ---------------------------------------------------------------- 3.3
+        OverlayTheme("battle_royale", "Battle royale", C.GAMING, "Zone qui se resserre, orange tactique et camouflage pour les parties à 100",
+            pal(0xFF101410, 0xFF242B1A, 0xFFFF7A1A, 0xFF8FA35A, 0xFF3DE0FF, 0xFFF4F1E6, 0xFFFFA45C), T.CONDENSED, F.SHARP, listOf(M.HEX_GRID, M.GRAIN), "TOP 1", S.SHUTTER),
+        OverlayTheme("chill_rain", "Pluie douce", C.CUTE, "Vitre embuée, bleu nuit et gouttes qui glissent pour les lives tranquilles",
+            pal(0xFF0D1626, 0xFF1C2B45, 0xFF7FB8FF, 0xFFC9D9F2, 0xFFFFC98A, 0xFFEAF2FF, 0xFFA8CCFF), T.ROUNDED, F.SOFT, listOf(M.CLOUDS, M.BUBBLES), "on se pose", S.PORTAL),
+        OverlayTheme("dj_club", "DJ club", C.GEEK, "Lasers, égaliseur et violet électrique pour les lives musique",
+            pal(0xFF0A0216, 0xFF22073D, 0xFFB63CFF, 0xFF2EF2FF, 0xFFFF3DA8, 0xFFFFFFFF, 0xFFD58CFF), T.TECH, F.NEON, listOf(M.SCANLINES, M.SPARKLES), "DROP THE BASS", S.GLITCH),
+        OverlayTheme("mecha", "Mecha", C.ANIME, "Plaques blindées, blanc et bleu de cockpit, alertes rouges de robot géant",
+            pal(0xFF0B1220, 0xFF18263F, 0xFF3D8BFF, 0xFFE8EDF5, 0xFFFF3B3B, 0xFFFFFFFF, 0xFF7FB2FF), T.TECH, F.HUD, listOf(M.HUD_RINGS, M.CIRCUIT), "LANCEMENT", S.HEX_WIPE),
+        OverlayTheme("desert", "Désert doré", C.NATURE, "Dunes, soleil couchant et sable chaud",
+            pal(0xFF2A160A, 0xFF5A3014, 0xFFFFB347, 0xFFE0703A, 0xFF5FD3C6, 0xFFFFF4E2, 0xFFFFD08A), T.ELEGANT, F.SOFT, listOf(M.SUN_RAYS, M.GRAIN), "MIRAGE", S.SHUTTER),
+        OverlayTheme("cosmic_purple", "Nébuleuse", C.NATURE, "Galaxie violette, étoiles et poussière cosmique",
+            pal(0xFF07041A, 0xFF1E0B3D, 0xFFA77BFF, 0xFFFF7AD9, 0xFF6FF0FF, 0xFFF3EEFF, 0xFFC6A8FF), T.ROUNDED, F.NEON, listOf(M.GALAXY, M.PIXEL_STARS), "EN ORBITE", S.PORTAL),
     )
 
     operator fun get(id: String): OverlayTheme = all.firstOrNull { it.id == id } ?: all.first()

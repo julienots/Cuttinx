@@ -266,6 +266,25 @@ private fun Tools(project: Project, platform: Platform, selection: Set<String>, 
     Spacer(Modifier.height(4.dp))
     Pills(RampPreset.entries.map { it.label }, -1, accent) { i -> if (target != null) onEdit("Rampe ${RampPreset.entries[i].label}") { SmartTools.speedRamp(it, target.id, RampPreset.entries[i]) } }
 
+    SectionTitle("MONTAGE EXPRESS (3.3)", accent)
+    val express = mapOf(
+        "rhythm" to ("Equalize" to "Chaque plan garde ses 2 meilleures secondes (le milieu) : montage nerveux"),
+        "velocity" to ("Rocket" to "Rapide, ralenti au cœur du plan, puis rapide : l'effet « velocity »"),
+        "slowmo_end" to ("ZoomSlow" to "Le dernier plan passe au ralenti avec un long fondu du son"),
+        "stutter" to ("Replay" to "Les premières images se répètent avec un zoom : « re-re-regarde »"),
+        "cinema" to ("Video" to "Calque look film, bandes cinéma, grain fin et vignettage sur tout le film"),
+        "countdown" to ("Progress" to "Compte à rebours 3, 2, 1 en ouverture"),
+        "end_card" to ("Star" to "« Merci d'avoir regardé » et appel à l'abonnement sur les 3 dernières secondes"),
+        "glitch_cuts" to ("Transitions" to "Glitch, glissement glitch et coupe RVB en alternance sur chaque coupe"),
+        "slow_zoom" to ("ZoomIn" to "Zoom lent avant / arrière en alternance sur chaque plan"),
+        "slideshow" to ("Image" to "Photos de 2,5 s, Ken Burns et fondus enchaînés"),
+        "shorts59" to ("Fit" to "Raccourcit à 59 s et passe en vertical 9:16"),
+    )
+    for ((id, label) in MontageKit.gestures) {
+        val (icon, desc) = express[id] ?: ("Pro" to label)
+        Tool(CxIcons.byName(icon), label, desc, accent) { onEdit(label) { p -> MontageKit.run(id, p) ?: p } }
+    }
+
     SectionTitle("STRUCTURE VIRALE", accent)
     Tool(CxIcons.Hook, "Teaser du meilleur moment", "Copie l'instant fort au tout début avec un flash et « ATTENDS LA FIN… »", accent) { onEdit("Teaser") { SmartTools.teaser(it) } }
     Tool(CxIcons.Replay, "Boucle parfaite", "La fin se raccorde à l'image d'ouverture : la vidéo se relance sans coupure visible", accent) { onEdit("Boucle parfaite") { SmartTools.perfectLoop(it) } }
