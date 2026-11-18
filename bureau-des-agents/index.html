@@ -1,0 +1,312 @@
+<title>Bureau des agents</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: pixel office on top (scene + labels), controls and agent roster below. One committed dark look. */
+:root{
+  --bg:#14111f; --panel:#1e1a2e; --line:#33294d; --fg:#ece7f7; --mute:#a69cc0;
+  --amber:#ffb454; --green:#5fd68a; --red:#ff6b6b; --blue:#6cb8ff;
+  --px:"Press Start 2P",ui-monospace,monospace; --ui:Inter,system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.5 var(--ui);margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font:400 16px/1.4 var(--px);margin:0;letter-spacing:.02em;text-wrap:balance}
+.sub{color:var(--mute);margin:6px 0 0;max-width:62ch}
+.scene{position:relative;width:100%;aspect-ratio:16/9;border:2px solid var(--line);background:#0d0a16;overflow:hidden}
+canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+.lab{position:absolute;transform:translateX(-50%);font:400 7px/1 var(--px);color:var(--fg);text-shadow:0 1px 0 #000;white-space:nowrap;pointer-events:none}
+.lab small{display:block;color:var(--mute);font-size:5px;margin-top:3px;text-align:center}
+.bub{position:absolute;transform:translate(-50%,-100%);background:#fffbe9;color:#221b12;font:400 6px/1.5 var(--px);
+  padding:4px 6px;max-width:30%;border:2px solid #221b12;pointer-events:none;display:none}
+.bub.on{display:block}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+.row>*{min-width:0}
+textarea,input[type=number]{font:inherit;color:var(--fg);background:var(--panel);border:2px solid var(--line);padding:10px 12px;width:100%}
+textarea{resize:vertical;min-height:64px}
+label.f{display:flex;flex-direction:column;gap:6px;flex:1 1 320px;font-size:12px;color:var(--mute)}
+label.s{flex:0 1 150px}
+button{font:400 9px/1.4 var(--px);color:#1a1205;background:var(--amber);border:0;padding:12px 14px;cursor:pointer;box-shadow:0 3px 0 #a0651b}
+button.alt{background:var(--panel);color:var(--fg);box-shadow:0 3px 0 var(--line);border:2px solid var(--line)}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.meter{background:var(--panel);border:2px solid var(--line);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.meter b{font:400 9px/1.4 var(--px)}
+.bar{height:10px;background:#0d0a16;border:2px solid var(--line)}
+.bar i{display:block;height:100%;width:0;background:var(--green);transition:width .3s}
+.bar i.hot{background:var(--red)}
+.meter p{margin:0;color:var(--mute);font-size:12px}
+.list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+.ag{background:var(--panel);border:2px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.ag .h{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.ag .n{font:400 8px/1.4 var(--px)}
+.ag .c{color:var(--mute);font-size:12px}
+.ag .r{font-size:13px;overflow-wrap:anywhere}
+.pill{font:400 6px/1 var(--px);padding:4px 6px;border:2px solid currentColor;white-space:nowrap}
+.st-idle{color:var(--mute)}.st-work{color:var(--amber)}.st-done{color:var(--green)}.st-err{color:var(--red)}
+.rep{background:var(--panel);border:2px solid var(--line);padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:54px}
+.hint{color:var(--mute);font-size:12px;margin:0}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Bureau des agents</h1>
+    <p class="sub">Huit agents lisent tes outils en parallèle. Ils appellent les connecteurs directement, sans modèle : zéro token. Seul le chef peut faire une synthèse IA, et seulement si tu cliques.</p>
+  </header>
+
+  <div class="scene" id="scene" role="img" aria-label="Bureau en pixel art avec le chef et huit agents">
+    <canvas id="cv" width="320" height="180"></canvas>
+  </div>
+
+  <div class="row">
+    <label class="f">Mission pour Max
+      <textarea id="mission" rows="2">Fais l'état des lieux de tous mes outils connectés.</textarea>
+    </label>
+    <label class="f s">Budget tokens (synthèse IA)
+      <input id="budget" type="number" min="200" max="20000" step="100" value="1500">
+    </label>
+  </div>
+  <div class="row">
+    <button id="go">Lancer l'équipe (0 token)</button>
+    <button id="ai" class="alt" disabled>Synthèse IA du chef</button>
+  </div>
+
+  <div class="meter" aria-live="polite">
+    <b>Tokens modèle utilisés : <span id="tk">0</span> / <span id="tb">1500</span></b>
+    <div class="bar"><i id="tbar"></i></div>
+    <p id="tnote">Les agents travaillent sans modèle. Aucune relance automatique, aucun rafraîchissement en boucle, résultats gardés en cache 10 minutes.</p>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <div>
+    <b style="font:400 9px/1.4 var(--px)">Rapport de Max</b>
+    <div class="rep" id="rep">Lance l'équipe pour obtenir le rapport.</div>
+    <p class="hint" id="hint"></p>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var W=320,H=180;
+var AG=[
+ {id:"iris",name:"Iris",role:"Cuttinx",hair:"#e9c46a",shirt:"#e76f51",col:0,row:0,calls:[["Cuttinx","device_status"],["Cuttinx","list_projects"]]},
+ {id:"hugo",name:"Hugo",role:"Supabase",hair:"#2b2d42",shirt:"#3ecf8e",col:1,row:0,calls:[["Supabase","list_projects"]]},
+ {id:"lea",name:"Léa",role:"Vercel",hair:"#8d5524",shirt:"#d9d9e3",col:2,row:0,calls:[["Vercel","list_teams"]]},
+ {id:"malo",name:"Malo",role:"Google Drive",hair:"#5c3b1e",shirt:"#4285f4",col:3,row:0,calls:[["Google Drive","list_recent_files"]]},
+ {id:"zoe",name:"Zoé",role:"Agenda",hair:"#c0392b",shirt:"#fbbc04",col:0,row:1,calls:[["Google Calendar","list_calendars"]]},
+ {id:"marie",name:"Marie",role:"Canva",hair:"#6b4226",shirt:"#8b3dff",col:1,row:1,calls:[["Canva","list-brand-kits"]]},
+ {id:"frida",name:"Frida",role:"Instagram",hair:"#1b1b1b",shirt:"#e1306c",col:2,row:1,calls:[["Windsor ai for Social Media","get_connectors"]]},
+ {id:"noe",name:"Noé",role:"Hugging Face",hair:"#f4a261",shirt:"#ffd21e",col:3,row:1,calls:[["Hugging Face","hf_whoami"]]}
+];
+var CHEF={name:"Max",hair:"#8a8a99",shirt:"#222"};
+var S={};AG.forEach(function(a){S[a.id]={st:"idle",msg:"",sum:"En attente.",ms:0};});
+var chef={st:"idle",msg:""};
+var tokens=0,running=false,reports=[];
+
+/* geometry */
+function dx(a){return 22+a.col*74;} function dy(a){return a.row?142:96;}
+var CHEFX=138,CHEFY=50;
+
+/* overlay labels and bubbles */
+var scene=document.getElementById("scene");
+function pct(x,y){return "left:"+(x/W*100)+"%;top:"+(y/H*100)+"%";}
+AG.forEach(function(a){
+  var l=document.createElement("div");l.className="lab";l.setAttribute("style",pct(dx(a)+22,dy(a)+19));
+  l.innerHTML=a.name+"<small>"+a.role+"</small>";scene.appendChild(l);
+  var b=document.createElement("div");b.className="bub";b.id="b-"+a.id;b.setAttribute("style",pct(dx(a)+22,dy(a)-16));scene.appendChild(b);
+});
+var cl=document.createElement("div");cl.className="lab";cl.setAttribute("style",pct(CHEFX+22,CHEFY+19));cl.innerHTML="Max<small>chef</small>";scene.appendChild(cl);
+var cb=document.createElement("div");cb.className="bub";cb.id="b-chef";cb.setAttribute("style",pct(CHEFX+22,CHEFY-16));scene.appendChild(cb);
+
+/* roster */
+var list=document.getElementById("list");
+AG.forEach(function(a){
+  var d=document.createElement("div");d.className="ag";d.id="r-"+a.id;
+  d.innerHTML='<div class="h"><span class="n">'+a.name+'</span><span class="pill st-idle" id="p-'+a.id+'">repos</span></div><div class="c">'+a.role+' · 0 token</div><div class="r" id="s-'+a.id+'">En attente.</div>';
+  list.appendChild(d);
+});
+
+/* drawing */
+var cv=document.getElementById("cv"),cx=cv.getContext("2d"),tick=0;
+var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function R(x,y,w,h,c){cx.fillStyle=c;cx.fillRect(Math.round(x),Math.round(y),w,h);}
+function wall(){
+  R(0,0,W,64,"#231a33");
+  for(var y=0;y<64;y+=8){for(var x=(y/8%2)*8;x<W;x+=16){R(x,y,15,7,"#2d2140");}}
+  R(0,64,W,2,"#0d0a16");
+  for(var y2=66;y2<H;y2+=10){R(0,y2,W,9,((y2-66)/10%2)?"#4a342d":"#53392f");R(0,y2+9,W,1,"#2b1c18");}
+  /* window */
+  R(18,8,46,34,"#3b2f55");R(21,11,40,28,"#0e1230");R(40,11,2,28,"#3b2f55");R(21,24,40,2,"#3b2f55");
+  for(var i=0;i<7;i++){var on=reduce||((tick+i*3)%9<6);if(on)R(24+i*5,14+(i*7)%20,1,1,"#fff6c9");}
+  /* whiteboard = progress */
+  R(226,8,74,38,"#cfd2da");R(228,10,70,34,"#f4f4f7");
+  var done=AG.filter(function(a){return S[a.id].st==="done";}).length;
+  for(var k=0;k<8;k++){var st=S[AG[k].id].st;var c=st==="done"?"#5fd68a":st==="err"?"#ff6b6b":st==="work"?"#ffb454":"#c9c9d6";R(232+k*8,34,6,6,c);}
+  R(232,14,40,2,"#6c6c80");R(232,19,56,2,"#9a9ab0");R(232,24,30,2,"#9a9ab0");
+  R(300-4,46,0,0,"#000");
+  /* plant */
+  R(6,148,8,8,"#7a4a2a");R(4,138,12,10,"#2f9e5b");R(8,132,5,8,"#3ecf8e");
+  /* lamp */
+  R(300,120,2,26,"#888");R(294,116,14,6,"#ffd27d");
+}
+function desk(x,y,st,t){
+  R(x,y,44,6,"#9a6741");R(x,y+6,44,10,"#6b4430");R(x+1,y+7,42,1,"#7d5239");
+  var sc="#1a1a2e";
+  if(st==="work")sc=((t>>1)%2)?"#2fbf71":"#2f7fbf";
+  if(st==="done")sc="#2e8b57"; if(st==="err")sc="#b03030";
+  R(x+14,y-10,16,10,"#1c1c24");R(x+15,y-9,14,8,sc);
+  if(st==="work"){for(var i=0;i<3;i++)R(x+17,y-8+i*2,((t+i*3)%8)+2,1,"#e8fff0");}
+  if(st==="done"){R(x+19,y-5,2,2,"#e8fff0");R(x+21,y-4,2,2,"#e8fff0");R(x+23,y-6,2,2,"#e8fff0");R(x+25,y-8,2,3,"#e8fff0");}
+  R(x+20,y,4,1,"#1c1c24");
+}
+function person(x,y,p,st,t){
+  R(x-6,y+6,12,10,"#2a2a3a");
+  R(x-4,y,8,3,p.hair);R(x-3,y+3,6,5,"#f2c9a0");
+  R(x-2,y+5,1,1,"#222");R(x+1,y+5,1,1,"#222");
+  R(x-5,y+8,10,7,p.shirt);
+  var up=(st==="work"&&!reduce&&(t%2));
+  R(x-6,y+10+(up?-1:0),2,4,p.shirt);R(x+4,y+10+(up?0:-1),2,4,p.shirt);
+  if(st==="err")R(x+5,y-3,2,5,"#ff6b6b");
+}
+function draw(){
+  wall();
+  desk(CHEFX,CHEFY,chef.st==="work"?"work":chef.st==="done"?"done":"idle",tick);
+  person(CHEFX+22,CHEFY-14,CHEF,chef.st,tick);
+  AG.forEach(function(a){
+    var s=S[a.id].st;
+    person(dx(a)+22,dy(a)-14,a,s,tick+a.col);
+    desk(dx(a),dy(a),s,tick+a.col);
+  });
+  R(0,0,0,0,"#000");
+}
+function paint(){draw();}
+setInterval(function(){if(!document.hidden&&!reduce){tick++;draw();}},260);
+
+/* ui helpers */
+var LAB={idle:"repos",work:"au travail",done:"fini",err:"bloqué"};
+function setAgent(id,st,msg,sum){
+  var s=S[id];s.st=st;if(msg!==undefined)s.msg=msg;if(sum!==undefined)s.sum=sum;
+  var p=document.getElementById("p-"+id);p.textContent=LAB[st];p.className="pill st-"+st;
+  document.getElementById("s-"+id).textContent=s.sum;
+  var b=document.getElementById("b-"+id);b.textContent=s.msg;b.className="bub"+(s.msg?" on":"");
+  paint();
+}
+function setChef(st,msg){chef.st=st;chef.msg=msg||"";var b=document.getElementById("b-chef");b.textContent=chef.msg;b.className="bub"+(chef.msg?" on":"");paint();}
+function esc(n){return Math.ceil(String(n).length/4);}
+function updTokens(){
+  var bud=Math.max(200,+document.getElementById("budget").value||1500);
+  document.getElementById("tk").textContent=tokens;document.getElementById("tb").textContent=bud;
+  var bar=document.getElementById("tbar");bar.style.width=Math.min(100,tokens/bud*100)+"%";bar.className=tokens>bud?"hot":"";
+}
+function errCopy(srv,e){
+  var c=e&&e.code;
+  if(c==="needs_reauth")return "Reconnecte "+srv+" dans Réglages > Connecteurs.";
+  if(c==="server_not_connected"||c==="server_not_found")return "Ajoute "+srv+" dans Réglages > Connecteurs.";
+  if(c==="not_in_manifest"||c==="approval_required"||c==="consent_required"||c==="blocked_by_policy")return "Accès refusé pour "+srv+".";
+  if(c==="tool_error")return "L'outil a répondu en erreur.";
+  return "Indisponible ("+(c||"erreur")+").";
+}
+
+/* local summarizer: no model involved */
+function brief(p){
+  if(p==null)return "vide";
+  if(typeof p==="string")return p.replace(/\s+/g," ").slice(0,140);
+  var arr=Array.isArray(p)?p:null;
+  if(!arr&&typeof p==="object"){for(var k in p){if(Array.isArray(p[k])){arr=p[k];break;}}}
+  if(arr){
+    var nm=arr.slice(0,3).map(function(x){return typeof x==="object"&&x?(x.name||x.title||x.id||x.label||x.summary||"?"):String(x);});
+    return arr.length+" élément"+(arr.length>1?"s":"")+(nm.length?" : "+nm.join(", "):"");
+  }
+  var out=[];for(var q in p){var v=p[q];if(v!==null&&typeof v!=="object"){out.push(q+": "+v);}if(out.length>=3)break;}
+  return out.length?out.join(" · "):"réponse reçue";
+}
+
+/* run */
+var mcp=null,sample=null;
+function boot(){
+  if(!window.claude||!window.claude.use){document.getElementById("hint").textContent="Ouvre la page dans Claude pour connecter tes outils.";return;}
+  window.claude.use("mcp").then(function(m){mcp=m;if(!m)document.getElementById("hint").textContent="Les connecteurs ne sont pas disponibles dans cette vue.";}).catch(function(){});
+  window.claude.use("sample").then(function(s){sample=s;}).catch(function(){});
+}
+boot();
+
+function runAgent(a,i){
+  return new Promise(function(res){setTimeout(res,i*140);}).then(function(){
+    var t0=Date.now();
+    setAgent(a.id,"work","Je lis "+a.role+"…","Lecture en cours…");
+    var parts=[];
+    return a.calls.reduce(function(chain,c){
+      return chain.then(function(){
+        return mcp.callTool(c[0],c[1],{},{cache:{staleTime:600000,gcTime:600000}}).then(function(r){
+          parts.push(brief(r.payload!==undefined?r.payload:r.content&&r.content[0]&&r.content[0].text));
+        });
+      });
+    },Promise.resolve()).then(function(){
+      var sum=parts.join(" | ").slice(0,220);
+      S[a.id].ms=Date.now()-t0;
+      setAgent(a.id,"done","Fini !",sum);
+      reports.push(a.name+" ("+a.role+") : "+sum.slice(0,200));
+    }).catch(function(e){
+      setAgent(a.id,"err","Bloqué",errCopy(a.calls[0][0],e));
+      reports.push(a.name+" ("+a.role+") : indisponible");
+    });
+  });
+}
+
+function localReport(){
+  var ok=AG.filter(function(a){return S[a.id].st==="done";});
+  var ko=AG.filter(function(a){return S[a.id].st==="err";});
+  var t=ok.length+" outil"+(ok.length>1?"s":"")+" lu"+(ok.length>1?"s":"")+" sur "+AG.length+".\n";
+  ok.forEach(function(a){t+="- "+a.name+" ("+a.role+") : "+S[a.id].sum+"\n";});
+  if(ko.length)t+="À régler : "+ko.map(function(a){return a.role;}).join(", ")+".";
+  return t;
+}
+
+document.getElementById("go").onclick=function(){
+  if(running)return;
+  if(!mcp){document.getElementById("rep").textContent="Connecteurs indisponibles dans cette vue.";return;}
+  running=true;reports=[];this.disabled=true;document.getElementById("ai").disabled=true;
+  document.getElementById("rep").textContent="Max distribue le travail…";
+  setChef("work","Salut l'équipe !");
+  AG.forEach(function(a){setAgent(a.id,"idle","","En attente.");});
+  var btn=this;
+  Promise.all(AG.map(runAgent)).then(function(){
+    setChef("done","Rapport prêt");
+    document.getElementById("rep").textContent=localReport();
+    document.getElementById("hint").textContent="Rapport généré sans modèle. La synthèse IA coûte environ "+aiCost()+" tokens.";
+    document.getElementById("ai").disabled=!sample;
+    running=false;btn.disabled=false;updTokens();
+  });
+};
+
+function aiPrompt(){
+  var m=document.getElementById("mission").value.slice(0,300);
+  return "Tu es Max, chef de bureau. Mission : "+m+"\nRapports d'agents :\n"+reports.join("\n")+"\nRéponds en français, 3 puces, 60 mots maximum, sans introduction.";
+}
+function aiCost(){return esc(aiPrompt())+90;}
+
+document.getElementById("ai").onclick=function(){
+  var bud=Math.max(200,+document.getElementById("budget").value||1500);
+  var est=aiCost();
+  if(tokens+est>bud){document.getElementById("hint").textContent="Budget dépassé : "+est+" tokens estimés pour "+(bud-tokens)+" restants. Augmente le budget pour continuer.";return;}
+  var b=this;b.disabled=true;setChef("work","Je réfléchis…");
+  var p=aiPrompt();
+  sample(p,{modelTier:"quick",cache:{gcTime:600000},onText:function(u){document.getElementById("rep").textContent=u.text;}}).then(function(r){
+    tokens+=esc(p)+esc(r.text);updTokens();setChef("done","Voilà !");
+  }).catch(function(e){
+    setChef("idle","");
+    document.getElementById("hint").textContent=(e&&e.code==="not_granted")?"Synthèse IA refusée. Le rapport local reste disponible.":"Synthèse impossible ("+((e&&e.code)||"erreur")+"). Aucune relance automatique.";
+  }).then(function(){b.disabled=false;});
+};
+
+var bi=document.getElementById("budget");
+try{var sv=localStorage.getItem("bda-budget");if(sv)bi.value=sv;}catch(e){}
+bi.oninput=function(){try{localStorage.setItem("bda-budget",bi.value);}catch(e){}updTokens();};
+updTokens();paint();
+})();
+</script>
