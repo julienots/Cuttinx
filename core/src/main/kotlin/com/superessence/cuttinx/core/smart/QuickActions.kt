@@ -353,8 +353,8 @@ private object V3 {
             "stutter" to "répétition bégaiement accroche hook saccade", "cinema" to "film bandes noires ciné look grain", "countdown" to "compte à rebours 3 2 1 intro",
             "end_card" to "fin abonne-toi merci outro", "glitch_cuts" to "glitch coupe transition rvb", "slow_zoom" to "zoom lent ken burns caméra",
             "slideshow" to "photos diaporama souvenirs", "shorts59" to "shorts tiktok minute 59 vertical",
-        )
-        for ((id, label) in MontageKit.gestures) free("m33_$id", "Montage : $label", if (id in setOf("velocity", "slowmo_end")) "Vitesse" else DUR, kw33[id] ?: label, Need.NONE, "Fit") { c -> MontageKit.run(id, c.project) ?: c.project }
+        ) + HyperKit.keywords
+        for ((id, label) in MontageKit.gestures) free("m33_$id", "Montage : $label", if (id in setOf("velocity", "slowmo_end")) "Vitesse" else if (id in setOf("sound_8d", "loud_master")) "Son pro" else DUR, kw33[id] ?: label, Need.NONE, "Fit") { c -> MontageKit.run(id, c.project) ?: c.project }
     }
 }
 

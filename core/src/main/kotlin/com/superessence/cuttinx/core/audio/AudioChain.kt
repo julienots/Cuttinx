@@ -48,6 +48,19 @@ object AudioChainFactory {
             "v_ghost" -> DspChain(listOf(Biquad(Biquad.Type.HIGHPASS, 300.0, 0.7), Delay(260.0, 0.55, 0.45 * p("amount", 1.0)), Reverb(0.95, 0.2, 0.6 * p("amount", 1.0))))
             "v_stadium" -> DspChain(listOf(Delay(120.0, 0.3, 0.25 * p("amount", 1.0)), Reverb(0.97, 0.3, 0.45 * p("amount", 1.0))))
             "v_walkie" -> DspChain(listOf(Biquad(Biquad.Type.HIGHPASS, 500.0, 0.9), Biquad(Biquad.Type.LOWPASS, 2600.0, 0.9), Saturator(0.8 * p("amount", 1.0)), NoiseGate(-40.0), Hiss(0.01 * p("amount", 1.0))))
+            // ---- 3.5
+            "a_8d" -> Rotate8D(p("rate", 0.12), p("depth", 1.0))
+            "a_bass_boost" -> HyperChains.bassBoost(p("amount", 0.7))
+            "a_lofi" -> HyperChains.lofi(p("amount", 0.7))
+            "a_chorus" -> ModDelay(18.0, 5.0 * p("depth", 0.6), p("rate", 0.8), p("mix", 0.5), 3)
+            "a_phaser" -> Phaser(p("rate", 0.4), p("depth", 0.7), p("mix", 0.5))
+            "a_tremolo" -> Tremolo(p("rate", 5.0), p("depth", 0.5))
+            "a_vinyl" -> DspChain(listOf(Biquad(Biquad.Type.LOWPASS, 11000.0 - 4000.0 * p("amount", 0.5), 0.7), VinylCrackle(p("amount", 0.5))))
+            "a_next_room" -> HyperChains.nextRoom(p("amount", 0.8))
+            "a_master" -> HyperChains.master(p("amount", 0.7))
+            "v_choir" -> HyperChains.choir(p("amount", 1.0))
+            "v_announcer" -> HyperChains.announcer(p("amount", 1.0))
+            "v_asmr" -> HyperChains.asmr(p("amount", 1.0))
             else -> null
         }
     }

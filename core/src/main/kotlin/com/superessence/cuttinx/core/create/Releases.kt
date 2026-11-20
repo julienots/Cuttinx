@@ -5,6 +5,15 @@ object Releases {
     class Entry(val version: String, val title: String, val items: List<Pair<String, String>>)
 
     val all = listOf(
+        Entry("3.5", "Hyper réalité", listOf(
+            "2 nouvelles familles d'effets" to "Cosmos & énergie (aura, éclairs, nébuleuse, aurores boréales, trou noir, supernova, vitesse lumière, plasma) et Art génératif (vitrail, peinture fluide, carte topo, mur de LED, mandala, éclats de verre, gravure, céramique)",
+            "Des nouveautés dans toutes les familles" to "Verre liquide, aura floue, carte de dégradé, pellicule portrait, flou rotatif, encrage BD, soleil synthwave, nuit américaine, caustiques, heure dorée, loupe, lucioles, braises, pétales, caméscope REC, paillettes, scan facial, style peinture IA, cube holographique…",
+            "6 transitions spectaculaires" to "Supernova, éclair, bris de verre, morphing liquide, cellules, trou noir",
+            "24 filtres Hyper réalité" to "Super-pouvoir, Tempête, Galaxie, Grand Nord, Vitesse lumière, Aura portrait, Soleil couchant, Synthwave 1986, Case de BD, Cathédrale, Concert géant… aussi dans le Studio Photo",
+            "Audio nouvelle génération" to "Son 8D qui tourne autour de la tête, basses boostées, lo-fi, chorus, phaser, trémolo, vinyle, soirée d'à côté, mastering express ; voix chorale, présentateur et ASMR",
+            "7 gestes de montage" to "Mode Hyper, zoom alterné, transitions Hyper, flash sur les coupes, son 8D, son pro express, soleil couchant",
+            "Accueil animé" to "Aurore lumineuse en mouvement, particules et compteurs de tout ce que contient CUTTINX",
+        )),
         Entry("3.4", "Ultra technologies et capture d'écran", listOf(
             "4 nouvelles familles d'effets" to "Ultra technologies, Interface HUD, Vision IA, 3D & dimensions : rayons volumétriques, mise au point IA, HDR ultra, scan LiDAR, vision thermique, trou de ver, effet Droste…",
             "4 transitions et 12 filtres Ultra tech" to "Téléportation, faille holographique, portail dimensionnel, saut hyperespace ; Capteur 8K, Blockbuster IMAX, Cockpit, Opération nocturne…",

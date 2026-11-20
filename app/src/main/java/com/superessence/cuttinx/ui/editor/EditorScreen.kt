@@ -337,6 +337,8 @@ private fun gestureIcon(id: String): ImageVector = when (id) {
     "rhythm" -> Icons.Default.FlashOn; "velocity" -> Icons.Default.Speed; "slowmo_end" -> Icons.Default.SlowMotionVideo; "stutter" -> Icons.Default.Replay
     "cinema" -> Icons.Default.Movie; "countdown" -> Icons.Default.Timer; "end_card" -> Icons.Default.Subscriptions; "glitch_cuts" -> Icons.Default.BlurOn
     "slow_zoom" -> Icons.Default.ZoomOutMap; "slideshow" -> Icons.Default.Slideshow; "shorts59" -> Icons.Default.HourglassBottom
+    "hyper_mode" -> Icons.Default.AutoAwesome; "zoom_cuts" -> Icons.Default.CropFree; "hyper_transitions" -> Icons.Default.Flare; "flash_cuts" -> Icons.Default.FlashOn
+    "sound_8d" -> Icons.Default.Headphones; "loud_master" -> Icons.Default.GraphicEq; "golden_hour" -> Icons.Default.WbSunny
     else -> Icons.Default.CleaningServices
 }
 

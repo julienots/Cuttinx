@@ -30,7 +30,7 @@ object Presets {
     private fun preset(cat: String, name: String, vararg effects: EffectInstance) = preset(name, *effects).copy(category = cat)
 
     /** Families shown as tabs above the filters. */
-    val CATEGORIES = listOf("Essentiels", "Tendances", "Portrait", "Cinéma", "Rétro", "Nature", "Nuit", "Noir & blanc", "Créatif", "Ultra tech")
+    val CATEGORIES = listOf("Essentiels", "Tendances", "Portrait", "Cinéma", "Rétro", "Nature", "Nuit", "Noir & blanc", "Créatif", "Ultra tech", "Hyper réalité")
     private val CATEGORY_OF = mapOf(
         "Blockbuster" to "Cinéma", "Contraste dramatique" to "Cinéma", "Pellicule cinéma" to "Cinéma", "Froid cinéma" to "Cinéma",
         "Nostalgie" to "Rétro", "Super 8" to "Rétro", "Rétro VHS" to "Rétro", "Chaud vintage" to "Rétro", "Vidéo vintage" to "Rétro",
@@ -124,6 +124,31 @@ object Presets {
             preset("Ultra tech", "Matrice neuronale", fx("ai_neural_edges", "bg" to 0.25), fx("ultra_bloom", "amount" to 0.5, "threshold" to 0.3)),
             preset("Ultra tech", "Voyage astral", fx("dim_wormhole", "glow" to 0.6), fx("ultra_prism", "amount" to 0.4)),
             preset("Ultra tech", "Scan 3D", fx("hud_lidar"), fx("hud_data_stream", "amount" to 0.5)),
+            // ---- Hyper réalité (3.5)
+            preset("Hyper réalité", "Super-pouvoir", fx("cos_aura", "amount" to 1.2), fx("ultra_bloom", "amount" to 0.5, "threshold" to 0.5)),
+            preset("Hyper réalité", "Tempête", fx("cos_lightning"), fx("cin_day_for_night", "amount" to 0.6), fx("grain", "amount" to 0.08)),
+            preset("Hyper réalité", "Galaxie", fx("cos_nebula", "amount" to 0.7), fx("ultra_bloom", "amount" to 0.4)),
+            preset("Hyper réalité", "Grand Nord", fx("cos_aurora"), fx("cool_cinema")),
+            preset("Hyper réalité", "Horizon des événements", fx("cos_black_hole"), fx("cos_warp_stars", "blend" to 0.9, "amount" to 0.4)),
+            preset("Hyper réalité", "Vitesse lumière", fx("cos_warp_stars"), fx("ultra_prism", "amount" to 0.3)),
+            preset("Hyper réalité", "Verre liquide", fx("trend_liquid_glass"), fx("adjust", "vibrance" to 0.2)),
+            preset("Hyper réalité", "Aura portrait", fx("trend_aura_blur"), fx("skin_smooth")),
+            preset("Hyper réalité", "Pellicule portrait", fx("col_film_stock"), fx("grain", "amount" to 0.05)),
+            preset("Hyper réalité", "Soleil couchant", fx("lt_golden_hour"), fx("halation")),
+            preset("Hyper réalité", "Piscine d'été", fx("lt_caustics"), fx("adjust", "saturation" to 0.15)),
+            preset("Hyper réalité", "Feu de camp", fx("part_embers"), fx("vintage_warm")),
+            preset("Hyper réalité", "Printemps au Japon", fx("part_petals"), fx("dreamy")),
+            preset("Hyper réalité", "Nuit magique", fx("part_fireflies"), fx("cin_day_for_night", "amount" to 0.5)),
+            preset("Hyper réalité", "Synthwave 1986", fx("ret_synth_sun"), fx("hud_neon_grid"), fx("scanlines")),
+            preset("Hyper réalité", "Album de famille", fx("ret_faded_print")),
+            preset("Hyper réalité", "Case de BD", fx("sty_comic_ink")),
+            preset("Hyper réalité", "Musée", fx("ai_style_transfer"), fx("vignette", "amount" to 0.3)),
+            preset("Hyper réalité", "Billet de banque", fx("gen_engraving")),
+            preset("Hyper réalité", "Cathédrale", fx("gen_stained_glass"), fx("ultra_volumetric", "amount" to 0.5)),
+            preset("Hyper réalité", "Concert géant", fx("gen_led_wall"), fx("club_lights")),
+            preset("Hyper réalité", "Souvenir caméscope", fx("ov_camcorder"), fx("vhs")),
+            preset("Hyper réalité", "Paillettes de fête", fx("ov_glitter"), fx("glow")),
+            preset("Hyper réalité", "Reconnaissance faciale", fx("hud_face_scan"), fx("hud_data_stream", "amount" to 0.4)),
         )
     }
 

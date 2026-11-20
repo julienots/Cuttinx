@@ -98,6 +98,13 @@ object TransitionRegistry {
         register(TransitionDefinition("holo_glitch", "Faille holographique", listOf(ParamDef("amount", "Intensité", 0.1, 1.0, 1.0)), defaultDurationUs = 500_000))
         register(TransitionDefinition("portal", "Portail dimensionnel", listOf(ParamDef("hue", "Couleur", 0.0, 360.0, 280.0, ParamType.HUE)), defaultDurationUs = 800_000))
         register(TransitionDefinition("hyperspace", "Saut hyperespace", listOf(ParamDef("amount", "Étirement", 0.1, 1.0, 0.8)), defaultDurationUs = 500_000))
+        // ---- hyper réalité (3.5)
+        register(TransitionDefinition("supernova", "Supernova", listOf(ParamDef("hue", "Couleur", 0.0, 360.0, 40.0, ParamType.HUE)), defaultDurationUs = 800_000))
+        register(TransitionDefinition("lightning", "Éclair", listOf(ParamDef("hue", "Couleur", 0.0, 360.0, 210.0, ParamType.HUE)), defaultDurationUs = 600_000))
+        register(TransitionDefinition("shatter", "Bris de verre", listOf(ParamDef("cells", "Éclats", 4.0, 30.0, 10.0)), defaultDurationUs = 900_000))
+        register(TransitionDefinition("liquid_morph", "Morphing liquide", listOf(ParamDef("amount", "Viscosité", 0.1, 1.0, 0.7)), defaultDurationUs = 800_000))
+        register(TransitionDefinition("cells", "Cellules", listOf(ParamDef("cells", "Cellules", 4.0, 40.0, 14.0)), defaultDurationUs = 800_000))
+        register(TransitionDefinition("black_hole", "Trou noir", listOf(ParamDef("turns", "Tours", 0.25, 3.0, 1.0)), defaultDurationUs = 700_000))
     }
 
     private fun dirVec(d: Double): Pair<Double, Double> = when (d.toInt()) {
@@ -299,6 +306,22 @@ object TransitionRegistry {
                 // A s'étire vers le centre jusqu'au flash, puis B se stabilise
                 LayerMod(alpha = if (q < 0.5) 1.0 else 0.0, shaderId = "_tr_warp", shaderProgress = 1 - (q * 2).coerceIn(0.0, 1.0), shaderParams = i) to
                     LayerMod(alpha = if (q >= 0.5) 1.0 else 0.0, shaderId = "_tr_warp", shaderProgress = (q * 2 - 1).coerceIn(0.0, 1.0), shaderParams = i)
+            }
+            "supernova" -> reveal("_tr_supernova", mapOf("hue" to prm("hue", 40.0)))
+            "lightning" -> reveal("_tr_lightning", mapOf("hue" to prm("hue", 210.0)))
+            "liquid_morph" -> reveal("_tr_liquid", mapOf("amount" to prm("amount", 0.7)))
+            "cells" -> reveal("_tr_cells", mapOf("cells" to prm("cells", 14.0)))
+            "shatter" -> {
+                // la couche du dessus est en éclats : A se brise et tombe, ou B se reconstitue éclat par éclat
+                val i = mapOf("cells" to prm("cells", 10.0))
+                if (incomingOnTop) LayerMod(scale = 1 + 0.04 * q) to LayerMod(shaderId = "_tr_shatter", shaderProgress = q, shaderParams = i)
+                else LayerMod(shaderId = "_tr_shatter", shaderProgress = 1 - q, shaderParams = i) to LayerMod(scale = 1.04 - 0.04 * q)
+            }
+            "black_hole" -> {
+                val i = mapOf("turns" to prm("turns", 1.0))
+                // A est aspiré au centre jusqu'au noir, puis B en jaillit
+                LayerMod(alpha = if (q < 0.5) 1.0 else 0.0, shaderId = "_tr_blackhole", shaderProgress = 1 - (q * 2).coerceIn(0.0, 1.0), shaderParams = i) to
+                    LayerMod(alpha = if (q >= 0.5) 1.0 else 0.0, shaderId = "_tr_blackhole", shaderProgress = (q * 2 - 1).coerceIn(0.0, 1.0), shaderParams = i)
             }
             else -> cross()
         }

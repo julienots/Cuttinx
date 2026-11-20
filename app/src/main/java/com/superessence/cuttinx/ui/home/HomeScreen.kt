@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -342,31 +343,110 @@ private fun VersionChip() {
         modifier = Modifier.border(1.dp, cx.accent.copy(alpha = 0.7f), RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 1.dp))
 }
 
-/** Top of the editor space: the version in big, its headline, and the main actions. */
+/** Top of the editor space: the version in big over a living aurora, what CUTTINX holds, and the main actions. */
 @Composable
 private fun VersionHero(onNew: () -> Unit, onImport: () -> Unit, onNews: () -> Unit) {
     val cx = LocalCx.current
     val rel = com.superessence.cuttinx.core.create.Releases.current
     val shape = com.superessence.cuttinx.design.CxDesign.Card
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).clip(shape).background(cx.panel).border(1.dp, cx.line, shape)) {
-        Box(Modifier.width(4.dp).fillMaxHeight().background(cx.accent))
-        Column(Modifier.weight(1f).padding(18.dp)) {
+    val anim = androidx.compose.animation.core.rememberInfiniteTransition(label = "hero")
+    val t by anim.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(14_000, easing = androidx.compose.animation.core.LinearEasing)), label = "t")
+    val shimmer by anim.animateFloat(-1f, 2f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(3_200, easing = androidx.compose.animation.core.LinearEasing)), label = "shimmer")
+    // a dark showcase whatever the theme, so the light show always reads
+    val ink = Color(0xFF07070D)
+    Box(Modifier.fillMaxWidth().clip(shape).background(ink).border(1.dp, Brush.linearGradient(listOf(cx.accent.copy(alpha = 0.9f), Color(0xFF7B5CFF), Color(0xFF00E0FF))), shape)) {
+        HeroAurora(t, cx.accent, Modifier.matchParentSize())
+        Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("CUTTINX PRO", Modifier.weight(1f), color = cx.dim, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, maxLines = 1)
-                Text("Quoi de neuf ›", Modifier.clip(com.superessence.cuttinx.design.CxDesign.Chip).clickable(onClick = onNews).padding(horizontal = 6.dp, vertical = 4.dp),
-                    color = cx.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+                Text("CUTTINX PRO", Modifier.weight(1f), color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, maxLines = 1)
+                Text("Quoi de neuf ›", Modifier.clip(com.superessence.cuttinx.design.CxDesign.Chip).background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onNews).padding(horizontal = 8.dp, vertical = 4.dp),
+                    color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
             }
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("Version ", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                Text(rel.version, fontFamily = com.superessence.cuttinx.ui.theme.CuttinxDisplay, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold, color = cx.accent, lineHeight = 40.sp)
+                Text("Version ", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                // the number shines: a light band sweeps across it
+                val sweep = Brush.linearGradient(
+                    0f to cx.accent, (shimmer - 0.25f).coerceIn(0f, 1f) to cx.accent, shimmer.coerceIn(0f, 1f) to Color.White, (shimmer + 0.25f).coerceIn(0f, 1f) to Color(0xFF00E0FF), 1f to Color(0xFF7B5CFF),
+                    start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(260f, 60f))
+                Text(rel.version, fontFamily = com.superessence.cuttinx.ui.theme.CuttinxDisplay, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 44.sp,
+                    style = androidx.compose.ui.text.TextStyle(brush = sweep, shadow = androidx.compose.ui.graphics.Shadow(cx.accent.copy(alpha = 0.6f), blurRadius = 24f)))
             }
-            Text(rel.title + " : " + rel.items.joinToString(" · ") { it.first }, color = cx.dim, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+            Text(rel.title.uppercase(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
+            Text(rel.items.joinToString(" · ") { it.first }, color = Color.White.copy(alpha = 0.72f), fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp), maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(12.dp))
+            HeroCounters()
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onNew, shape = com.superessence.cuttinx.design.CxDesign.Button, colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent)) {
                     Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Nouveau projet", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                 }
-                OutlinedButton(onImport, shape = com.superessence.cuttinx.design.CxDesign.Button) { Text("Importer", maxLines = 1, softWrap = false) }
+                OutlinedButton(onImport, shape = com.superessence.cuttinx.design.CxDesign.Button, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) { Text("Importer", maxLines = 1, softWrap = false) }
+            }
+        }
+    }
+}
+
+/** Moving aurora: soft colour clouds drifting on slow orbits, light ribbons and twinkling particles. */
+@Composable
+private fun HeroAurora(t: Float, accent: Color, modifier: Modifier) {
+    val sparks = remember { List(46) { i -> floatArrayOf(((i * 0.6180339f) % 1f), ((i * 0.3819660f + 0.17f) % 1f), 0.6f + (i % 5) * 0.35f, (i * 1.7f) % 6.283f) } }
+    Canvas(modifier) {
+        val w = size.width; val h = size.height
+        val a = t * 2f * Math.PI.toFloat()
+        val blobs = listOf(
+            Triple(accent, 0.18f + 0.12f * kotlin.math.cos(a), 0.30f + 0.20f * kotlin.math.sin(a * 2f)),
+            Triple(Color(0xFF7B5CFF), 0.75f + 0.15f * kotlin.math.sin(a + 1.3f), 0.25f + 0.15f * kotlin.math.cos(a * 1.5f)),
+            Triple(Color(0xFF00E0FF), 0.55f + 0.25f * kotlin.math.cos(a * 0.7f + 2f), 0.85f + 0.10f * kotlin.math.sin(a)),
+            Triple(Color(0xFFFF2E93), 0.95f + 0.08f * kotlin.math.cos(a * 1.3f + 4f), 0.75f + 0.15f * kotlin.math.sin(a * 0.9f + 1f)),
+        )
+        for ((c, x, y) in blobs) {
+            val r = maxOf(w, h) * 0.55f
+            drawCircle(Brush.radialGradient(listOf(c.copy(alpha = 0.42f), c.copy(alpha = 0.12f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(x * w, y * h), radius = r),
+                radius = r, center = androidx.compose.ui.geometry.Offset(x * w, y * h))
+        }
+        // aurora ribbons
+        for (k in 0 until 3) {
+            val path = androidx.compose.ui.graphics.Path()
+            val base = h * (0.35f + k * 0.18f)
+            path.moveTo(0f, base)
+            var x = 0f
+            while (x <= w) {
+                val y = base + kotlin.math.sin(x / w * 6f + a * (1f + k * 0.4f) + k) * h * 0.06f + kotlin.math.sin(x / w * 13f - a * 2f) * h * 0.015f
+                path.lineTo(x, y); x += w / 48f
+            }
+            val col = listOf(Color(0xFF00FFB2), Color(0xFF7B5CFF), accent)[k]
+            drawPath(path, Brush.horizontalGradient(listOf(Color.Transparent, col.copy(alpha = 0.55f), Color.Transparent)), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f + k))
+        }
+        // particles rising slowly, twinkling
+        for (s in sparks) {
+            val py = ((s[1] - t * 0.25f * s[2]) % 1f + 1f) % 1f
+            val tw = 0.5f + 0.5f * kotlin.math.sin(a * 6f * s[2] + s[3])
+            drawCircle(Color.White.copy(alpha = 0.15f + 0.6f * tw * tw), radius = 1.2f + s[2] * 1.1f * tw, center = androidx.compose.ui.geometry.Offset(s[0] * w, py * h))
+        }
+        // legibility veil on the left where the text sits
+        drawRect(Brush.horizontalGradient(listOf(Color(0x9907070D), Color(0x3307070D), Color(0x0007070D))))
+    }
+}
+
+/** What CUTTINX holds, counted up when the home appears. */
+@Composable
+private fun HeroCounters() {
+    val counts = remember {
+        listOf(
+            com.superessence.cuttinx.core.effects.EffectRegistry.video().count { it.category != com.superessence.cuttinx.core.effects.EffectCategory.INTERNAL && !it.id.startsWith("_") } to "effets",
+            com.superessence.cuttinx.core.effects.TransitionRegistry.all.size to "transitions",
+            com.superessence.cuttinx.core.effects.Presets.builtIn.size to "filtres",
+            com.superessence.cuttinx.core.smart.QuickActions.all.size to "outils",
+        )
+    }
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(Unit) { progress.animateTo(1f, androidx.compose.animation.core.tween(1_600, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        for ((n, label) in counts) {
+            Column(Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.07f)).border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
+                Text("${(n * progress.value).toInt()}", color = Color.White, fontFamily = com.superessence.cuttinx.ui.theme.CuttinxDisplay, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 20.sp)
+                Text(label, color = Color.White.copy(alpha = 0.65f), fontSize = 10.5.sp)
             }
         }
     }

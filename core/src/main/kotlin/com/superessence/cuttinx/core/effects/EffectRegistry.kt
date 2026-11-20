@@ -1284,6 +1284,9 @@ object EffectRegistry {
         // ------------------------------------------------------------------ ULTRA TECHNOLOGIES (3.4)
         UltraEffects.all().forEach(::register)
 
+        // ------------------------------------------------------------------ HYPER RÉALITÉ (3.5)
+        HyperEffects.all().forEach(::register)
+
         // ------------------------------------------------------------------ INTERNAL (engine)
         register(video("_chroma_key", "Incrustation (fond vert)", C.INTERNAL, listOf(
             p("r", "R", 0.0, 1.0, 0.0), p("g", "V", 0.0, 1.0, 1.0), p("b", "B", 0.0, 1.0, 0.0),
@@ -1943,5 +1946,18 @@ object EffectRegistry {
         register(audio("v_ghost", "Fantôme", C.VOICE, amount, desc = "Écho lointain et spectral"))
         register(audio("v_stadium", "Stade", C.VOICE, amount, desc = "Grande salle / annonce de stade"))
         register(audio("v_walkie", "Talkie-walkie", C.VOICE, amount, desc = "Radio portative grésillante"))
+        // ---- 3.5 : son 8D, basses, lo-fi, modulations, mastering express et 3 voix
+        register(audio("a_8d", "Son 8D", C.AUDIO, listOf(p("rate", "Vitesse de rotation", 0.02, 1.0, 0.12, "Hz"), p("depth", "Intensité", 0.0, 1.0, 1.0)), desc = "Le son tourne autour de ta tête (au casque)"))
+        register(audio("a_bass_boost", "Basses boostées", C.AUDIO, listOf(p("amount", "Intensité", 0.0, 1.0, 0.7)), desc = "Basses profondes qui font vibrer, sans saturer"))
+        register(audio("a_lofi", "Lo-fi", C.AUDIO, listOf(p("amount", "Intensité", 0.0, 1.0, 0.7)), desc = "Son de cassette chaud : aigus adoucis, bande qui ondule, craquements"))
+        register(audio("a_chorus", "Chorus", C.AUDIO, listOf(p("rate", "Vitesse", 0.1, 4.0, 0.8, "Hz"), p("depth", "Profondeur", 0.0, 1.0, 0.6), p("mix", "Mix", 0.0, 1.0, 0.5)), desc = "Épaissit le son en plusieurs voix légèrement décalées"))
+        register(audio("a_phaser", "Phaser", C.AUDIO, listOf(p("rate", "Vitesse", 0.05, 4.0, 0.4, "Hz"), p("depth", "Profondeur", 0.0, 1.0, 0.7), p("mix", "Mix", 0.0, 1.0, 0.5)), desc = "Balayage spatial « jet » des années 70"))
+        register(audio("a_tremolo", "Trémolo", C.AUDIO, listOf(p("rate", "Vitesse", 0.5, 20.0, 5.0, "Hz"), p("depth", "Profondeur", 0.0, 1.0, 0.5)), desc = "Le volume pulse régulièrement"))
+        register(audio("a_vinyl", "Vinyle", C.AUDIO, listOf(p("amount", "Intensité", 0.0, 1.0, 0.5)), desc = "Craquements et souffle d'un vieux disque"))
+        register(audio("a_next_room", "Soirée d'à côté", C.AUDIO, listOf(p("amount", "Intensité", 0.0, 1.0, 0.8)), desc = "La musique entendue à travers le mur, étouffée et lointaine"))
+        register(audio("a_master", "Mastering express", C.AUDIO, listOf(p("amount", "Intensité", 0.0, 1.0, 0.7)), desc = "Égalisation, compression et limiteur : un son fort et clair, prêt pour les réseaux"))
+        register(audio("v_choir", "Chorale", C.VOICE, amount, desc = "Ta voix démultipliée en chœur dans une grande salle"))
+        register(audio("v_announcer", "Présentateur", C.VOICE, amount, desc = "Voix de radio : grave, présente, compressée"))
+        register(audio("v_asmr", "ASMR", C.VOICE, amount, desc = "Voix intime, très proche du micro, détails des aigus"))
     }
 }

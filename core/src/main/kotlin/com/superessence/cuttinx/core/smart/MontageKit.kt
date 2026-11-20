@@ -18,7 +18,7 @@ object MontageKit {
         "rhythm" to "Rythme rapide", "velocity" to "Vélocité", "slowmo_end" to "Ralenti final", "stutter" to "Saccade",
         "cinema" to "Mode ciné", "countdown" to "3·2·1", "end_card" to "Carte de fin", "glitch_cuts" to "Coupes glitch",
         "slow_zoom" to "Zoom lent", "slideshow" to "Diaporama", "shorts59" to "Moins d'1 min",
-    )
+    ) + HyperKit.gestures
 
     fun run(id: String, p: Project): Project? = when (id) {
         "rhythm" -> rhythm(p)
@@ -32,7 +32,7 @@ object MontageKit {
         "slow_zoom" -> SmartTools.mainTrack(p)?.let { ProTools.slowZoomAll(p, it.id) } ?: p
         "slideshow" -> slideshow(p)
         "shorts59" -> underOneMinute(p)
-        else -> null
+        else -> HyperKit.run(id, p)
     }
 
     private fun main(p: Project) = SmartTools.mainTrack(p)?.takeIf { !it.locked }

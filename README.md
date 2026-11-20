@@ -56,6 +56,19 @@ fois, sur demande.
   inversée, bass drop, explosion, ba dum tss, disque rayé, sons 8-bit, jingles d'intro / fin…),
   20 effets de voix (hélium, monstre, alien, fantôme, sous l'eau, talkie-walkie…), réducteur de bruit
   de fond et « voix studio » en un geste, tutoriel pas à pas et guide intégré avec recherche.
+- **Hyper réalité (3.5)** : deux nouvelles familles d'effets GPU. *Cosmos & énergie* : aura d'énergie autour du
+  sujet, éclairs ramifiés, nébuleuse, aurores boréales, trou noir (lentille gravitationnelle), supernova, vitesse
+  lumière, plasma électrique. *Art génératif* : vitrail (Voronoï), peinture fluide, carte topographique, mur de
+  LED, mandala vivant, éclats de verre, gravure, carreaux de céramique. Et du nouveau dans **toutes** les familles :
+  verre liquide, aura floue, carte de dégradé, pellicule portrait, flou rotatif, verre dépoli, encrage BD, relief
+  métal, soleil synthwave, tirage années 70, nuit américaine, fenêtre de pellicule, caustiques d'eau, heure dorée,
+  loupe, gelée, traînée fantôme, dérive RVB, lucioles, braises, pétales de sakura, caméscope REC, paillettes,
+  objectif cinéma pro, scan facial, style peinture IA, cube holographique. **6 transitions** (supernova, éclair,
+  bris de verre, morphing liquide, cellules, trou noir), **24 filtres** « Hyper réalité » (aussi dans le Studio
+  Photo). **Audio** : son 8D (rotation autour de la tête avec retard interaural), basses boostées, lo-fi, chorus,
+  phaser, trémolo, vinyle, « soirée d'à côté », mastering express ; voix chorale, présentateur et ASMR.
+  **7 gestes de montage** : mode Hyper, zoom alterné, transitions Hyper, flash sur les coupes, son 8D, son pro
+  express, soleil couchant. **Accueil animé** : aurore en mouvement, particules, version qui brille et compteurs.
 - **Ultra technologies (3.4)** : 4 nouvelles catégories d'effets GPU haut de gamme.
   *Ultra technologies* : hyper-zoom neuronal, rayons volumétriques, dispersion spectrale, mise au point IA
   (profondeur simulée + bokeh), traînées lumineuses, distorsion quantique, HDR ultra (tone mapping local),
