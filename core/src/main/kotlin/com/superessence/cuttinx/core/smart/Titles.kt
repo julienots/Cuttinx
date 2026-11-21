@@ -10,6 +10,8 @@ enum class TextLook(val label: String) {
     RETRO("Rétro arcade"), HANDWRITTEN("Écriture manuscrite"), LUXURY("Luxe"), NEWS("Info flash"),
     // 3.3
     CHROME("Chrome"), STICKER("Autocollant"), GAMER("Gamer néon"), POSTER("Affiche"), SIGNATURE("Signature"), MARKER("Feutre"), DINER("Rétro diner"),
+    // 4.0
+    HOLO("Holographique"), GLITCH("Glitch"), BUBBLE("Bulle"), CREDITS("Générique de film"), Y2K("Y2K"), GOLD("Or massif"), TERMINAL("Terminal"), EDITORIAL("Magazine"),
 }
 
 /** Titles, captions and text tools. Texts created here land on their own text tracks. */
@@ -39,6 +41,14 @@ object Titles {
         TextLook.SIGNATURE -> base.copy(fontFamily = "asset:fonts/Pacifico_400Regular.ttf", sizeSp = 56.0, uppercase = false, color = 0xFFFFFFFF, strokeWidth = 0.0, shadowRadius = 10.0, shadowColor = 0x99000000, backgroundColor = 0, gradientEnabled = false)
         TextLook.MARKER -> base.copy(fontFamily = "asset:fonts/PermanentMarker_400Regular.ttf", sizeSp = 54.0, uppercase = false, color = 0xFF111111, strokeWidth = 0.0, shadowRadius = 0.0, backgroundColor = 0xFFFFE14D, backgroundPadding = 14.0, backgroundCorner = 2.0, gradientEnabled = false)
         TextLook.DINER -> base.copy(fontFamily = "asset:fonts/Lobster_400Regular.ttf", sizeSp = 62.0, uppercase = false, gradientEnabled = true, gradientStart = 0xFFFF7AC3, gradientEnd = 0xFFFFC94D, strokeWidth = 4.0, strokeColor = 0xFF3A0B2E, shadowRadius = 0.0, shadowDx = 4.0, shadowDy = 4.0, shadowColor = 0xFF3A0B2E, backgroundColor = 0)
+        TextLook.HOLO -> base.copy(fontFamily = "asset:fonts/Righteous_400Regular.ttf", sizeSp = 66.0, uppercase = true, letterSpacing = 0.05, gradientEnabled = true, gradientStart = 0xFF7DF9FF, gradientEnd = 0xFFFF6BEA, strokeWidth = 0.0, shadowRadius = 22.0, shadowDx = 0.0, shadowDy = 0.0, shadowColor = 0xFF8A5CFF, backgroundColor = 0)
+        TextLook.GLITCH -> base.copy(fontFamily = "asset:fonts/BebasNeue_400Regular.ttf", sizeSp = 84.0, uppercase = true, letterSpacing = 0.04, color = 0xFFFFFFFF, strokeWidth = 0.0, shadowRadius = 0.0, shadowDx = -5.0, shadowDy = 0.0, shadowColor = 0xFFFF1E56, backgroundColor = 0, gradientEnabled = false)
+        TextLook.BUBBLE -> base.copy(fontFamily = "asset:fonts/Fredoka_600SemiBold.ttf", sizeSp = 52.0, uppercase = false, color = 0xFFFFFFFF, strokeWidth = 0.0, shadowRadius = 0.0, backgroundColor = 0xFF6C4BFF, backgroundPadding = 24.0, backgroundCorner = 60.0, gradientEnabled = false)
+        TextLook.CREDITS -> base.copy(fontFamily = "asset:fonts/PlayfairDisplay_700Bold_Italic.ttf", sizeSp = 46.0, uppercase = false, letterSpacing = 0.06, color = 0xFFF5F0E6, strokeWidth = 0.0, shadowRadius = 6.0, backgroundColor = 0, gradientEnabled = false)
+        TextLook.Y2K -> base.copy(fontFamily = "asset:fonts/Pacifico_400Regular.ttf", sizeSp = 64.0, uppercase = false, gradientEnabled = true, gradientStart = 0xFFFF9BEF, gradientEnd = 0xFF6EC8FF, strokeWidth = 5.0, strokeColor = 0xFFFFFFFF, shadowRadius = 14.0, shadowDx = 0.0, shadowDy = 0.0, shadowColor = 0xFFB46CFF, backgroundColor = 0)
+        TextLook.GOLD -> base.copy(fontFamily = "asset:fonts/Anton_400Regular.ttf", sizeSp = 82.0, uppercase = true, gradientEnabled = true, gradientStart = 0xFFFFF4B0, gradientEnd = 0xFFB8860B, strokeWidth = 4.0, strokeColor = 0xFF3B2600, shadowRadius = 0.0, shadowDx = 5.0, shadowDy = 6.0, shadowColor = 0xFF1A1000, backgroundColor = 0)
+        TextLook.TERMINAL -> base.copy(fontFamily = "asset:fonts/PressStart2P_400Regular.ttf", sizeSp = 26.0, uppercase = false, color = 0xFF33FF66, strokeWidth = 0.0, shadowRadius = 10.0, shadowDx = 0.0, shadowDy = 0.0, shadowColor = 0xFF00AA33, backgroundColor = 0xE0000000, backgroundPadding = 18.0, backgroundCorner = 4.0, gradientEnabled = false)
+        TextLook.EDITORIAL -> base.copy(fontFamily = "asset:fonts/AbrilFatface_400Regular.ttf", sizeSp = 70.0, uppercase = false, letterSpacing = -0.01, color = 0xFFFFFFFF, strokeWidth = 0.0, shadowRadius = 0.0, backgroundColor = 0, gradientEnabled = false)
     }
 
     private fun anims(look: TextLook): Pair<TextAnimation, TextAnimation> = when (look) {
@@ -63,6 +73,14 @@ object Titles {
         TextLook.SIGNATURE -> TextAnimation.TYPEWRITER to TextAnimation.FADE
         TextLook.MARKER -> TextAnimation.SWING to TextAnimation.FADE
         TextLook.DINER -> TextAnimation.BOUNCE to TextAnimation.ZOOM_OUT
+        TextLook.HOLO -> TextAnimation.BLUR_IN to TextAnimation.FLICKER
+        TextLook.GLITCH -> TextAnimation.GLITCH to TextAnimation.GLITCH
+        TextLook.BUBBLE -> TextAnimation.ELASTIC to TextAnimation.POP
+        TextLook.CREDITS -> TextAnimation.FADE to TextAnimation.FADE
+        TextLook.Y2K -> TextAnimation.WAVE to TextAnimation.ZOOM_OUT
+        TextLook.GOLD -> TextAnimation.DROP to TextAnimation.ZOOM_OUT
+        TextLook.TERMINAL -> TextAnimation.TYPEWRITER to TextAnimation.FADE
+        TextLook.EDITORIAL -> TextAnimation.RISE to TextAnimation.FADE
     }
 
     /** Applies [look] to the selected texts (or every title and caption). */
@@ -92,7 +110,7 @@ object Titles {
         c.copy(text = t.copy(style = t.style.copy(color = color, gradientEnabled = false)))
     }
 
-    private fun title(text: String, startUs: Long, durUs: Long, look: TextLook, posX: Double = 0.5, posY: Double = 0.5): Clip {
+    fun title(text: String, startUs: Long, durUs: Long, look: TextLook, posX: Double = 0.5, posY: Double = 0.5): Clip {
         val (a, b) = anims(look)
         return TimelineEditor.textClip(text, startUs.coerceAtLeast(0), durUs, style(look)).let {
             it.copy(transform = it.transform.copy(posX = posX, posY = posY), text = it.text!!.copy(animIn = a, animOut = b, animInUs = 250_000, animOutUs = 200_000))

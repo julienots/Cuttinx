@@ -56,6 +56,18 @@ fois, sur demande.
   inversée, bass drop, explosion, ba dum tss, disque rayé, sons 8-bit, jingles d'intro / fin…),
   20 effets de voix (hélium, monstre, alien, fantôme, sous l'eau, talkie-walkie…), réducteur de bruit
   de fond et « voix studio » en un geste, tutoriel pas à pas et guide intégré avec recherche.
+- **CUTTINX 4.0 — Studio Script (texte → vidéo)** : colle un texte, une idée ou des paroles ; chaque phrase
+  devient un écran animé (lignes, phrases, puis virgules pour les phrases longues), affiché le temps de le lire,
+  avec un fond animé ou tes photos / vidéos (zoom lent, assombries pour la lisibilité), un style de texte animé,
+  une transition, la musique du style générée par CUTTINX (en boucle jusqu'à la fin, fondu de sortie), barre de
+  progression, carte de fin et marqueurs de chapitres (lignes en `#`). 7 styles : Motivation, Le savais-tu ?,
+  Storytime, Pub / promo, Tech / futur, Citation douce et **Paroles** (chaque ligne dure un nombre entier de
+  mesures au tempo de la musique). Le résultat est un projet normal, entièrement modifiable. Sur Android (accueil)
+  et sur PC (écran des projets). Nouvelle famille GPU **Fonds animés** (dégradé vivant, vagues fluides, lampe à
+  lave, grille rétro, rayons, champ de bokeh, ciel étoilé, rayures, ciel d'aurore, métal liquide, pop art, tunnel
+  de lumière), **8 styles de texte** (holographique, glitch, bulle, générique de film, Y2K, or massif, terminal,
+  magazine) et **8 modèles de montage** (voyage cosmique, futur / tech, lo-fi chill, storytime, edit voiture,
+  documentaire nature, concert / festival, rétrospective).
 - **Hyper réalité (3.5)** : deux nouvelles familles d'effets GPU. *Cosmos & énergie* : aura d'énergie autour du
   sujet, éclairs ramifiés, nébuleuse, aurores boréales, trou noir (lentille gravitationnelle), supernova, vitesse
   lumière, plasma électrique. *Art génératif* : vitrail (Voronoï), peinture fluide, carte topographique, mur de

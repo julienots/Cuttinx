@@ -5,6 +5,13 @@ object Releases {
     class Entry(val version: String, val title: String, val items: List<Pair<String, String>>)
 
     val all = listOf(
+        Entry("4.0", "Studio Script", listOf(
+            "Studio Script : écris, CUTTINX filme" to "Colle un texte, une idée ou des paroles : chaque phrase devient un écran animé, au bon rythme de lecture, avec fond animé ou tes photos, transitions, musique et carte de fin. Une vraie vidéo modifiable, faite sur le téléphone",
+            "7 styles de vidéo" to "Motivation, Le savais-tu ?, Storytime, Pub / promo, Tech / futur, Citation douce, et Paroles (chaque ligne tombe sur la mesure de la musique)",
+            "Nouvelle famille : fonds animés" to "Dégradé vivant, vagues fluides, lampe à lave, grille rétro, rayons, champ de bokeh, ciel étoilé, rayures, ciel d'aurore, métal liquide, pop art, tunnel de lumière",
+            "8 styles de texte" to "Holographique, glitch, bulle, générique de film, Y2K, or massif, terminal, magazine",
+            "8 modèles de montage" to "Voyage cosmique, Futur / tech, Lo-fi chill, Storytime, Edit voiture, Documentaire nature, Concert / festival, Rétrospective",
+        )),
         Entry("3.5", "Hyper réalité", listOf(
             "2 nouvelles familles d'effets" to "Cosmos & énergie (aura, éclairs, nébuleuse, aurores boréales, trou noir, supernova, vitesse lumière, plasma) et Art génératif (vitrail, peinture fluide, carte topo, mur de LED, mandala, éclats de verre, gravure, céramique)",
             "Des nouveautés dans toutes les familles" to "Verre liquide, aura floue, carte de dégradé, pellicule portrait, flou rotatif, encrage BD, soleil synthwave, nuit américaine, caustiques, heure dorée, loupe, lucioles, braises, pétales, caméscope REC, paillettes, scan facial, style peinture IA, cube holographique…",

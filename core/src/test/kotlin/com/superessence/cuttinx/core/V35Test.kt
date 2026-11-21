@@ -40,7 +40,7 @@ class V35Test {
 
     @Test fun everyVisibleFamilyGotSomethingNew() {
         val spread = com.superessence.cuttinx.core.effects.HyperEffects.spreadIds.mapNotNull { EffectRegistry[it] }.map { it.category }.toSet()
-        val families = EffectCategory.entries.filter { it !in setOf(EffectCategory.INTERNAL, EffectCategory.AUDIO, EffectCategory.VOICE, EffectCategory.COSMOS, EffectCategory.GENERATIVE, EffectCategory.ADJUST) }
+        val families = EffectCategory.entries.filter { it !in setOf(EffectCategory.INTERNAL, EffectCategory.AUDIO, EffectCategory.VOICE, EffectCategory.COSMOS, EffectCategory.GENERATIVE, EffectCategory.ADJUST, EffectCategory.BACKDROP) }
         for (f in families) assertTrue("$f n'a rien de nouveau", f in spread)
     }
 
@@ -119,6 +119,6 @@ class V35Test {
     }
 
     @Test fun whatsNew() {
-        assertEquals("3.5", Releases.current.version)
+        assertEquals("4.0", Releases.current.version)
     }
 }

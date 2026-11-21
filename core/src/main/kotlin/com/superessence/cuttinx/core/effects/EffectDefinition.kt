@@ -9,6 +9,8 @@ enum class EffectCategory(val label: String) {
     ULTRA("Ultra technologies"), HUD("Interface HUD"), AI_VISION("Vision IA"), DIMENSION("3D & dimensions"),
     // CUTTINX 3.5 : « hyper réalité »
     COSMOS("Cosmos & énergie"), GENERATIVE("Art génératif"),
+    // CUTTINX 4.0
+    BACKDROP("Fonds animés"),
     ADJUST("Réglages"), COLOR("Couleur"), BLUR("Flou & netteté"), STYLIZE("Stylisé"),
     RETRO("Rétro"), CINEMA("Cinéma"), LIGHT("Lumière"), DISTORT("Distorsion"), MOTION("Mouvement & vitesse"),
     PARTICLES("Particules"), OVERLAY("Superposition"), AUDIO("Audio"), VOICE("Voix"), INTERNAL("Interne"),

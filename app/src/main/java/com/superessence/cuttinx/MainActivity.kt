@@ -42,6 +42,7 @@ sealed interface Screen {
     data object Audio : Screen
     data object Gif : Screen
     data object Planner : Screen
+    data object Script : Screen
 }
 
 @UnstableApi
@@ -121,7 +122,7 @@ class MainActivity : ComponentActivity() {
                     Screen.Splash -> com.superessence.cuttinx.motion.LaunchIntro(onDone = { if (stack.lastOrNull() == Screen.Splash) replace(Screen.Home) }, version = com.superessence.cuttinx.BuildConfig.VERSION_NAME.removeSuffix(".0"))
                     Screen.Home -> HomeScreen(openProject = { push(Screen.Editor(it)) }, openSettings = { push(Screen.Settings) }, openHelp = { push(Screen.Help) }, openResources = { push(Screen.Licenses) }, openClaude = { push(Screen.Claude) }, openRecorder = { push(Screen.Recorder(null)) },
                         openPhoto = { push(Screen.Photo) }, openCollage = { push(Screen.Collage) }, openAudio = { push(Screen.Audio) },
-                        openGif = { push(Screen.Gif) }, openPlanner = { push(Screen.Planner) })
+                        openGif = { push(Screen.Gif) }, openPlanner = { push(Screen.Planner) }, openScript = { push(Screen.Script) })
                     is Screen.Editor -> key(s.id) {
                         val vm: EditorViewModel = viewModel(key = s.id, factory = EditorViewModel.Factory(application, s.id))
                         EditorScreen(vm, onBack = { pop() }, openProject = { id -> replace(Screen.Editor(id)) }, openRecorder = { push(Screen.Recorder(s.id)) })
@@ -137,6 +138,7 @@ class MainActivity : ComponentActivity() {
                     Screen.Audio -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.AudioStudio { pop() } }
                     Screen.Gif -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.GifStudio { pop() } }
                     Screen.Planner -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.PlannerScreen { pop() } }
+                    Screen.Script -> { BackHandler { pop() }; com.superessence.cuttinx.ui.create.ScriptStudioScreen(c, { pop() }) { id -> replace(Screen.Editor(id)) } }
                     is Screen.Recorder -> {
                         BackHandler { pop() }
                         val scope = rememberCoroutineScope()

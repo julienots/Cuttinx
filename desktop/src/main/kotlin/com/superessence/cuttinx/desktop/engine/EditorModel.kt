@@ -66,6 +66,22 @@ class EditorModel(val home: File = File(System.getProperty("user.home"), "Cuttin
         return p
     }
 
+    /** Studio Script (4.0): builds the video from a text, saves it and opens it. [done] gets the error, if any. */
+    fun createFromScript(req: com.superessence.cuttinx.script.ScriptRequest, files: List<File>, done: (String?) -> Unit) = io.execute {
+        val res = runCatching {
+            val assets = files.mapNotNull { f -> runCatching { PcMedia.probe(f) }.getOrNull() }.filter { it.isVisual }
+            val music = if (req.music) Synth.musicList.first { it.id == req.style.musicId }.let { e -> resourceAsset("music", e.id, e.name, "Musiques") { Synth.music(e.id) } } else null
+            val now = System.currentTimeMillis()
+            val base = Project(Ids.new("prj"), "", now, now, ProjectFormat.forAspect(req.aspect, 1080, 30))
+            val p = com.superessence.cuttinx.core.create.ScriptStudio.build(base, req.script, req.style,
+                com.superessence.cuttinx.core.create.ScriptOptions(music = music, media = assets, progressBar = req.progressBar, endCard = req.endCard))
+            store.save(p)
+            p
+        }
+        res.onSuccess { p -> javax.swing.SwingUtilities.invokeLater { open(p); refreshProjects(); done(null) } }
+            .onFailure { e -> javax.swing.SwingUtilities.invokeLater { done(e.message ?: "Création impossible") } }
+    }
+
     fun open(id: String) = runCatching { open(store.load(id)) }.onFailure { message.value = "Ouverture impossible : ${it.message}" }
 
     private fun open(p0: Project) {

@@ -52,7 +52,7 @@ import java.util.Date
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp: () -> Unit, openResources: () -> Unit, openClaude: () -> Unit = {}, openRecorder: () -> Unit = {},
-    openPhoto: () -> Unit = {}, openCollage: () -> Unit = {}, openAudio: () -> Unit = {}, openGif: () -> Unit = {}, openPlanner: () -> Unit = {}) {
+    openPhoto: () -> Unit = {}, openCollage: () -> Unit = {}, openAudio: () -> Unit = {}, openGif: () -> Unit = {}, openPlanner: () -> Unit = {}, openScript: () -> Unit = {}) {
     val vm: HomeViewModel = viewModel()
     // Projets créés par Claude : rafraîchir la liste quand il en crée un
     val claude by com.superessence.cuttinx.claude.ClaudeLink.state.collectAsStateWithLifecycle()
@@ -138,10 +138,10 @@ fun HomeScreen(openProject: (String) -> Unit, openSettings: () -> Unit, openHelp
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Column {
                     // hero: the version, what is new, the main actions
-                    VersionHero(onNew = { showNew = true }, onImport = { quickPick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, onNews = { showNews = true })
+                    VersionHero(onNew = { showNew = true }, onScript = openScript, onImport = { quickPick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }, onNews = { showNews = true })
                     Spacer(Modifier.height(16.dp))
                     Text("Créer", style = MaterialTheme.typography.labelLarge, color = cx.dim, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 2.dp, bottom = 8.dp))
-                    CreateRow(onVideo = { showNew = true }, onFilm = openRecorder, onPhoto = openPhoto, onCollage = openCollage, onAudio = openAudio, onGif = openGif, onPlanner = openPlanner)
+                    CreateRow(onVideo = { showNew = true }, onFilm = openRecorder, onPhoto = openPhoto, onCollage = openCollage, onAudio = openAudio, onGif = openGif, onPlanner = openPlanner, onScript = openScript)
                     Spacer(Modifier.height(8.dp))
                     busy?.let { Spacer(Modifier.height(10.dp)); ProgressCard(it, null) }
                     if (recoveries.isNotEmpty()) {
@@ -345,7 +345,7 @@ private fun VersionChip() {
 
 /** Top of the editor space: the version in big over a living aurora, what CUTTINX holds, and the main actions. */
 @Composable
-private fun VersionHero(onNew: () -> Unit, onImport: () -> Unit, onNews: () -> Unit) {
+private fun VersionHero(onNew: () -> Unit, onScript: () -> Unit, onImport: () -> Unit, onNews: () -> Unit) {
     val cx = LocalCx.current
     val rel = com.superessence.cuttinx.core.create.Releases.current
     val shape = com.superessence.cuttinx.design.CxDesign.Card
@@ -376,9 +376,12 @@ private fun VersionHero(onNew: () -> Unit, onImport: () -> Unit, onNews: () -> U
             Spacer(Modifier.height(12.dp))
             HeroCounters()
             Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onNew, shape = com.superessence.cuttinx.design.CxDesign.Button, colors = ButtonDefaults.buttonColors(containerColor = cx.accent, contentColor = cx.onAccent)) {
                     Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Nouveau projet", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+                }
+                Button(onScript, shape = com.superessence.cuttinx.design.CxDesign.Button, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E0FF), contentColor = Color.Black)) {
+                    Icon(Icons.Default.AutoAwesome, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Studio Script", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                 }
                 OutlinedButton(onImport, shape = com.superessence.cuttinx.design.CxDesign.Button, border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) { Text("Importer", maxLines = 1, softWrap = false) }
@@ -454,12 +457,13 @@ private fun HeroCounters() {
 
 /** One tile per kind of creation: video, camera, photo, collage, audio. */
 @Composable
-private fun CreateRow(onVideo: () -> Unit, onFilm: () -> Unit, onPhoto: () -> Unit, onCollage: () -> Unit, onAudio: () -> Unit, onGif: () -> Unit, onPlanner: () -> Unit) {
+private fun CreateRow(onVideo: () -> Unit, onFilm: () -> Unit, onPhoto: () -> Unit, onCollage: () -> Unit, onAudio: () -> Unit, onGif: () -> Unit, onPlanner: () -> Unit, onScript: () -> Unit) {
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        CreateTile(Icons.Default.AutoAwesome, "Script", "Texte → vidéo", Color(0xFF00E0FF), "4.0", onScript)
         CreateTile(Icons.Default.Movie, "Vidéo", "Montage multipiste", Cx.Yellow, null, onVideo)
         CreateTile(Icons.Default.Videocam, "Filmer", "Caméra 4K", Color(0xFFFF3B30), null, onFilm)
-        CreateTile(Icons.Default.Gif, "GIF", "Boomerang, mème", Color(0xFFFF9F0A), "3.1", onGif)
-        CreateTile(Icons.Default.CalendarMonth, "Planning", "Publie au bon moment", Color(0xFFB57BFF), "3.1", onPlanner)
+        CreateTile(Icons.Default.Gif, "GIF", "Boomerang, mème", Color(0xFFFF9F0A), null, onGif)
+        CreateTile(Icons.Default.CalendarMonth, "Planning", "Publie au bon moment", Color(0xFFB57BFF), null, onPlanner)
         CreateTile(Icons.Default.Photo, "Photo", "Retouche pro", Color(0xFF3D8BFF), null, onPhoto)
         CreateTile(Icons.Default.Dashboard, "Collage", "Et carrousel", Color(0xFFFF4FA3), null, onCollage)
         CreateTile(Icons.Default.GraphicEq, "Audio", "Son studio", Color(0xFF2FB67C), null, onAudio)

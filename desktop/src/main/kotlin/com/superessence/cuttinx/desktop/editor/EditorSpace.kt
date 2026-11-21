@@ -64,6 +64,8 @@ private fun ProjectsScreen(m: EditorModel) {
     var aspect by remember { mutableStateOf(AspectPreset.PORTRAIT_9_16) }
     var fps by remember { mutableStateOf(30) }
     LaunchedEffect(Unit) { m.refreshProjects() }
+    var scriptOpen by remember { mutableStateOf(false) }
+    if (scriptOpen) ScriptStudioDialog(m) { scriptOpen = false }
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.width(380.dp).fillMaxHeight().background(Cx.Panel)) {
         // the create button stays visible whatever the window height; the options scroll above it
@@ -94,6 +96,8 @@ private fun ProjectsScreen(m: EditorModel) {
             Button({ m.create(name, aspect, fps); name = "" }, Modifier.fillMaxWidth().height(52.dp)) { Icon(CxIcons.Add, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Créer le projet", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
             Spacer(Modifier.height(8.dp))
             OutlinedButton({ openFiles("Importer un projet CUTTINX", listOf("cuttinx", "zip"), multiple = false).firstOrNull()?.let { m.importArchive(it) } }, Modifier.fillMaxWidth()) { Text("Importer un projet (.cuttinx du téléphone)") }
+            Spacer(Modifier.height(8.dp))
+            Button({ scriptOpen = true }, Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E0FF), contentColor = Color.Black)) { Text("Studio Script : texte → vidéo (4.0)", fontWeight = FontWeight.Bold) }
         }
         }
         Column(Modifier.weight(1f).fillMaxHeight().padding(20.dp)) {
@@ -163,4 +167,35 @@ fun saveFile(title: String, suggested: String): File? {
     d.isVisible = true
     val f = d.file ?: return null
     return File(d.directory, f)
+}
+
+/** Studio Script (4.0) on the PC: the shared form in a window, photos picked from the disk. */
+@Composable
+private fun ScriptStudioDialog(m: EditorModel, onClose: () -> Unit) {
+    var files by remember { mutableStateOf(listOf<File>()) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    androidx.compose.ui.window.DialogWindow(onCloseRequest = onClose, title = "Studio Script — CUTTINX PRO",
+        state = androidx.compose.ui.window.rememberDialogState(width = 760.dp, height = 860.dp)) {
+        Surface(Modifier.fillMaxSize(), color = Cx.Bg) {
+            Column(Modifier.fillMaxSize().padding(20.dp)) {
+                Text("Studio Script", fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Spacer(Modifier.height(10.dp))
+                com.superessence.cuttinx.script.ScriptStudioForm(
+                    com.superessence.cuttinx.script.ScriptColors(LocalAccent.current, Color.Black, Cx.Panel, Cx.Line, Color.White, Cx.Dim),
+                    busy = busy,
+                    modifier = Modifier.fillMaxSize(),
+                    mediaSlot = {
+                        Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (files.isEmpty()) "Fonds animés (ou ajoute tes photos / vidéos)" else "${files.size} photo(s) / vidéo(s) en fond", Modifier.weight(1f), color = Color.White)
+                            if (files.isNotEmpty()) TextButton({ files = emptyList() }) { Text("Retirer") }
+                            OutlinedButton({ files = openFiles("Photos et vidéos de fond", listOf("jpg", "jpeg", "png", "webp", "mp4", "mov", "mkv", "webm")) }) { Text("Choisir") }
+                        }
+                    },
+                    onCreate = { req -> busy = true; m.createFromScript(req, files) { err -> busy = false; if (err == null) onClose() else error = err } },
+                )
+            }
+        }
+    }
+    error?.let { e -> AlertDialog({ error = null }, confirmButton = { TextButton({ error = null }) { Text("OK") } }, title = { Text("Studio Script") }, text = { Text(e) }) }
 }

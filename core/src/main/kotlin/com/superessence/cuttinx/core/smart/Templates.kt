@@ -33,6 +33,15 @@ enum class Template(val label: String, val description: String) {
     PARTY("Fête / anniversaire", "Confettis, lumières de club, titre rétro diner, transitions pois, carte de fin"),
     REAL_ESTATE("Visite immobilière", "Grand angle, zoom lent, look éclatant, fondus lumineux, bandeau nom"),
     ASMR("ASMR / calme", "Mise au point centrale, look doux, fondus lumineux, sans musique forte"),
+    // 4.0
+    COSMIC("Voyage cosmique", "Mode Hyper, nébuleuse, transitions supernova et trou noir, titre holographique"),
+    SCI_FI("Futur / tech", "Look hologramme, scan facial, coupes glitch, titre terminal, zoom alterné"),
+    LOFI("Lo-fi chill", "Tirage années 70, son lo-fi et vinyle, fondus doux, titre Y2K"),
+    STORYTIME("Storytime", "Sous-titres lisibles, zoom alterné, titre magazine, chapitres, son pro express"),
+    CAR("Edit voiture", "Vélocité, flash sur les coupes, traînées lumineuses, basses boostées, titre or massif"),
+    NATURE("Documentaire nature", "Heure dorée, panoramiques lents, fondus longs, générique de film"),
+    CONCERT("Concert / festival", "Lumières de club, coupes au tempo 125 BPM, pulsations, son 8D, titre néon"),
+    RECAP("Rétrospective", "Plans de 1,5 s, transitions cellules, compte à rebours, titre or, carte de fin"),
 }
 
 object Templates {
@@ -90,7 +99,33 @@ object Templates {
                 Template.REAL_ESTATE -> SmartTools.applyLook(p, "Grand angle").let { q -> main?.let { ProTools.slowZoomAll(q, it, 0.6) } ?: q }.let { SmartTools.transitionsEverywhere(it, "luma_fade") }
                     .let { Titles.lowerThird(it, 500_000, "Appartement lumineux", "3 pièces · centre-ville") }
                 Template.ASMR -> SmartTools.applyLook(p, "Sujet net").let { SmartTools.transitionsEverywhere(it, "luma_fade") }.let { SmartTools.fadeInOut(it, 1_500_000) }
+                Template.COSMIC -> HyperKit.hyperMode(p).let { SmartTools.applyLook(it, "Galaxie") }.let { HyperKit.hyperTransitions(it) }
+                    .let { Titles.opening(it, "VOYAGE", TextLook.HOLO) }.let { SmartTools.fadeInOut(it, 1_000_000) }
+                Template.SCI_FI -> SmartTools.applyLook(p, "Hologramme").let { HyperKit.zoomCuts(it) }.let { MontageKit.glitchCuts(it) }
+                    .let { Titles.opening(it, "> SYSTÈME EN LIGNE_", TextLook.TERMINAL) }
+                Template.LOFI -> SmartTools.applyLook(p, "Album de famille").let { HyperKit.loudMaster(it) }.let { q -> Kit.editAll(q, Kit.selOrAll(q, emptyList()) { t, _ -> t.kind == TrackKind.AUDIO }) { c -> HyperKitAudio.add(c, "a_lofi") } }
+                    .let { SmartTools.transitionsEverywhere(it, "fade") }.let { Titles.opening(it, "lo-fi vibes", TextLook.Y2K) }
+                Template.STORYTIME -> SmartTools.readableSubtitles(p).let { HyperKit.zoomCuts(it) }.let { Titles.opening(it, "Storytime", TextLook.EDITORIAL) }
+                    .let { EditTools.markersAtCuts(it) }.let { HyperKit.loudMaster(it) }
+                Template.CAR -> MontageKit.velocity(p).let { HyperKit.flashCuts(it) }.let { SmartTools.applyLook(it, "Contraste dramatique") }
+                    .let { q -> Kit.editAll(q, Kit.selOrAll(q, emptyList()) { t, _ -> t.kind == TrackKind.AUDIO }) { c -> HyperKitAudio.add(c, "a_bass_boost") } }
+                    .let { Titles.opening(it, "MACHINE", TextLook.GOLD) }
+                Template.NATURE -> SmartTools.applyLook(p, "Soleil couchant").let { Animator.camera(it, all(it), CameraMove.PAN_RIGHT) }
+                    .let { SmartTools.transitionsEverywhere(it, "fade") }.let { SmartTools.fadeInOut(it, 1_500_000) }.let { Titles.opening(it, "Terre sauvage", TextLook.CREDITS) }
+                Template.CONCERT -> SmartTools.tempoCut(p, SmartTools.beatsFromBpm(p, 125.0)).let { Animator.pulseOnBeats(it, all(it), 125.0, 1.06) }
+                    .let { SmartTools.applyLook(it, "Concert géant") }.let { HyperKit.sound8d(it) }.let { Titles.opening(it, "LIVE", TextLook.NEON) }
+                Template.RECAP -> EditTools.equalizeDurations(p, main ?: "", 1_500_000).let { SmartTools.transitionsEverywhere(it, "cells") }.let { Titles.countdown(it, 0) }
+                    .let { Titles.opening(it, "MON ANNÉE", TextLook.GOLD) }.let { Titles.endCard(it, "Vivement la suite", "Abonne-toi pour la prochaine") }
             }
         }.getOrDefault(p)
+    }
+}
+
+/** Adds an audio effect to a clip once (templates). */
+internal object HyperKitAudio {
+    fun add(c: Clip, effectId: String): Clip {
+        val d = com.superessence.cuttinx.core.effects.EffectRegistry[effectId] ?: return c
+        if (c.audio.effects.any { it.effectId == effectId }) return c
+        return c.copy(audio = c.audio.copy(effects = c.audio.effects + EffectInstance(com.superessence.cuttinx.core.util.Ids.new("fx"), effectId, d.defaults())))
     }
 }
